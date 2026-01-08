@@ -5,7 +5,7 @@ import { getFirestore } from "firebase/firestore";
 
 // PASTE CONFIG DARI FIREBASE CONSOLE DI SINI
 const firebaseConfig = {
-  apiKey: "AIzaSyDMOwrd8HrwP06DL-71kzwZx_5zViIlH6A",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: "warung-pos-38627.firebaseapp.com",
   projectId: "warung-pos-38627",
   storageBucket: "warung-pos-38627.firebasestorage.app",
