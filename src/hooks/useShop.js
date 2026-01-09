@@ -1,132 +1,112 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'; 
 import { db } from '../firebase';
 import { 
   collection, 
   addDoc, 
-  onSnapshot, 
+  serverTimestamp, 
   query, 
   orderBy, 
-  doc, 
-  updateDoc 
+  onSnapshot 
 } from 'firebase/firestore';
 
 export const useShop = (currentUser) => {
   const [cart, setCart] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState([]); // Kembalikan setOrders
   const [currentOrder, setCurrentOrder] = useState(null);
 
-  // --- LOGIC 1: LOAD ORDERS DARI FIREBASE (REAL-TIME) ---
+  // --- REAL-TIME LISTENER UNTUK RIWAYAT PESANAN ---
   useEffect(() => {
-    // Query ini akan mengambil SEMUA data di collection 'orders'
-    // diurutkan dari yang terbaru. Tidak peduli siapa yang login.
-    const ordersRef = collection(db, "orders");
-    const q = query(ordersRef, orderBy("dateISO", "desc"));
+    // Referensi ke koleksi 'orders' diurutkan berdasarkan waktu terbaru
+    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
     
+    // Mendengarkan perubahan data secara langsung
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      console.log("Data Orders Terupdate:", ordersData); // Cek Console browser Admin
-      setOrders(ordersData);
+      const ordersList = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // CEK APAKAH TIMESTAMP ADA, JIKA TIDAK GUNAKAN WAKTU SEKARANG
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
+        };
+      });
+      setOrders(ordersList);
     });
 
-    return () => unsubscribe();
-  }, []); // Dependency array kosong = jalan sekali saat App start
+    return () => unsubscribe(); // Stop listening saat komponen tidak digunakan
+  }, []);
 
-  // --- LOGIC 2: CART (LOKAL) ---
-  const addToCart = (item) => {
-    const existing = cart.find(i => i.id === item.id);
-    const newCart = existing
-      ? cart.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i)
-      : [...cart, { ...item, quantity: 1 }];
-    setCart(newCart);
+  // Fungsi Tambah ke Keranjang
+  const addToCart = (product, variant = '', note = '') => {
+    setCart(prevCart => {
+      const existingItemIndex = prevCart.findIndex(
+        item => item.id === product.id && item.variant === variant
+      );
+
+      if (existingItemIndex > -1) {
+        const newCart = [...prevCart];
+        newCart[existingItemIndex].quantity += 1;
+        if (note) newCart[existingItemIndex].note = note;
+        return newCart;
+      }
+
+      return [...prevCart, { 
+        ...product, 
+        quantity: 1, 
+        variant: variant || (product.variants ? product.variants.split(',')[0].trim() : ''),
+        note: note 
+      }];
+    });
   };
 
-  const updateQuantity = (id, delta) => {
-    const newCart = cart.map(item => {
-      if (item.id === id) {
-        const qty = item.quantity + delta;
-        return qty > 0 ? { ...item, quantity: qty } : null;
+  const updateQuantity = (index, delta) => {
+    setCart(prev => prev.map((item, i) => {
+      if (i === index) {
+        const newQty = Math.max(1, item.quantity + delta);
+        return { ...item, quantity: newQty };
       }
       return item;
-    }).filter(Boolean);
-    setCart(newCart);
+    }));
   };
 
-  const removeFromCart = (id) => {
-    setCart(cart.filter(item => item.id !== id));
+  const removeFromCart = (index) => {
+    setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- LOGIC 3: CHECKOUT (SIMPAN KE FIREBASE) ---
+  const updateCartItemDetails = (index, details) => {
+    setCart(prev => prev.map((item, i) => 
+      i === index ? { ...item, ...details } : item
+    ));
+  };
+
   const checkout = async (customerName) => {
-    // 1. Validasi Input
-    if (!customerName || cart.length === 0) return;
-
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const isPublicOrder = !currentUser; // True jika tamu
-
-    // 2. Pastikan tidak ada data 'undefined'
-    // Gunakan nilai default ("") jika data kosong
-    const newOrderData = {
-      customerName: customerName || "Tanpa Nama",
-      items: cart.map(item => ({
-        // Kita map ulang item agar bersih dari property aneh
-        id: item.id,
-        name: item.name,
-        price: Number(item.price),
-        quantity: Number(item.quantity),
-        image: item.image || "📦"
-      })),
-      total: Number(total),
-      date: new Date().toLocaleString('id-ID'),
-      dateISO: new Date().toISOString(),
-      status: isPublicOrder ? 'Baru' : 'Selesai',
-      type: isPublicOrder ? 'Online' : 'Dine-in',
-      // PENTING: Gunakan operator OR (||) agar tidak pernah undefined
-      cashier: currentUser?.name || 'Pelanggan Online', 
-      cashierId: currentUser?.uid || 'guest'
-    };
-
-    console.log("Mengirim Data ke Firebase:", newOrderData); // Cek Console
+    if (cart.length === 0) return null;
 
     try {
-      const docRef = await addDoc(collection(db, "orders"), newOrderData);
-      console.log("SUKSES! ID:", docRef.id);
+      const orderData = {
+        customerName,
+        items: cart,
+        total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        createdAt: serverTimestamp(),
+        status: 'success',
+        userId: currentUser ? currentUser.uid : 'public'
+      };
+
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
       
-      const confirmedOrder = { id: docRef.id, ...newOrderData };
-      setCurrentOrder(confirmedOrder);
-      setCart([]);
-      return confirmedOrder;
-    } catch (e) {
-      // 3. Tampilkan Error Jelas ke Layar
-      console.error("ERROR FIREBASE:", e);
-      alert("Gagal Simpan: " + e.message); // Alert pesan error asli
-    }
-  };
-
-  // --- LOGIC 4: UPDATE STATUS (UNTUK ADMIN) ---
-  const markOrderDone = async (orderId) => {
-    try {
-      const orderRef = doc(db, "orders", orderId);
-      await updateDoc(orderRef, {
-        status: "Selesai"
-      });
+      const finalOrder = { id: docRef.id, ...orderData };
+      setCurrentOrder(finalOrder);
+      setCart([]); 
+      
+      return finalOrder;
     } catch (error) {
-      console.error("Error update status:", error);
-      alert("Gagal update status");
+      console.error("Error saving order:", error);
+      throw error;
     }
   };
 
   return { 
-    cart, 
-    orders, 
-    currentOrder, 
-    addToCart, 
-    updateQuantity, 
-    removeFromCart, 
-    checkout, 
-    setCurrentOrder,
-    markOrderDone 
+    cart, orders, currentOrder, setCurrentOrder,
+    addToCart, updateQuantity, removeFromCart, updateCartItemDetails, checkout 
   };
 };

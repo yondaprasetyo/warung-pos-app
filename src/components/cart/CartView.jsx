@@ -1,70 +1,102 @@
-import React, { useState } from 'react';
-import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
-import { formatRupiah } from '../../utils/format';
+import React from 'react';
+import { Trash2, Plus, Minus, MessageSquare, ChevronDown, Check } from 'lucide-react';
 
-const CartView = ({ cart, onUpdateQty, onRemove, onCheckout }) => {
-  const [customerName, setCustomerName] = useState('');
+const CartView = ({ cart, updateQuantity, removeFromCart, updateCartItemDetails, onCheckout }) => {
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  if (cart.length === 0) {
-    return (
-      <div className="max-w-4xl mx-auto p-4 text-center py-20 text-gray-400">
-        <ShoppingCart size={64} className="mx-auto mb-4 opacity-50" />
-        <p className="text-xl">Keranjang masih kosong</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">Keranjang Belanja</h2>
-        <div className="space-y-4 mb-6">
-          {cart.map(item => (
-            <div key={item.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-              <div className="text-4xl">{item.image}</div>
-              <div className="flex-1">
-                <h3 className="font-semibold">{item.name}</h3>
-                <p className="text-orange-600 font-bold">{formatRupiah(item.price)}</p>
+    <div className="bg-white rounded-3xl shadow-xl h-[calc(100vh-120px)] flex flex-col overflow-hidden border border-gray-100">
+      <div className="p-6 bg-orange-500 text-white">
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          🛒 Keranjang Belanja <span className="bg-white text-orange-500 px-2 py-0.5 rounded-lg text-sm">{cart.length}</span>
+        </h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {cart.length === 0 ? (
+          <div className="text-center py-20 text-gray-400">
+            <div className="text-5xl mb-4">😶‍🌫️</div>
+            <p>Belum ada pesanan</p>
+          </div>
+        ) : (
+          cart.map((item, index) => (
+            <div key={`${item.id}-${index}`} className="bg-gray-50 rounded-2xl p-4 border border-gray-100 shadow-sm">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h3 className="font-bold text-gray-800 leading-tight">{item.name}</h3>
+                  <p className="text-orange-600 font-bold text-sm">Rp {item.price.toLocaleString()}</p>
+                </div>
+                <button onClick={() => removeFromCart(index)} className="text-red-400 hover:text-red-600 p-1">
+                  <Trash2 size={18} />
+                </button>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => onUpdateQty(item.id, -1)} className="bg-gray-200 p-2 rounded hover:bg-gray-300"><Minus size={16} /></button>
-                <span className="w-8 text-center font-bold">{item.quantity}</span>
-                <button onClick={() => onUpdateQty(item.id, 1)} className="bg-gray-200 p-2 rounded hover:bg-gray-300"><Plus size={16} /></button>
+
+              {/* --- DROPDOWN VARIAN (Perbaikan Panah Dobel) --- */}
+              {item.variants && item.variants.trim() !== "" && (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    <Check size={10} className="text-green-500" /> Pilih Bagian
+                  </div>
+                  <div className="relative group">
+                    <select 
+                      value={item.variant}
+                      onChange={(e) => updateCartItemDetails(index, { variant: e.target.value })}
+                      // Fokus pada appearance-none dan padding right
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 focus:ring-2 focus:ring-orange-500 outline-none appearance-none cursor-pointer pr-10 shadow-sm"
+                    >
+                      {item.variants.split(',').map((v, i) => (
+                        <option key={i} value={v.trim()}>{v.trim()}</option>
+                      ))}
+                    </select>
+                    {/* Ikon panah kustom diletakkan secara absolut */}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-orange-500 transition-colors">
+                      <ChevronDown size={16} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* --- INPUT CATATAN --- */}
+              <div className="mt-3 flex items-start gap-2 bg-white rounded-xl border border-gray-200 p-2 focus-within:border-orange-300 transition-all">
+                <MessageSquare size={14} className="text-gray-400 mt-1" />
+                <input 
+                  type="text"
+                  placeholder="Tambah catatan..."
+                  className="w-full text-xs outline-none bg-transparent text-gray-600 font-medium"
+                  value={item.note || ''}
+                  onChange={(e) => updateCartItemDetails(index, { note: e.target.value })}
+                />
               </div>
-              <div className="text-right min-w-[100px] font-bold">
-                {formatRupiah(item.price * item.quantity)}
+
+              {/* --- KONTROL QUANTITY --- */}
+              <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">Subtotal: Rp {(item.price * item.quantity).toLocaleString()}</span>
+                <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                  <button onClick={() => updateQuantity(index, -1)} className="p-2 hover:bg-orange-50 text-orange-500 transition"><Minus size={14} /></button>
+                  <span className="w-8 text-center font-bold text-sm text-gray-700">{item.quantity}</span>
+                  <button onClick={() => updateQuantity(index, 1)} className="p-2 hover:bg-orange-50 text-orange-500 transition"><Plus size={14} /></button>
+                </div>
               </div>
-              <button onClick={() => onRemove(item.id)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash2 size={20} /></button>
             </div>
-          ))}
-        </div>
+          ))
+        )}
+      </div>
 
-        <div className="border-t pt-4 mb-6 flex justify-between items-center text-xl font-bold">
-          <span>Total:</span>
-          <span className="text-orange-600">{formatRupiah(total)}</span>
+      <div className="p-6 border-t bg-white">
+        <div className="flex justify-between items-center mb-4 px-1">
+          <span className="text-gray-400 font-bold uppercase text-xs tracking-widest">Total Bayar</span>
+          <span className="text-2xl font-black text-gray-800 tracking-tighter">Rp {total.toLocaleString()}</span>
         </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-semibold mb-2">Nama Pelanggan</label>
-          <input
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Masukkan nama pelanggan"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-          />
-        </div>
-
-        <button
-          onClick={() => onCheckout(customerName)}
-          disabled={!customerName.trim()}
-          className="w-full py-4 rounded-lg font-bold text-white text-lg bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        <button 
+          onClick={onCheckout}
+          disabled={cart.length === 0}
+          className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-orange-100 hover:bg-orange-600 transition-all active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
         >
-          Proses Pembayaran
+          KONFIRMASI PESANAN
         </button>
       </div>
     </div>
   );
 };
+
 export default CartView;
