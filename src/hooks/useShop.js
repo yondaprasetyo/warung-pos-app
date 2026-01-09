@@ -11,25 +11,37 @@ import {
 
 export const useShop = (currentUser) => {
   const [cart, setCart] = useState([]);
+  
+  // PERBAIKAN 1: Inisialisasi state dengan logika sederhana
+  // Jika tidak ada user, nilai awal langsung array kosong
   const [orders, setOrders] = useState([]); 
   const [currentOrder, setCurrentOrder] = useState(null);
 
   // --- REAL-TIME LISTENER UNTUK RIWAYAT PESANAN ---
   useEffect(() => {
+    // PERBAIKAN 2: Jika tidak ada user, jangan lakukan apa-apa di dalam effect
+    // State orders sudah diatur secara default atau akan diupdate oleh listener
+    if (!currentUser) return;
+
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersList = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
-        };
-      });
+      const ordersList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
+      }));
       setOrders(ordersList);
+    }, () => {
+      console.warn("Info: Riwayat pesanan hanya untuk kasir.");
     });
-    return () => unsubscribe();
-  }, []);
+
+    return () => {
+        unsubscribe();
+        // Opsional: Jika ingin memastikan data bersih saat logout
+        setOrders([]); 
+    };
+  }, [currentUser]);
 
   // --- LOGIKA TAMBAH KE KERANJANG ---
   const addToCart = (product, variant = '', note = '') => {
