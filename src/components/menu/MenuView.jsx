@@ -4,7 +4,7 @@ import { db } from '../../firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import ProductCard from './ProductCard';
 
-const MenuView = ({ onAddToCart, currentUser, addToCart }) => {
+const MenuView = ({ onAddToCart }) => {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
@@ -89,10 +89,7 @@ const MenuView = ({ onAddToCart, currentUser, addToCart }) => {
           <ProductCard 
             key={item.id} 
             item={item} 
-            onAddToCart={currentUser 
-              ? () => handleOpenModal(item) 
-              : (product, variant, note) => addToCart(product, variant, note)
-            } 
+            onAddToCart={() => handleOpenModal(item)} 
           />
         ))}
       </div>
