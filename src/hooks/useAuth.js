@@ -42,6 +42,12 @@ export const useAuth = () => {
   // 2. Fetch Daftar Semua User (Khusus untuk tampilan Admin)
   useEffect(() => {
     const fetchUsers = async () => {
+      // PERBAIKAN: Jika belum ada user yang login, JANGAN lakukan fetch
+      if (!currentUser) {
+        setUsers([]); // Reset daftar user jika logout
+        return;
+      }
+
       try {
         const querySnapshot = await getDocs(collection(db, "users"));
         const usersList = querySnapshot.docs.map(doc => ({
@@ -50,12 +56,14 @@ export const useAuth = () => {
         }));
         setUsers(usersList);
       } catch (error) {
+        // Error ini biasanya muncul jika user login tapi bukan Admin 
+        // (tergantung Security Rules Anda nanti)
         console.error("Error fetching users:", error);
       }
     };
     
     fetchUsers();
-  }, [currentUser]); // Refresh saat user login/logout
+  }, [currentUser]);
 
   const login = async (email, password) => {
     setAuthError('');
