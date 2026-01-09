@@ -131,9 +131,8 @@ const App = () => {
         
         {currentView === 'menu' && 
           <MenuView 
-            onAddToCart={addToCart} 
-            currentUser={currentUser} 
-            addToCart={addToCart} 
+            onAddToCart={addToCart}
+            currentUser={currentUser}
           />
         }
         

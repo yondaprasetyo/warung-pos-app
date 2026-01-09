@@ -31,6 +31,7 @@ const MenuView = ({ onAddToCart }) => {
   }, []);
 
   const handleOpenModal = (product) => {
+    // Jika produk tidak memiliki varian, langsung tambahkan tanpa modal
     if (!product.variants || product.variants.trim() === "") {
       onAddToCart(product, '', ''); 
     } else {
@@ -43,8 +44,11 @@ const MenuView = ({ onAddToCart }) => {
   };
 
   const confirmAdd = () => {
-    onAddToCart(activeProduct, selectedVar, note);
-    setShowModal(false);
+    if (activeProduct) {
+      onAddToCart(activeProduct, selectedVar, note);
+      setShowModal(false);
+      setActiveProduct(null);
+    }
   };
 
   const filteredMenu = menuItems.filter(item => {
@@ -57,6 +61,7 @@ const MenuView = ({ onAddToCart }) => {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-24">
+      {/* Search Bar */}
       <div className="mb-8 relative max-w-2xl mx-auto">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
         <input 
@@ -68,6 +73,7 @@ const MenuView = ({ onAddToCart }) => {
         />
       </div>
 
+      {/* Categories */}
       <div className="flex gap-3 overflow-x-auto pb-6 mb-4 scrollbar-hide">
         {categories.map(cat => (
           <button
@@ -84,21 +90,28 @@ const MenuView = ({ onAddToCart }) => {
         ))}
       </div>
 
+      {/* Product Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
         {filteredMenu.map(item => (
           <ProductCard 
             key={item.id} 
             item={item} 
-            onAddToCart={() => handleOpenModal(item)} 
+            onAddToCart={handleOpenModal} 
           />
         ))}
       </div>
 
+      {/* Selection Modal */}
       {showModal && activeProduct && (
         <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="relative h-32 bg-orange-500 p-6 flex items-end">
-              <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full"><X size={20} /></button>
+              <button 
+                onClick={() => setShowModal(false)} 
+                className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/40 transition"
+              >
+                <X size={20} />
+              </button>
               <h3 className="text-white text-2xl font-bold truncate">{activeProduct.name}</h3>
             </div>
 
@@ -112,7 +125,9 @@ const MenuView = ({ onAddToCart }) => {
                       key={name}
                       onClick={() => setSelectedVar(name)}
                       className={`px-4 py-2 rounded-xl border-2 font-bold transition-all flex items-center gap-2
-                        ${selectedVar === name ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 text-gray-500'}`}
+                        ${selectedVar === name 
+                          ? 'border-orange-500 bg-orange-50 text-orange-600' 
+                          : 'border-gray-100 text-gray-500 hover:border-orange-200'}`}
                     >
                       {selectedVar === name && <Check size={16} />}
                       {name}
@@ -126,14 +141,24 @@ const MenuView = ({ onAddToCart }) => {
               </label>
               <textarea 
                 placeholder="Contoh: Gak pake sambal, paha bawah ya..."
-                className="w-full p-4 mt-2 border-2 border-gray-100 rounded-2xl bg-gray-50 outline-none focus:border-orange-500 h-24 resize-none"
+                className="w-full p-4 mt-2 border-2 border-gray-100 rounded-2xl bg-gray-50 outline-none focus:border-orange-500 h-24 resize-none transition-all"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
 
               <div className="flex gap-3 mt-8">
-                <button onClick={() => setShowModal(false)} className="flex-1 py-4 font-bold text-gray-400">Batal</button>
-                <button onClick={confirmAdd} className="flex-[2] py-4 bg-orange-500 text-white rounded-2xl font-bold shadow-lg">Tambahkan</button>
+                <button 
+                  onClick={() => setShowModal(false)} 
+                  className="flex-1 py-4 font-bold text-gray-400 hover:text-gray-600 transition"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={confirmAdd} 
+                  className="flex-[2] py-4 bg-orange-500 text-white rounded-2xl font-bold shadow-lg shadow-orange-100 hover:bg-orange-600 active:scale-95 transition-all"
+                >
+                  Tambahkan
+                </button>
               </div>
             </div>
           </div>
