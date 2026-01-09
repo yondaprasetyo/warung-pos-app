@@ -4,7 +4,7 @@ import { db } from '../../firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import ProductCard from './ProductCard';
 
-const MenuView = ({ onAddToCart }) => {
+const MenuView = ({ onAddToCart, currentUser, addToCart }) => {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
@@ -31,20 +31,18 @@ const MenuView = ({ onAddToCart }) => {
   }, []);
 
   const handleOpenModal = (product) => {
-    // Jika tidak ada varian, langsung masuk keranjang
     if (!product.variants || product.variants.trim() === "") {
       onAddToCart(product, '', ''); 
     } else {
       setActiveProduct(product);
       const variantList = product.variants.split(',').map(v => v.trim());
-      setSelectedVar(variantList[0]); // Default pilihan pertama
-      setNote(''); // Reset catatan
+      setSelectedVar(variantList[0]);
+      setNote(''); 
       setShowModal(true);
     }
   };
 
   const confirmAdd = () => {
-    // MENGIRIM 3 ARGUMEN: product, variant, note
     onAddToCart(activeProduct, selectedVar, note);
     setShowModal(false);
   };
@@ -91,7 +89,10 @@ const MenuView = ({ onAddToCart }) => {
           <ProductCard 
             key={item.id} 
             item={item} 
-            onAddToCart={() => handleOpenModal(item)} 
+            onAddToCart={currentUser 
+              ? () => handleOpenModal(item) 
+              : (product, variant, note) => addToCart(product, variant, note)
+            } 
           />
         ))}
       </div>

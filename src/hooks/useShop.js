@@ -11,49 +11,51 @@ import {
 
 export const useShop = (currentUser) => {
   const [cart, setCart] = useState([]);
-  const [orders, setOrders] = useState([]); // Kembalikan setOrders
+  const [orders, setOrders] = useState([]); 
   const [currentOrder, setCurrentOrder] = useState(null);
 
   // --- REAL-TIME LISTENER UNTUK RIWAYAT PESANAN ---
   useEffect(() => {
-    // Referensi ke koleksi 'orders' diurutkan berdasarkan waktu terbaru
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    
-    // Mendengarkan perubahan data secara langsung
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ordersList = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
           ...data,
-          // CEK APAKAH TIMESTAMP ADA, JIKA TIDAK GUNAKAN WAKTU SEKARANG
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
         };
       });
       setOrders(ordersList);
     });
-
-    return () => unsubscribe(); // Stop listening saat komponen tidak digunakan
+    return () => unsubscribe();
   }, []);
 
-  // Fungsi Tambah ke Keranjang
+  // --- LOGIKA TAMBAH KE KERANJANG ---
   const addToCart = (product, variant = '', note = '') => {
     setCart(prevCart => {
+      const defaultVariant = product.variants ? product.variants.split(',')[0].trim() : '';
+      const selectedVariant = variant || defaultVariant;
+
       const existingItemIndex = prevCart.findIndex(
-        item => item.id === product.id && item.variant === variant
+        item => item.id === product.id && item.variant === selectedVariant
       );
 
       if (existingItemIndex > -1) {
         const newCart = [...prevCart];
         newCart[existingItemIndex].quantity += 1;
-        if (note) newCart[existingItemIndex].note = note;
+        if (note) {
+          newCart[existingItemIndex].note = newCart[existingItemIndex].note 
+            ? `${newCart[existingItemIndex].note}, ${note}` 
+            : note;
+        }
         return newCart;
       }
 
       return [...prevCart, { 
         ...product, 
         quantity: 1, 
-        variant: variant || (product.variants ? product.variants.split(',')[0].trim() : ''),
+        variant: selectedVariant,
         note: note 
       }];
     });
@@ -84,20 +86,26 @@ export const useShop = (currentUser) => {
 
     try {
       const orderData = {
-        customerName,
-        items: cart,
+        customerName: customerName || "Pelanggan Umum",
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          variant: item.variant || null, 
+          note: item.note || ""
+        })),
         total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         createdAt: serverTimestamp(),
-        status: 'success',
-        userId: currentUser ? currentUser.uid : 'public'
+        status: currentUser ? 'Selesai' : 'Baru', 
+        userId: currentUser ? currentUser.uid : 'public',
+        orderType: currentUser ? 'kasir' : 'mandiri' 
       };
 
       const docRef = await addDoc(collection(db, 'orders'), orderData);
-      
-      const finalOrder = { id: docRef.id, ...orderData };
+      const finalOrder = { id: docRef.id, ...orderData, createdAt: new Date() };
       setCurrentOrder(finalOrder);
       setCart([]); 
-      
       return finalOrder;
     } catch (error) {
       console.error("Error saving order:", error);
@@ -105,8 +113,15 @@ export const useShop = (currentUser) => {
     }
   };
 
-  return { 
-    cart, orders, currentOrder, setCurrentOrder,
-    addToCart, updateQuantity, removeFromCart, updateCartItemDetails, checkout 
+  return {
+    cart,
+    orders,
+    currentOrder,
+    addToCart,
+    updateQuantity,
+    removeFromCart,
+    updateCartItemDetails,
+    checkout,
+    setCurrentOrder
   };
 };

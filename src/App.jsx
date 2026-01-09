@@ -129,7 +129,13 @@ const App = () => {
           <ProductManagement />
         )}
         
-        {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
+        {currentView === 'menu' && 
+          <MenuView 
+            onAddToCart={addToCart} 
+            currentUser={currentUser} 
+            addToCart={addToCart} 
+          />
+        }
         
         {currentView === 'cart' && (
           <CartView 
