@@ -19,7 +19,7 @@ const App = () => {
   const [currentView, setCurrentView] = useState('menu');
   const [isPublicMode, setIsPublicMode] = useState(false);
   
-  // State untuk Modal Nama Pelanggan (Frontend Kustom)
+  // State untuk Modal Nama Pelanggan (Saat Checkout)
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
   
@@ -45,10 +45,10 @@ const App = () => {
     setCurrentView(view);
   };
 
-  // 1. Fungsi saat tombol KONFIRMASI di klik
+  // 1. Fungsi saat tombol KONFIRMASI di klik di CartView
   const handleConfirmCheckout = () => {
     setCustomerNameInput(''); 
-    setShowNameModal(true); // Munculkan Modal kustom, bukan prompt browser
+    setShowNameModal(true); 
   };
 
   // 2. Fungsi eksekusi checkout setelah nama diisi di modal
@@ -73,14 +73,43 @@ const App = () => {
   // --- LOGIC 1: JIKA USER BELUM LOGIN ---
   if (!currentUser) {
     if (isPublicMode) {
+      // PERBAIKAN: Gunakan MenuView di dalam Public Mode agar mendapatkan fitur Modal Varian
       return (
-        <PublicOrderView 
-          onBack={() => setIsPublicMode(false)} 
-          addToCart={addToCart}
-          cart={cart}
-          removeFromCart={removeFromCart}
-          checkout={checkout}
-        />
+        <div className="min-h-screen bg-gray-50">
+          <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
+            <h1 className="font-black text-orange-500 text-xl italic">Warung POS</h1>
+            <div className="flex gap-2">
+              <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold">
+                🛒 {cart.reduce((a, b) => a + b.quantity, 0)}
+              </button>
+              <button onClick={() => setIsPublicMode(false)} className="bg-gray-100 text-gray-600 px-4 py-2 rounded-xl font-bold text-sm">
+                Login Staff
+              </button>
+            </div>
+          </header>
+
+          <main>
+            {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
+            {currentView === 'cart' && (
+              <CartView 
+                cart={cart}
+                updateQuantity={updateQuantity} 
+                removeFromCart={removeFromCart}
+                updateCartItemDetails={updateCartItemDetails} 
+                onCheckout={handleConfirmCheckout} 
+              />
+            )}
+            {currentView === 'receipt' && (
+              <ReceiptView 
+                order={currentOrder} 
+                onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} 
+              />
+            )}
+          </main>
+          
+          {/* Modal Nama Pelanggan tetap dirender di sini untuk Mode Publik */}
+          {showNameModal && renderNameModal()}
+        </div>
       );
     }
 
@@ -113,6 +142,39 @@ const App = () => {
     );
   }
 
+  // Helper untuk merender Modal Nama (agar tidak duplikasi kode)
+  function renderNameModal() {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-orange-500 p-6 text-white text-center">
+            <h3 className="text-xl font-bold italic">Konfirmasi Pesanan</h3>
+            <p className="text-orange-100 text-sm opacity-90">Masukkan nama pelanggan untuk struk</p>
+          </div>
+          <div className="p-8">
+            <input 
+              type="text"
+              autoFocus
+              className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-orange-500 outline-none text-lg font-bold text-gray-700"
+              placeholder="Contoh: Kak Budi"
+              value={customerNameInput}
+              onChange={(e) => setCustomerNameInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && executeCheckout()}
+            />
+            <div className="flex flex-col gap-3 mt-8">
+              <button onClick={executeCheckout} className="w-full py-4 rounded-2xl font-black text-white bg-orange-500 hover:bg-orange-600 shadow-xl shadow-orange-200 transition-all">
+                SIMPAN & CETAK STRUK
+              </button>
+              <button onClick={() => setShowNameModal(false)} className="w-full py-3 rounded-2xl font-bold text-gray-400 hover:bg-gray-50 transition-colors">
+                Nanti Saja
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // --- LOGIC 2: JIKA USER LOGIN (ADMIN/KASIR) ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 pb-10">
@@ -131,8 +193,8 @@ const App = () => {
         
         {currentView === 'menu' && 
           <MenuView 
-            onAddToCart={addToCart}
-            currentUser={currentUser}
+            onAddToCart={addToCart} 
+            // currentUser={currentUser}  // Tidak wajib lagi jika MenuView sudah clean
           />
         }
         
@@ -172,56 +234,7 @@ const App = () => {
         )}
       </main>
 
-      {/* --- MODAL INPUT NAMA PELANGGAN (FRONTEND UI) --- */}
-      {showNameModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Header Modal */}
-            <div className="bg-orange-500 p-6 text-white text-center">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-3xl">📝</span>
-              </div>
-              <h3 className="text-xl font-bold italic">Konfirmasi Pesanan</h3>
-              <p className="text-orange-100 text-sm opacity-90">Masukkan nama pelanggan untuk struk</p>
-            </div>
-            
-            {/* Body Modal */}
-            <div className="p-8">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">
-                    Nama Pelanggan
-                  </label>
-                  <input 
-                    type="text"
-                    autoFocus
-                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100 outline-none transition-all text-lg font-bold text-gray-700"
-                    placeholder="Contoh: Kak Budi"
-                    value={customerNameInput}
-                    onChange={(e) => setCustomerNameInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && executeCheckout()}
-                  />
-                </div>
-              </div>
-              
-              <div className="flex flex-col gap-3 mt-8">
-                <button 
-                  onClick={executeCheckout}
-                  className="w-full py-4 rounded-2xl font-black text-white bg-orange-500 hover:bg-orange-600 shadow-xl shadow-orange-200 transition-all active:scale-[0.98]"
-                >
-                  SIMPAN & CETAK STRUK
-                </button>
-                <button 
-                  onClick={() => setShowNameModal(false)}
-                  className="w-full py-3 rounded-2xl font-bold text-gray-400 hover:bg-gray-50 transition-colors"
-                >
-                  Nanti Saja
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {showNameModal && renderNameModal()}
     </div>
   );
 };
