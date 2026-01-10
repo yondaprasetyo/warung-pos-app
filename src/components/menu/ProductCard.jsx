@@ -1,7 +1,8 @@
 import React from 'react';
+import { ShoppingPlus } from 'lucide-react'; // Jika tidak ada, bisa gunakan icon Plus biasa
 
 const ProductCard = ({ item, onAddToCart }) => {
-  // PERBAIKAN: Menu dianggap habis jika (stok bukan -1 DAN stok <= 0) ATAU status isAvailable adalah false
+  // Menu dianggap habis jika (stok bukan -1 DAN stok <= 0) ATAU status isAvailable adalah false
   const isOutOfStock = (item.stock !== -1 && item.stock <= 0) || item.isAvailable === false;
 
   return (
@@ -37,17 +38,25 @@ const ProductCard = ({ item, onAddToCart }) => {
           {item.name}
         </h3>
         
-        {/* Harga */}
-        <span className={`font-black mb-4 block ${isOutOfStock ? 'text-gray-400' : 'text-gray-900'}`}>
-          Rp {item.price?.toLocaleString()}
-        </span>
+        {/* Harga & Informasi Stok */}
+        <div className="flex justify-between items-center mb-4">
+          <span className={`font-black block ${isOutOfStock ? 'text-gray-400' : 'text-orange-600'}`}>
+            Rp {item.price?.toLocaleString()}
+          </span>
+          {/* Tampilkan sisa stok jika bukan unlimited dan tidak habis */}
+          {!isOutOfStock && item.stock !== -1 && (
+            <span className="text-[9px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded">
+              Sisa: {item.stock}
+            </span>
+          )}
+        </div>
 
         {/* Tombol Aksi */}
         <div className="mt-auto">
           <button 
             onClick={(e) => {
               e.stopPropagation(); 
-              onAddToCart(item);   
+              if (!isOutOfStock) onAddToCart(item);   
             }}
             disabled={isOutOfStock}
             className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 
@@ -55,7 +64,7 @@ const ProductCard = ({ item, onAddToCart }) => {
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                 : 'bg-orange-500 text-white hover:bg-orange-600 shadow-md hover:shadow-orange-200 active:scale-95'}`}
           >
-            {isOutOfStock ? 'Tidak Tersedia' : '+ Tambah'}
+            {isOutOfStock ? (item.isAvailable === false ? 'Tidak Tersedia' : 'Stok Habis') : '+ Tambah'}
           </button>
         </div>
       </div>

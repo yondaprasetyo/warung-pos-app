@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
+import { db } from './firebase'; // Pastikan db diimport
+import { doc, writeBatch } from 'firebase/firestore'; // Import batch untuk update stok
 
 // Components
 import Header from './components/layout/Header';
@@ -29,7 +31,7 @@ const App = () => {
   const { 
     cart, orders, currentOrder, setCurrentOrder,
     addToCart, updateQuantity, removeFromCart, checkout,
-    updateCartItemDetails // PASTIKAN FUNGSI INI ADA DI useShop.js
+    updateCartItemDetails 
   } = useShop(currentUser);
 
   const navigateTo = (view) => {
@@ -45,20 +47,40 @@ const App = () => {
   const executeCheckout = async () => {
     if (customerNameInput.trim()) {
       try {
+        // 1. Simpan pesanan ke database (Memanggil fungsi dari useShop)
         const order = await checkout(customerNameInput);
+        
         if (order) {
+          // 2. LOGIKA PENGURANGAN STOK OTOMATIS
+          const batch = writeBatch(db);
+          let hasStockUpdate = false;
+
+          cart.forEach((item) => {
+            // Hanya kurangi jika stok bukan -1 (bukan Unlimited)
+            if (item.stock !== -1) {
+              const productRef = doc(db, "products", item.id);
+              const newStock = Math.max(0, item.stock - item.quantity);
+              batch.update(productRef, { stock: newStock });
+              hasStockUpdate = true;
+            }
+          });
+
+          // Commit semua perubahan stok sekaligus
+          if (hasStockUpdate) {
+            await batch.commit();
+          }
+
           setShowNameModal(false);
           navigateTo('receipt');
         }
       } catch (err) {
-        alert("Gagal: " + err.message);
+        alert("Gagal memproses pesanan: " + err.message);
       }
     }
   };
 
   if (loading) return <div className="p-10 text-center font-bold text-orange-500 italic">Memuat...</div>;
 
-  // UI MODAL NAMA
   const renderNameModal = () => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -81,7 +103,6 @@ const App = () => {
     </div>
   );
 
-  // LOGIC: PUBLIC MODE (Mode Pelanggan)
   if (!currentUser && isPublicMode) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -101,7 +122,7 @@ const App = () => {
               cart={cart} 
               updateQuantity={updateQuantity} 
               removeFromCart={removeFromCart} 
-              updateCartItemDetails={updateCartItemDetails} // Baris ini krusial!
+              updateCartItemDetails={updateCartItemDetails}
               onCheckout={handleConfirmCheckout} 
               onBack={() => setCurrentView('menu')}
             />
@@ -113,7 +134,6 @@ const App = () => {
     );
   }
 
-  // LOGIC: AUTH VIEWS
   if (!currentUser) {
     if (currentView === 'register') return <RegisterView onRegister={(d) => register(d) && navigateTo('login')} onBack={() => navigateTo('login')} error={authError} />;
     return (
@@ -124,14 +144,11 @@ const App = () => {
     );
   }
 
-  // LOGIC: ADMIN/STAFF DASHBOARD
   return (
     <div className="min-h-screen bg-orange-50/30 pb-10">
       <Header user={currentUser} cartCount={cart.reduce((a, b) => a + b.quantity, 0)} onNavigate={navigateTo} onLogout={logout} currentView={currentView} />
       <main className="mt-6 px-4 max-w-7xl mx-auto">
         {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
-        
-        {/* PERBAIKAN: Menambahkan updateCartItemDetails pada props CartView */}
         {currentView === 'cart' && (
           <CartView 
             cart={cart} 
@@ -139,9 +156,9 @@ const App = () => {
             removeFromCart={removeFromCart} 
             updateCartItemDetails={updateCartItemDetails}
             onCheckout={handleConfirmCheckout} 
+            onBack={() => setCurrentView('menu')}
           />
         )}
-        
         {currentView === 'orders' && <OrderHistory orders={orders} />}
         {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
         {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
