@@ -11,7 +11,7 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
               <ArrowLeft size={24} />
             </button>
           )}
-          <h1 className="text-2xl font-bold">🍽️ Warung POS</h1>
+          <h1 className="text-2xl font-bold">🍽️ Warung Makan Mamah Yonda</h1>
         </div>
         
         <div className="flex gap-2 items-center">

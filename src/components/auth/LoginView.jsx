@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
-const LoginView = ({ onLogin, onRegisterClick, error }) => {
+const LoginView = ({ onLogin, error }) => { // Hapus prop onRegisterClick karena tidak digunakan lagi
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -13,7 +13,8 @@ const LoginView = ({ onLogin, onRegisterClick, error }) => {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-6xl mb-4">🍽️</div>
-          <h1 className="text-3xl font-bold text-gray-800">Warung POS</h1>
+          {/* UBAH NAMA WARUNG DI SINI */}
+          <h1 className="text-3xl font-bold text-gray-800">Warung Makan Mamah Yonda</h1>
           <p className="text-gray-600">Masuk untuk memulai</p>
         </div>
 
@@ -49,13 +50,10 @@ const LoginView = ({ onLogin, onRegisterClick, error }) => {
           </button>
         </div>
         
-        <div className="mt-6 text-center">
-          <button onClick={onRegisterClick} className="text-orange-600 hover:underline font-medium">
-            Belum punya akun? Daftar
-          </button>
-        </div>
+        {/* Bagian Daftar Akun sudah dihapus dari sini */}
       </div>
     </div>
   );
 };
+
 export default LoginView;
