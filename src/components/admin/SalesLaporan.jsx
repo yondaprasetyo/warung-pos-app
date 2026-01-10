@@ -6,14 +6,14 @@ const SalesLaporan = () => {
   const { currentUser } = useAuth();
   const { orders } = useShop(currentUser);
 
-  // 1. STATE UNTUK FILTER TANGGAL (Default: 7 hari terakhir hingga hari ini)
+  // 1. STATE UNTUK FILTER TANGGAL
+  // Default: 7 hari terakhir agar langsung terlihat ringkas
   const [startDate, setStartDate] = useState(
     new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
   const stats = useMemo(() => {
-    // Fungsi pembantu untuk standarisasi tanggal ke YYYY-MM-DD
     const getLocalDate = (dateSource) => {
       try {
         if (!dateSource) return null;
@@ -23,14 +23,13 @@ const SalesLaporan = () => {
       } catch { return null; }
     };
 
-    // 2. GENERATE LIST TANGGAL BERDASARKAN RENTANG PILIHAN
+    // 2. GENERATE LIST TANGGAL (Limit ditingkatkan ke 366 hari untuk keamanan)
     const dateList = [];
     const curr = new Date(startDate);
     const end = new Date(endDate);
     
-    // Batasi generate agar tidak crash jika rentang terlalu jauh
     let safetyCounter = 0;
-    while (curr <= end && safetyCounter < 100) {
+    while (curr <= end && safetyCounter < 366) {
       dateList.push({
         dateStr: getLocalDate(new Date(curr)),
         label: new Date(curr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
@@ -78,7 +77,7 @@ const SalesLaporan = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Laporan Penjualan</h2>
-          <p className="text-sm text-gray-500 font-medium">Pantau performa warung Anda</p>
+          <p className="text-sm text-gray-500 font-medium italic">Menampilkan {stats.chartData.length} hari terpilih</p>
         </div>
         
         <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
@@ -98,7 +97,7 @@ const SalesLaporan = () => {
         </div>
       </div>
 
-      {/* KARTU STATISTIK BERDASARKAN FILTER */}
+      {/* KARTU STATISTIK */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-orange-500 to-red-600 text-white p-6 rounded-3xl shadow-lg shadow-orange-200">
           <p className="text-[10px] opacity-80 uppercase font-black tracking-widest mb-1">Total Omzet Periode Ini</p>
@@ -109,46 +108,61 @@ const SalesLaporan = () => {
           <h3 className="text-3xl font-black text-gray-800">{stats.totalCount}</h3>
         </div>
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Total Record Filtered</p>
+          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Total Transaksi Filtered</p>
           <h3 className="text-3xl font-black text-gray-800">{stats.displayOrders.length}</h3>
         </div>
       </div>
 
-      {/* GRAFIK DINAMIS */}
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-        <h4 className="font-bold text-gray-700 mb-8 flex items-center gap-2">📈 Tren Penjualan</h4>
-        <div className="flex items-end justify-between h-56 gap-2 px-2 border-b border-gray-50">
-          {stats.chartData.map((day, i) => {
-            const percentage = (day.total / stats.maxTotal) * 100;
-            return (
-              <div key={i} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                {day.total > 0 && (
-                  <div className="absolute -top-8 bg-gray-800 text-white text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                    Rp {day.total.toLocaleString()}
-                  </div>
-                )}
-                <div 
-                  className="w-full bg-orange-500 rounded-t-lg transition-all duration-700 hover:bg-orange-600"
-                  style={{ height: `${percentage}%`, minHeight: day.total > 0 ? '4px' : '2px' }}
-                />
-                <span className="text-[9px] font-bold text-gray-400 mt-3 rotate-45 md:rotate-0">{day.label}</span>
-              </div>
-            );
-          })}
+      {/* GRAFIK DENGAN HORIZONTAL SCROLL */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="font-bold text-gray-700 mb-8 flex items-center gap-2">📈 Tren Penjualan (Geser jika rentang panjang)</h4>
+        
+        {/* Kontainer Scroll */}
+        <div className="overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-orange-200">
+          {/* Inner box dengan min-width dinamis: 50px per batang */}
+          <div 
+            className="flex items-end justify-between h-56 gap-2 px-2 border-b border-gray-50"
+            style={{ 
+              minWidth: `${stats.chartData.length * 50}px`,
+              width: '100%' 
+            }}
+          >
+            {stats.chartData.map((day, i) => {
+              const percentage = (day.total / stats.maxTotal) * 100;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center group relative h-full justify-end min-w-[40px]">
+                  {day.total > 0 && (
+                    <div className="absolute -top-10 bg-gray-800 text-white text-[9px] px-2 py-1 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                      Rp {day.total.toLocaleString()}
+                    </div>
+                  )}
+                  <div 
+                    className="w-full bg-orange-500 rounded-t-lg transition-all duration-700 hover:bg-orange-600 shadow-sm"
+                    style={{ height: `${percentage}%`, minHeight: day.total > 0 ? '4px' : '2px' }}
+                  />
+                  <span className="text-[9px] font-bold text-gray-400 mt-4 whitespace-nowrap">
+                    {day.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* TABEL TRANSAKSI TERFILTER */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b bg-gray-50/50 flex justify-between items-center">
-          <h4 className="font-bold text-gray-700">📜 Detail Transaksi</h4>
-          <button onClick={() => window.print()} className="text-xs font-black text-orange-600 uppercase tracking-widest">Cetak Laporan</button>
+          <h4 className="font-bold text-gray-700">📜 Detail Transaksi Terpilih</h4>
+          <button onClick={() => window.print()} className="text-xs font-black text-orange-600 uppercase tracking-widest border border-orange-200 px-4 py-2 rounded-xl hover:bg-orange-50 transition-colors">
+            Cetak Laporan
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-black tracking-widest">
               <tr>
-                <th className="p-5">Tanggal</th>
+                <th className="p-5">Tanggal & Jam</th>
                 <th className="p-5">Pelanggan</th>
                 <th className="p-5 text-right">Total</th>
                 <th className="p-5 text-center">Status</th>
@@ -156,15 +170,15 @@ const SalesLaporan = () => {
             </thead>
             <tbody className="divide-y divide-gray-50 text-sm">
               {stats.displayOrders.length > 0 ? (
-                stats.displayOrders.slice(0, 50).map((order) => (
+                stats.displayOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-orange-50/30 transition-colors">
                     <td className="p-5 text-gray-500 font-medium">
-                      {new Date(order.createdAt?.toDate ? order.createdAt.toDate() : order.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(order.createdAt?.toDate ? order.createdAt.toDate() : order.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="p-5 font-bold text-gray-800">{order.customerName}</td>
                     <td className="p-5 text-right font-black text-gray-900">Rp {Number(order.total).toLocaleString()}</td>
                     <td className="p-5 text-center">
-                      <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase bg-green-100 text-green-600">
+                      <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase bg-green-100 text-green-600 border border-green-200">
                         {order.status}
                       </span>
                     </td>
@@ -172,7 +186,9 @@ const SalesLaporan = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="4" className="p-10 text-center text-gray-400 font-bold italic">Tidak ada data di rentang tanggal ini</td>
+                  <td colSpan="4" className="p-10 text-center text-gray-400 font-bold italic text-sm">
+                    Tidak ada transaksi sukses pada rentang tanggal ini.
+                  </td>
                 </tr>
               )}
             </tbody>
