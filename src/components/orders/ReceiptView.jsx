@@ -43,7 +43,7 @@ const ReceiptView = ({ order, onBack }) => {
 
         <div className="text-center mb-8">
           <h2 className="text-3xl font-black text-gray-800 tracking-tighter">Warung Makan Mamah Yonda</h2>
-          <p className="text-xs text-gray-500 uppercase tracking-widest mt-1 font-bold">Struk Pembayaran Sah</p>
+          <p className="text-xs text-gray-500 uppercase tracking-widest mt-1 font-bold">Struk Pemesanan Sah</p>
           <p className="text-[10px] text-gray-400 italic">Jl. Cipulir 5 No. 17D, Cipulir, Kebayoran Lama, Jakarta Selatan</p>
           <p className="text-[9px] text-gray-400 italic">WhatsApp: 087774223733</p>
         </div>
@@ -99,7 +99,7 @@ const ReceiptView = ({ order, onBack }) => {
 
         <div className="text-center mb-8">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">*** Terima Kasih ***</p>
-            <p className="text-[9px] text-gray-300 mt-1">Simpan struk ini sebagai bukti pembayaran</p>
+            <p className="text-[9px] text-gray-300 mt-1">Simpan struk ini sebagai bukti pemesanan</p>
         </div>
 
         {/* Action Buttons */}
