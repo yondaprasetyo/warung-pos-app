@@ -146,18 +146,40 @@ const SalesLaporan = () => {
           >
             {stats.chartData.map((d, i) => {
               const height = (d.total / stats.maxTotal) * 100;
+              
+              // Format nominal untuk label (contoh: 114000 -> 114k)
+              const labelNominal = d.total >= 1000 
+                ? `${(d.total / 1000).toFixed(0)}k` 
+                : d.total;
+
               return (
                 <div key={i} className="flex-1 flex flex-col items-center group relative h-full justify-end min-w-[50px]">
+                  
+                  {/* 1. LABEL NOMINAL PERMANEN (Hanya muncul jika ada data) */}
                   {d.total > 0 && (
-                    <div className="absolute -top-10 bg-gray-800 text-white text-[10px] px-2 py-1 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-all z-50 font-bold whitespace-nowrap">
-                      Rp {d.total.toLocaleString()}
+                    <span className="text-[10px] font-black text-orange-600 mb-2 animate-bounce-short">
+                      {labelNominal}
+                    </span>
+                  )}
+
+                  {/* 2. TOOLTIP DETAIL (Muncul saat Hover) */}
+                  {d.total > 0 && (
+                    <div className="absolute -top-12 bg-gray-900 text-white text-[10px] px-3 py-2 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all z-50 font-bold whitespace-nowrap border border-gray-700">
+                      <p className="text-gray-400 text-[8px] uppercase tracking-widest">{d.label}</p>
+                      <p className="text-orange-400">Rp {d.total.toLocaleString()}</p>
                     </div>
                   )}
+
+                  {/* BATANG GRAFIK */}
                   <div 
-                    className="w-full bg-orange-500 rounded-t-xl transition-all duration-1000 hover:bg-orange-600 shadow-sm"
+                    className="w-full bg-orange-500 rounded-t-xl transition-all duration-1000 hover:bg-orange-600 shadow-[0_-4px_10px_rgba(249,115,22,0.2)]"
                     style={{ height: `${height}%`, minHeight: d.total > 0 ? '6px' : '2px' }}
                   />
-                  <span className="text-[10px] font-bold text-gray-400 mt-4 whitespace-nowrap">{d.label}</span>
+                  
+                  {/* LABEL TANGGAL DI BAWAH */}
+                  <span className="text-[10px] font-bold text-gray-400 mt-4 whitespace-nowrap">
+                    {d.label}
+                  </span>
                 </div>
               );
             })}
