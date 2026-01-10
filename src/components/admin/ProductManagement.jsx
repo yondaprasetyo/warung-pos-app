@@ -15,7 +15,7 @@ const ProductManagement = () => {
     price: '',
     stock: '',
     category: 'Ayam',
-    imageUrl: '',
+    imageUrl: '', // Link foto akan masuk ke sini
     isAvailable: true
   });
 
@@ -47,7 +47,6 @@ const ProductManagement = () => {
         ...formData,
         price: Number(formData.price),
         stock: formData.stock === -1 ? -1 : Number(formData.stock),
-        // Filter varian kosong & petakan harga
         variants: variants.filter(v => v.name.trim() !== "").map(v => ({
           name: v.name,
           price: v.useSpecialPrice ? Number(v.price) : Number(formData.price),
@@ -57,7 +56,6 @@ const ProductManagement = () => {
       };
 
       if (editingId) {
-        // Hanya gunakan satu fungsi doc()
         const productRef = doc(db, "products", editingId); 
         await updateDoc(productRef, payload);
         alert("✅ Menu diperbarui!");
@@ -77,13 +75,11 @@ const ProductManagement = () => {
     setEditingId(p.id);
     setFormData({
       name: p.name, price: p.price, stock: p.stock,
-      category: p.category, imageUrl: p.imageUrl, isAvailable: p.isAvailable ?? true
+      category: p.category, imageUrl: p.imageUrl || '', isAvailable: p.isAvailable ?? true
     });
     
-    // PERBAIKAN: Cek apakah variants adalah array sebelum di-set ke state
     const safeVariants = Array.isArray(p.variants) ? p.variants : [{ name: '', useSpecialPrice: false, price: '' }];
     setVariants(safeVariants);
-    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -96,6 +92,28 @@ const ProductManagement = () => {
       </h2>
 
       <form onSubmit={handleSubmit} className="bg-white border-2 border-orange-100 rounded-[2.5rem] p-6 md:p-10 shadow-xl shadow-orange-50 mb-12">
+        
+        {/* INPUT FOTO MENU (DITAMBAHKAN) */}
+        <div className="mb-8 space-y-2">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Link Foto Menu (URL)</label>
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="w-20 h-20 bg-gray-100 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center shrink-0">
+              {formData.imageUrl ? (
+                <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-gray-300 text-[10px] font-bold text-center p-1">No Image</span>
+              )}
+            </div>
+            <input 
+              type="text" 
+              placeholder="https://link-foto-makanan.com/nasi-putih.jpg" 
+              className="flex-1 p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-orange-500 outline-none font-bold text-sm" 
+              value={formData.imageUrl} 
+              onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} 
+            />
+          </div>
+        </div>
+
         {/* Form Inputs (Nama & Harga) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="space-y-2">
@@ -155,6 +173,7 @@ const ProductManagement = () => {
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Kategori</label>
             <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}>
               <option value="Ayam">Ayam</option><option value="Ikan">Ikan</option><option value="Sayur">Sayur</option><option value="Nasi">Nasi</option>
+              <option value="Tumisan/Osengan">Tumisan/Osengan</option><option value="Gorengan">Gorengan</option><option value="Menu Tambahan">Menu Tambahan</option>
             </select>
           </div>
         </div>
@@ -164,7 +183,7 @@ const ProductManagement = () => {
         </button>
       </form>
 
-      {/* TABLE SECTION DENGAN PERBAIKAN RENDER VARIAN */}
+      {/* TABLE SECTION */}
       <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -179,11 +198,17 @@ const ProductManagement = () => {
             <tbody className="divide-y divide-gray-50">
               {products.map((p) => (
                 <tr key={p.id} className="hover:bg-orange-50/20 transition-all">
-                  <td className="p-6 font-bold">{p.name}</td>
-                  <td className="p-6 font-black">Rp {p.price?.toLocaleString()}</td>
+                  <td className="p-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
+                        {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-400">No Img</div>}
+                      </div>
+                      <span className="font-bold">{p.name}</span>
+                    </div>
+                  </td>
+                  <td className="p-6 font-black text-orange-600">Rp {p.price?.toLocaleString()}</td>
                   <td className="p-6">
                     <div className="flex flex-wrap gap-1">
-                      {/* PERBAIKAN UTAMA: CEK ARRAY DISINI */}
                       {Array.isArray(p.variants) ? (
                         p.variants.map((v, idx) => (
                           <span key={idx} className="text-[9px] bg-gray-100 px-2 py-1 rounded-md font-bold text-gray-500">
