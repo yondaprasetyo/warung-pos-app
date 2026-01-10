@@ -42,9 +42,10 @@ const ReceiptView = ({ order, onBack }) => {
         </div>
 
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-black text-gray-800 tracking-tighter">WARUNG POS</h2>
+          <h2 className="text-3xl font-black text-gray-800 tracking-tighter">Warung Makan Mamah Yonda</h2>
           <p className="text-xs text-gray-500 uppercase tracking-widest mt-1 font-bold">Struk Pembayaran Sah</p>
-          <p className="text-[10px] text-gray-400 italic">Jl. Contoh No. 123, Jakarta</p>
+          <p className="text-[10px] text-gray-400 italic">Jl. Cipulir 5 No. 17D, Cipulir, Kebayoran Lama, Jakarta Selatan</p>
+          <p className="text-[9px] text-gray-400 italic">WhatsApp: 087774223733</p>
         </div>
 
         <div className="border-y-2 border-dashed border-gray-200 py-6 mb-6">
