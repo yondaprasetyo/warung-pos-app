@@ -30,13 +30,19 @@ const MenuView = ({ onAddToCart }) => {
     return () => unsubscribe();
   }, []);
 
+  // PERBAIKAN: Fungsi untuk mengecek varian
   const handleOpenModal = (product) => {
-    if (!product.variants || product.variants.trim() === "") {
+    // Cek apakah variants adalah array dan memiliki isi
+    const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+
+    if (!hasVariants) {
+      // Jika tidak ada varian, langsung tambahkan
       onAddToCart(product, '', ''); 
     } else {
+      // Jika ada varian (Array), tampilkan modal
       setActiveProduct(product);
-      const variantList = product.variants.split(',').map(v => v.trim());
-      setSelectedVar(variantList[0]);
+      // Default pilih varian pertama
+      setSelectedVar(product.variants[0].name || product.variants[0]);
       setNote(''); 
       setShowModal(true);
     }
@@ -44,7 +50,13 @@ const MenuView = ({ onAddToCart }) => {
 
   const confirmAdd = () => {
     if (activeProduct) {
-      onAddToCart(activeProduct, selectedVar, note);
+      // Cari objek varian yang dipilih untuk mendapatkan harganya jika perlu
+      const variantObj = Array.isArray(activeProduct.variants) 
+        ? activeProduct.variants.find(v => v.name === selectedVar)
+        : null;
+      
+      // Kirim data ke keranjang
+      onAddToCart(activeProduct, selectedVar, note, variantObj?.price);
       setShowModal(false);
       setActiveProduct(null);
     }
@@ -60,6 +72,7 @@ const MenuView = ({ onAddToCart }) => {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-24">
+      {/* SEARCH BAR */}
       <div className="mb-8 relative max-w-2xl mx-auto">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
         <input 
@@ -71,6 +84,7 @@ const MenuView = ({ onAddToCart }) => {
         />
       </div>
 
+      {/* CATEGORIES */}
       <div className="flex gap-3 overflow-x-auto pb-6 mb-4 scrollbar-hide">
         {categories.map(cat => (
           <button
@@ -87,6 +101,7 @@ const MenuView = ({ onAddToCart }) => {
         ))}
       </div>
 
+      {/* MENU GRID */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
         {filteredMenu.map(item => (
           <ProductCard 
@@ -97,6 +112,7 @@ const MenuView = ({ onAddToCart }) => {
         ))}
       </div>
 
+      {/* MODAL PILIH VARIAN */}
       {showModal && activeProduct && (
         <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -113,19 +129,25 @@ const MenuView = ({ onAddToCart }) => {
             <div className="p-6">
               <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Pilih Bagian/Varian</label>
               <div className="flex flex-wrap gap-2 mt-3 mb-6">
-                {activeProduct.variants.split(',').map(v => {
-                  const name = v.trim();
+                {/* PERBAIKAN: Mapping Array Varian, bukan .split() */}
+                {activeProduct.variants.map((v, idx) => {
+                  const name = typeof v === 'string' ? v : v.name;
+                  const price = typeof v === 'object' ? v.price : null;
+                  
                   return (
                     <button 
-                      key={name}
+                      key={idx}
                       onClick={() => setSelectedVar(name)}
-                      className={`px-4 py-2 rounded-xl border-2 font-bold transition-all flex items-center gap-2
+                      className={`px-4 py-2 rounded-xl border-2 font-bold transition-all flex flex-col items-start
                         ${selectedVar === name 
                           ? 'border-orange-500 bg-orange-50 text-orange-600' 
                           : 'border-gray-100 text-gray-500 hover:border-orange-200'}`}
                     >
-                      {selectedVar === name && <Check size={16} />}
-                      {name}
+                      <div className="flex items-center gap-2">
+                        {selectedVar === name && <Check size={16} />}
+                        {name}
+                      </div>
+                      {price && <span className="text-[10px] opacity-70">Rp {Number(price).toLocaleString()}</span>}
                     </button>
                   );
                 })}
