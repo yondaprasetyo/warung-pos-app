@@ -1,139 +1,92 @@
-import { useState, useEffect } from 'react'; 
+import { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { 
-  collection, 
-  addDoc, 
-  serverTimestamp, 
-  query, 
-  orderBy, 
-  onSnapshot 
+  collection, addDoc, onSnapshot, query, orderBy, 
+  serverTimestamp, doc, updateDoc 
 } from 'firebase/firestore';
 
 export const useShop = (currentUser) => {
   const [cart, setCart] = useState([]);
-  
-  // PERBAIKAN 1: Inisialisasi state dengan logika sederhana
-  // Jika tidak ada user, nilai awal langsung array kosong
-  const [orders, setOrders] = useState([]); 
+  const [orders, setOrders] = useState([]);
   const [currentOrder, setCurrentOrder] = useState(null);
 
-  // --- REAL-TIME LISTENER UNTUK RIWAYAT PESANAN ---
   useEffect(() => {
-    // PERBAIKAN 2: Jika tidak ada user, jangan lakukan apa-apa di dalam effect
-    // State orders sudah diatur secara default atau akan diupdate oleh listener
-    if (!currentUser) return;
-
-    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    
+    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ordersList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
+        createdAt: doc.data().createdAt?.toDate() || new Date()
       }));
       setOrders(ordersList);
-    }, () => {
-      console.warn("Info: Riwayat pesanan hanya untuk kasir.");
+    }, (err) => {
+      console.error("Firestore error:", err);
     });
+    return () => unsubscribe();
+  }, []);
 
-    return () => {
-        unsubscribe();
-        // Opsional: Jika ingin memastikan data bersih saat logout
-        setOrders([]); 
-    };
-  }, [currentUser]);
-
-  // --- LOGIKA TAMBAH KE KERANJANG ---
   const addToCart = (product, variant = '', note = '') => {
-    setCart(prevCart => {
-      const defaultVariant = product.variants ? product.variants.split(',')[0].trim() : '';
-      const selectedVariant = variant || defaultVariant;
-
-      const existingItemIndex = prevCart.findIndex(
-        item => item.id === product.id && item.variant === selectedVariant
-      );
-
-      if (existingItemIndex > -1) {
-        const newCart = [...prevCart];
-        newCart[existingItemIndex].quantity += 1;
-        if (note) {
-          newCart[existingItemIndex].note = newCart[existingItemIndex].note 
-            ? `${newCart[existingItemIndex].note}, ${note}` 
-            : note;
-        }
-        return newCart;
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id && item.variant === variant);
+      if (existing) {
+        return prev.map(item => 
+          (item.id === product.id && item.variant === variant) 
+            ? { ...item, quantity: item.quantity + 1, note } 
+            : item
+        );
       }
-
-      return [...prevCart, { 
-        ...product, 
-        quantity: 1, 
-        variant: selectedVariant,
-        note: note 
-      }];
+      return [...prev, { ...product, quantity: 1, variant, note }];
     });
   };
 
-  const updateQuantity = (index, delta) => {
-    setCart(prev => prev.map((item, i) => {
-      if (i === index) {
-        const newQty = Math.max(1, item.quantity + delta);
-        return { ...item, quantity: newQty };
-      }
-      return item;
-    }));
-  };
-
-  const removeFromCart = (index) => {
-    setCart(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const updateCartItemDetails = (index, details) => {
-    setCart(prev => prev.map((item, i) => 
-      i === index ? { ...item, ...details } : item
+  const updateQuantity = (id, variant, delta) => {
+    setCart(prev => prev.map(item => 
+      (item.id === id && item.variant === variant) 
+        ? { ...item, quantity: Math.max(1, item.quantity + delta) } 
+        : item
     ));
   };
 
-  const checkout = async (customerName) => {
-    if (cart.length === 0) return null;
+  const removeFromCart = (id, variant) => {
+    setCart(prev => prev.filter(item => !(item.id === id && item.variant === variant)));
+  };
 
+  const checkout = async (customerName) => {
     try {
       const orderData = {
-        customerName: customerName || "Pelanggan Umum",
-        items: cart.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          variant: item.variant || null, 
-          note: item.note || ""
-        })),
+        customerName,
+        items: cart,
         total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        status: 'Baru',
         createdAt: serverTimestamp(),
-        status: currentUser ? 'Selesai' : 'Baru', 
-        userId: currentUser ? currentUser.uid : 'public',
-        orderType: currentUser ? 'kasir' : 'mandiri' 
+        userId: currentUser ? currentUser.uid : 'public'
       };
 
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      const finalOrder = { id: docRef.id, ...orderData, createdAt: new Date() };
-      setCurrentOrder(finalOrder);
-      setCart([]); 
-      return finalOrder;
+      const docRef = await addDoc(collection(db, "orders"), orderData);
+      const newOrder = { id: docRef.id, ...orderData, createdAt: new Date() };
+      setCurrentOrder(newOrder);
+      setCart([]);
+      return newOrder;
     } catch (error) {
-      console.error("Error saving order:", error);
+      console.error("Checkout error:", error);
       throw error;
     }
   };
 
+  // FUNGSI KRUSIAL: Menandai pesanan selesai di Firebase
+  const markOrderDone = async (orderId) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, { status: 'Selesai' });
+    } catch (error) {
+      console.error("Update status error:", error);
+      alert("Gagal memperbarui status pesanan.");
+    }
+  };
+
   return {
-    cart,
-    orders,
-    currentOrder,
-    addToCart,
-    updateQuantity,
-    removeFromCart,
-    updateCartItemDetails,
-    checkout,
-    setCurrentOrder
+    cart, orders, currentOrder, setCurrentOrder,
+    addToCart, updateQuantity, removeFromCart, checkout,
+    markOrderDone // Pastikan ini diekspor
   };
 };
