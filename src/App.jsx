@@ -103,6 +103,7 @@ const App = () => {
               removeFromCart={removeFromCart} 
               updateCartItemDetails={updateCartItemDetails} // Baris ini krusial!
               onCheckout={handleConfirmCheckout} 
+              onBack={() => setCurrentView('menu')}
             />
           )}
           {currentView === 'receipt' && <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />}
