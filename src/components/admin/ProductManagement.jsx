@@ -21,7 +21,8 @@ const ProductManagement = () => {
     stock: '',
     category: 'Ayam',
     imageUrl: '',
-    variants: '' // Field varian sudah ada di state
+    variants: '',
+    isAvailable: true // Default menu baru adalah aktif
   });
 
   const fetchProducts = useCallback(async () => {
@@ -44,17 +45,31 @@ const ProductManagement = () => {
     fetchProducts();
   }, [fetchProducts]);
 
+  // FUNGSI BARU: Toggle status ketersediaan langsung dari tabel
+  const toggleAvailability = async (product) => {
+    try {
+      const newStatus = product.isAvailable === undefined ? false : !product.isAvailable;
+      await updateDoc(doc(db, "products", product.id), {
+        isAvailable: newStatus
+      });
+      // Update state lokal agar cepat tanpa reload
+      setProducts(products.map(p => p.id === product.id ? { ...p, isAvailable: newStatus } : p));
+    } catch (error) {
+      alert("Gagal mengubah status: " + error.message);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // PERBAIKAN 1: Masukkan variants ke dalam payload
       const payload = {
         name: formData.name,
         price: Number(formData.price),
         stock: formData.stock === -1 ? -1 : Number(formData.stock),
         category: formData.category,
-        variants: formData.variants, // WAJIB ADA AGAR TERSIMPAN KE DATABASE
+        variants: formData.variants,
         imageUrl: formData.imageUrl || 'https://via.placeholder.com/150',
+        isAvailable: formData.isAvailable, // Simpan status aktif/tidak
         updatedAt: serverTimestamp()
       };
 
@@ -69,8 +84,7 @@ const ProductManagement = () => {
         alert("Menu berhasil ditambahkan!");
       }
 
-      // PERBAIKAN 2: Reset Form (Sertakan variants: '')
-      setFormData({ name: '', price: '', stock: '', category: 'Ayam', imageUrl: '', variants: '' });
+      setFormData({ name: '', price: '', stock: '', category: 'Ayam', imageUrl: '', variants: '', isAvailable: true });
       setEditingId(null);
       fetchProducts();
     } catch (error) {
@@ -87,14 +101,14 @@ const ProductManagement = () => {
 
   const startEdit = (product) => {
     setEditingId(product.id);
-    // PERBAIKAN 3: Tarik data variants lama agar bisa diedit
     setFormData({
       name: product.name,
       price: product.price,
       stock: product.stock,
       category: product.category,
       imageUrl: product.imageUrl,
-      variants: product.variants || '' // Pastikan varian muncul di input saat edit
+      variants: product.variants || '',
+      isAvailable: product.isAvailable ?? true // Ambil status lama atau default true
     });
     window.scrollTo(0, 0);
   };
@@ -167,7 +181,6 @@ const ProductManagement = () => {
           </div>
         </div>
 
-        {/* INPUT VARIAN */}
         <div className="md:col-span-2 flex flex-col gap-1">
           <label className="text-sm font-semibold text-gray-700">Varian (Pisahkan dengan koma)</label>
           <input 
@@ -177,7 +190,6 @@ const ProductManagement = () => {
             value={formData.variants || ''} 
             onChange={(e) => setFormData({...formData, variants: e.target.value})}
           />
-          <p className="text-[10px] text-gray-500 italic">*Penting: Pastikan gunakan koma sebagai pemisah.</p>
         </div>
 
         <div className="md:col-span-2 flex flex-col gap-1">
@@ -194,20 +206,18 @@ const ProductManagement = () => {
             {editingId ? '💾 Update Menu' : '🚀 Simpan Menu'}
           </button>
           {editingId && (
-            <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', price:'', stock:'', category:'Ayam', imageUrl:'', variants:''})}} 
+            <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', price:'', stock:'', category:'Ayam', imageUrl:'', variants:'', isAvailable: true})}} 
               className="bg-gray-400 text-white px-6 py-2.5 rounded-lg hover:bg-gray-500 transition">Batal</button>
           )}
         </div>
       </form>
 
-      {/* Tabel Menu */}
       <h3 className="text-xl font-bold mb-4 text-gray-800">Daftar Menu Saat Ini</h3>
-      {/* Ganti bagian tabel Anda dengan ini untuk memastikan tidak ada error hydration */}
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-100 text-gray-700 uppercase text-xs">
-              <th className="p-4 border-b">Nama & Kategori</th>
+              <th className="p-4 border-b">Nama & Status</th>
               <th className="p-4 border-b">Harga</th>
               <th className="p-4 border-b">Stok</th>
               <th className="p-4 border-b text-center">Aksi</th>
@@ -216,42 +226,37 @@ const ProductManagement = () => {
           <tbody>
             {products.length === 0 ? (
               <tr>
-                <td colSpan="4" className="p-10 text-center text-gray-400 font-medium">
-                  Belum ada menu. Silakan tambah di atas.
-                </td>
+                <td colSpan="4" className="p-10 text-center text-gray-400 font-medium">Belum ada menu.</td>
               </tr>
             ) : (
               products.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 transition border-b text-sm">
+                <tr key={p.id} className={`hover:bg-gray-50 transition border-b text-sm ${p.isAvailable === false ? 'bg-gray-100 opacity-75' : ''}`}>
                   <td className="p-4">
-                    <div className="font-bold text-gray-800">{p.name}</div>
-                    <div className="text-xs text-orange-500 font-medium">{p.category}</div>
-                    {p.variants && (
-                      <div className="text-[10px] text-blue-600 mt-1 italic font-medium bg-blue-50 px-2 py-0.5 rounded-full inline-block">
-                        Varian: {p.variants}
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col">
+                        <span className={`font-bold ${p.isAvailable === false ? 'text-gray-500 line-through' : 'text-gray-800'}`}>{p.name}</span>
+                        <span className="text-xs text-orange-500">{p.category}</span>
                       </div>
-                    )}
+                      {/* Badge Status */}
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${p.isAvailable === false ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                        {p.isAvailable === false ? 'Nonaktif' : 'Aktif'}
+                      </span>
+                    </div>
                   </td>
-                  <td className="p-4 text-gray-700 font-medium">
-                    Rp {p.price?.toLocaleString()}
-                  </td>
-                  <td className="p-4 text-xs italic">
-                    {p.stock === -1 ? '∞' : p.stock}
-                  </td>
+                  <td className="p-4 text-gray-700 font-medium">Rp {p.price?.toLocaleString()}</td>
+                  <td className="p-4 text-xs italic">{p.stock === -1 ? '∞' : p.stock}</td>
                   <td className="p-4">
-                    <div className="flex justify-center gap-4">
+                    <div className="flex justify-center gap-3">
+                      {/* TOMBOL TOGGLE STATUS */}
                       <button 
-                        onClick={() => startEdit(p)} 
-                        className="text-blue-600 hover:text-blue-800 font-bold transition"
+                        onClick={() => toggleAvailability(p)}
+                        className={`text-xs px-2 py-1 rounded font-bold transition ${p.isAvailable === false ? 'bg-green-500 text-white' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
                       >
-                        Edit
+                        {p.isAvailable === false ? 'Aktifkan' : 'Matikan'}
                       </button>
-                      <button 
-                        onClick={() => handleDelete(p.id)} 
-                        className="text-red-500 hover:text-red-700 font-bold transition"
-                      >
-                        Hapus
-                      </button>
+                      
+                      <button onClick={() => startEdit(p)} className="text-blue-600 hover:underline font-bold">Edit</button>
+                      <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:underline font-bold">Hapus</button>
                     </div>
                   </td>
                 </tr>
