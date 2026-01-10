@@ -13,6 +13,7 @@ import ReceiptView from './components/orders/ReceiptView';
 import UserManagement from './components/admin/UserManagement';
 import ProfileView from './components/admin/ProfileView';
 import ProductManagement from './components/admin/ProductManagement';
+import SalesLaporan from './components/admin/SalesLaporan';
 
 const App = () => {
   const [currentView, setCurrentView] = useState('menu');
@@ -121,6 +122,10 @@ const App = () => {
         {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
         {currentView === 'cart' && <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} onCheckout={handleConfirmCheckout} />}
         {currentView === 'orders' && <OrderHistory orders={orders} />}
+        
+        {/* TAMBAHKAN BARIS INI UNTUK MERENDER LAPORAN */}
+        {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
+
         {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
         {currentView === 'users' && currentUser.role === 'admin' && <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => { logout(); navigateTo('register'); }} />}
         {currentView === 'receipt' && <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />}
