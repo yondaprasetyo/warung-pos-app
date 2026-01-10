@@ -15,7 +15,7 @@ const ProductManagement = () => {
     price: '',
     stock: '',
     category: 'Ayam',
-    imageUrl: '', // Link foto akan masuk ke sini
+    imageUrl: '',
     isAvailable: true
   });
 
@@ -27,7 +27,11 @@ const ProductManagement = () => {
       const querySnapshot = await getDocs(collection(db, "products"));
       const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setProducts(items);
-    } catch (error) { console.error(error); } finally { setLoading(false); }
+    } catch (error) { 
+      console.error(error); 
+    } finally { 
+      setLoading(false); 
+    }
   }, []);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
@@ -46,6 +50,7 @@ const ProductManagement = () => {
       const payload = {
         ...formData,
         price: Number(formData.price),
+        // Sinkronisasi logika stok: -1 tetap -1, sisanya dikonversi ke Number
         stock: formData.stock === -1 ? -1 : Number(formData.stock),
         variants: variants.filter(v => v.name.trim() !== "").map(v => ({
           name: v.name,
@@ -68,14 +73,20 @@ const ProductManagement = () => {
       setFormData({ name: '', price: '', stock: '', category: 'Ayam', imageUrl: '', isAvailable: true });
       setVariants([{ name: '', useSpecialPrice: false, price: '' }]);
       fetchProducts();
-    } catch (error) { alert(error.message); }
+    } catch (error) { 
+      alert(error.message); 
+    }
   };
 
   const startEdit = (p) => {
     setEditingId(p.id);
     setFormData({
-      name: p.name, price: p.price, stock: p.stock,
-      category: p.category, imageUrl: p.imageUrl || '', isAvailable: p.isAvailable ?? true
+      name: p.name, 
+      price: p.price, 
+      stock: p.stock,
+      category: p.category, 
+      imageUrl: p.imageUrl || '', 
+      isAvailable: p.isAvailable ?? true
     });
     
     const safeVariants = Array.isArray(p.variants) ? p.variants : [{ name: '', useSpecialPrice: false, price: '' }];
@@ -91,9 +102,8 @@ const ProductManagement = () => {
         {editingId ? '📝 Edit Menu' : '🍽️ Manajemen Menu'}
       </h2>
 
+      {/* FORM INPUT SECTION */}
       <form onSubmit={handleSubmit} className="bg-white border-2 border-orange-100 rounded-[2.5rem] p-6 md:p-10 shadow-xl shadow-orange-50 mb-12">
-        
-        {/* INPUT FOTO MENU (DITAMBAHKAN) */}
         <div className="mb-8 space-y-2">
           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Link Foto Menu (URL)</label>
           <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -114,7 +124,6 @@ const ProductManagement = () => {
           </div>
         </div>
 
-        {/* Form Inputs (Nama & Harga) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Nama Masakan</label>
@@ -134,7 +143,6 @@ const ProductManagement = () => {
               + TAMBAH VARIAN
             </button>
           </div>
-          
           <div className="space-y-3">
             {variants.map((v, i) => (
               <div key={i} className="flex flex-col md:flex-row gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 items-center">
@@ -151,21 +159,33 @@ const ProductManagement = () => {
                 </div>
                 <input type="number" disabled={!v.useSpecialPrice} className={`w-full md:w-40 p-3 rounded-xl font-black text-sm text-right ${v.useSpecialPrice ? 'bg-white text-orange-600' : 'bg-gray-100 text-gray-400'}`} value={v.useSpecialPrice ? v.price : formData.price} onChange={(e) => handleVariantChange(i, 'price', e.target.value)} />
                 <button type="button" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                 </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Stok & Kategori */}
+        {/* STOK & KATEGORI */}
         <div className="flex flex-col md:flex-row gap-6 mb-10 pt-6 border-t border-gray-100">
-           <div className="flex-1 space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stok</label>
+          <div className="flex-1 space-y-2">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pengaturan Stok</label>
             <div className="flex items-center gap-4">
-              <input type="number" disabled={formData.stock === -1} className="flex-1 p-4 bg-gray-50 rounded-2xl outline-none font-bold" value={formData.stock === -1 ? '' : formData.stock} onChange={(e) => setFormData({...formData, stock: e.target.value})} />
-              <label className="flex items-center gap-2 text-xs font-black text-gray-500">
-                <input type="checkbox" className="w-4 h-4 accent-orange-500" checked={formData.stock === -1} onChange={(e) => setFormData({...formData, stock: e.target.checked ? -1 : ''})} /> UNLIMITED
+              <input 
+                type="number" 
+                disabled={formData.stock === -1} 
+                placeholder="Jumlah Stok"
+                className="flex-1 p-4 bg-gray-50 rounded-2xl outline-none font-bold disabled:bg-gray-100 disabled:text-gray-400" 
+                value={formData.stock === -1 ? '' : formData.stock} 
+                onChange={(e) => setFormData({...formData, stock: e.target.value})} 
+              />
+              <label className="flex items-center gap-2 text-xs font-black text-gray-500 cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  className="w-5 h-5 accent-orange-500" 
+                  checked={formData.stock === -1} 
+                  onChange={(e) => setFormData({...formData, stock: e.target.checked ? -1 : ''})} 
+                /> ♾️ UNLIMITED
               </label>
             </div>
           </div>
@@ -183,13 +203,13 @@ const ProductManagement = () => {
         </button>
       </form>
 
-      {/* TABLE SECTION */}
+      {/* TABLE SECTION DENGAN MONITOR STOK */}
       <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
               <tr>
-                <th className="p-6">Menu</th>
+                <th className="p-6">Menu & Status</th>
                 <th className="p-6">Harga Dasar</th>
                 <th className="p-6">Varian</th>
                 <th className="p-6 text-center">Aksi</th>
@@ -199,36 +219,58 @@ const ProductManagement = () => {
               {products.map((p) => (
                 <tr key={p.id} className="hover:bg-orange-50/20 transition-all">
                   <td className="p-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
-                        {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-400">No Img</div>}
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
+                        {p.imageUrl ? (
+                          <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-400">No Img</div>
+                        )}
                       </div>
-                      <span className="font-bold">{p.name}</span>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-800">{p.name}</span>
+                        {/* INDIKATOR STOK ADMIN SINKRON */}
+                        <div className="mt-1 flex items-center">
+                          {p.stock === -1 ? (
+                            <span className="text-[9px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-md border border-green-100">STOK TERSEDIA</span>
+                          ) : p.stock === 0 ? (
+                            <span className="text-[9px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-100">HABIS TERJUAL</span>
+                          ) : (
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border ${
+                              p.stock <= 3 
+                                ? 'bg-orange-50 text-orange-600 border-orange-100 animate-pulse' 
+                                : 'bg-blue-50 text-blue-600 border-blue-100'
+                            }`}>
+                              SISA {p.stock} PORSI
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="p-6 font-black text-orange-600">Rp {p.price?.toLocaleString()}</td>
                   <td className="p-6">
                     <div className="flex flex-wrap gap-1">
-                      {Array.isArray(p.variants) ? (
+                      {Array.isArray(p.variants) && p.variants.length > 0 ? (
                         p.variants.map((v, idx) => (
-                          <span key={idx} className="text-[9px] bg-gray-100 px-2 py-1 rounded-md font-bold text-gray-500">
+                          <span key={idx} className="text-[9px] bg-gray-100 px-2 py-1 rounded-md font-bold text-gray-500 border border-gray-200">
                             {v.name} (Rp {v.price?.toLocaleString()})
                           </span>
                         ))
                       ) : (
-                        <span className="text-[9px] text-gray-400 italic">
-                          {p.variants || "Tanpa Varian"}
-                        </span>
+                        <span className="text-[9px] text-gray-400 italic">Tanpa Varian</span>
                       )}
                     </div>
                   </td>
-                  <td className="p-6 flex justify-center gap-3">
-                     <button onClick={() => startEdit(p)} className="text-blue-500 p-2 hover:bg-blue-50 rounded-xl transition-all">
+                  <td className="p-6">
+                    <div className="flex justify-center gap-2">
+                      <button onClick={() => startEdit(p)} className="text-blue-500 p-2 hover:bg-blue-50 rounded-xl transition-all">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                     </button>
-                     <button onClick={async () => { if(window.confirm("Hapus?")) { await deleteDoc(doc(db, "products", p.id)); fetchProducts(); } }} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-all">
+                      </button>
+                      <button onClick={async () => { if(window.confirm(`Hapus ${p.name}?`)) { await deleteDoc(doc(db, "products", p.id)); fetchProducts(); } }} className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-all">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                     </button>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
