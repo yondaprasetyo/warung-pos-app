@@ -16,13 +16,9 @@ export const useShop = (currentUser) => {
   const [orders, setOrders] = useState([]);
   const [currentOrder, setCurrentOrder] = useState(null);
 
-  // 1. LISTENER PESANAN REAL-TIME
   useEffect(() => {
-    // Jika tidak ada user (logout), jangan buat listener
     if (!currentUser) return;
-
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ordersList = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -31,7 +27,6 @@ export const useShop = (currentUser) => {
       }));
       setOrders(ordersList);
     }, (err) => {
-      // Menangani error permission secara halus saat logout
       if (err.code === 'permission-denied') {
         console.log("Akses database dihentikan karena sesi berakhir.");
       } else {
@@ -39,17 +34,15 @@ export const useShop = (currentUser) => {
       }
     });
 
-    // PERBAIKAN: Fungsi cleanup dijalankan saat logout atau komponen hilang
     return () => {
       unsubscribe();
-      setOrders([]); // Reset data pesanan di sini agar tidak cascading render
+      setOrders([]); 
     };
-  }, [currentUser]); //
+  }, [currentUser]);
 
-  // 2. FUNGSI KERANJANG (CART)
+  // --- PERBAIKAN 1: Logika Harga Varian di AddToCart ---
   const addToCart = (product, variantName, note) => {
     setCart(prevCart => {
-      // Cari apakah item dengan varian yang sama sudah ada
       const existingIndex = prevCart.findIndex(item => 
         item.id === product.id && item.variant === variantName
       );
@@ -60,7 +53,7 @@ export const useShop = (currentUser) => {
         return newCart;
       }
 
-      // Ambil harga varian jika ada
+      // Pastikan mengambil harga yang benar dari array varian
       const variantObj = Array.isArray(product.variants) 
         ? product.variants.find(v => (v.name || v) === variantName)
         : null;
@@ -69,36 +62,48 @@ export const useShop = (currentUser) => {
 
       return [...prevCart, {
         ...product,
-        basePrice: product.price, // Simpan harga asli sebagai cadangan
+        basePrice: product.price, 
         price: finalPrice,
         variant: variantName,
         note: note,
         quantity: 1,
-        variants: product.variants // Simpan array varian untuk dropdown di cart
+        variants: product.variants 
       }];
     });
   };
 
+  // --- PERBAIKAN 2: Gunakan Index untuk Keamanan Tombol ---
   const updateQuantity = (index, delta) => {
     setCart(prev => {
+      if (!prev[index]) return prev; // Proteksi jika index tidak ditemukan
       const newCart = [...prev];
       const newQty = newCart[index].quantity + delta;
+      
       if (newQty > 0) {
-        newCart[index].quantity = newQty;
+        newCart[index] = { ...newCart[index], quantity: newQty };
         return newCart;
       }
       return prev;
     });
   };
 
-  const removeFromCart = (id, variant) => {
-    setCart(prev => prev.filter(item => !(item.id === id && item.variant === variant)));
+  // --- PERBAIKAN 3: Fungsi Update Detail untuk Dropdown & Catatan ---
+  const updateCartItemDetails = (index, details) => {
+    setCart(prev => {
+      if (!prev[index]) return prev;
+      const newCart = [...prev];
+      newCart[index] = { ...newCart[index], ...details };
+      return newCart;
+    });
   };
 
-  // 3. FUNGSI TRANSAKSI (CHECKOUT)
+  // Gunakan index agar penghapusan akurat jika ada nama menu yang sama
+  const removeFromCart = (index) => {
+    setCart(prev => prev.filter((_, i) => i !== index));
+  };
+
   const checkout = async (customerName) => {
     if (cart.length === 0) return;
-
     try {
       const orderData = {
         customerName,
@@ -121,7 +126,6 @@ export const useShop = (currentUser) => {
     }
   };
 
-  // 4. FUNGSI UPDATE STATUS PESANAN
   const markOrderDone = async (orderId) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
@@ -135,6 +139,7 @@ export const useShop = (currentUser) => {
   return {
     cart, orders, currentOrder, setCurrentOrder,
     addToCart, updateQuantity, removeFromCart, checkout,
-    markOrderDone
+    markOrderDone,
+    updateCartItemDetails // WAJIB DI-RETURN AGAR BISA DIPAKAI APP.JSX
   };
 };
