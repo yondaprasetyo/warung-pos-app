@@ -69,7 +69,7 @@ const SalesLaporan = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">Laporan Penjualan</h2>
         <div className="text-sm font-medium text-orange-600 bg-orange-50 px-4 py-1 rounded-full border border-orange-100">
-          Real-time Update Aktif
+          Real-time
         </div>
       </div>
 
@@ -90,26 +90,43 @@ const SalesLaporan = () => {
       </div>
 
       {/* SECTION GRAFIK */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
         <h4 className="font-bold text-gray-700 mb-8 flex items-center gap-2">
           📈 Tren Omzet 7 Hari Terakhir
         </h4>
-        <div className="flex items-end justify-between h-48 gap-3 px-2">
+        <div className="flex items-end justify-between h-56 gap-3 px-2 border-b-2 border-gray-50">
           {stats.chartData.map((day, i) => {
-            // Kalkulasi tinggi batang
-            const percentage = (day.total / stats.maxTotal) * 100;
+            // FORCE CALCULATION: Pastikan hasil pembagian tidak menghasilkan NaN
+            const percentage = stats.maxTotal > 0 ? (day.total / stats.maxTotal) * 100 : 0;
             
             return (
-              <div key={i} className="flex-1 flex flex-col items-center group relative">
+              <div key={i} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                {/* Label Nilai di Atas Batang (Selalu Muncul jika > 0) */}
+                {day.total > 0 && (
+                  <span className="text-[9px] font-black text-orange-500 mb-2">
+                    {(day.total / 1000)}k
+                  </span>
+                )}
+
+                {/* Batang Grafik dengan Inline Style yang Lebih Kuat */}
                 <div 
-                  className="w-full bg-orange-100 group-hover:bg-orange-400 rounded-t-lg transition-all duration-700"
-                  style={{ height: `${percentage}%`, minHeight: '6px' }}
+                  className="w-full bg-orange-500 rounded-t-lg transition-all duration-500 hover:bg-orange-600 shadow-sm"
+                  style={{ 
+                    height: `${percentage}%`, 
+                    minHeight: day.total > 0 ? '4px' : '2px', // Agar yang ada isinya terlihat beda
+                    display: 'block' 
+                  }}
                 >
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                  {/* Tooltip Hover */}
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded shadow-xl opacity-0 group-hover:opacity-100 whitespace-nowrap z-50">
                     Rp {day.total.toLocaleString()}
                   </div>
                 </div>
-                <span className="text-[10px] font-bold text-gray-400 mt-3">{day.label}</span>
+
+                {/* Label Hari */}
+                <span className={`text-[10px] mt-4 font-bold ${day.dateStr === new Date().toLocaleDateString('en-CA') ? 'text-orange-600' : 'text-gray-400'}`}>
+                  {day.label}
+                </span>
               </div>
             );
           })}
