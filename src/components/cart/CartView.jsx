@@ -7,14 +7,13 @@ const CartView = ({
   removeFromCart, 
   updateCartItemDetails, 
   onCheckout, 
-  onBack // Prop baru untuk kembali ke menu
+  onBack 
 }) => {
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   return (
     <div className="bg-white rounded-3xl shadow-xl h-[calc(100vh-120px)] flex flex-col overflow-hidden border border-gray-100">
       
-      {/* HEADER DENGAN TOMBOL KEMBALI */}
       <div className="p-6 bg-orange-500 text-white flex justify-between items-center">
         <div className="flex items-center gap-3">
           <button 
@@ -28,15 +27,8 @@ const CartView = ({
             🛒 Keranjang <span className="bg-white text-orange-500 px-2 py-0.5 rounded-lg text-sm">{cart.length}</span>
           </h2>
         </div>
-        <button 
-          onClick={onBack}
-          className="hidden md:block bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-        >
-          + Tambah Menu
-        </button>
       </div>
 
-      {/* ISI KERANJANG */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {cart.length === 0 ? (
           <div className="text-center py-20 flex flex-col items-center">
@@ -58,6 +50,10 @@ const CartView = ({
                 <div>
                   <h3 className="font-bold text-gray-800 leading-tight">{item.name}</h3>
                   <p className="text-orange-600 font-bold text-sm">Rp {item.price.toLocaleString()}</p>
+                  {/* Info Sisa Stok */}
+                  {item.stock !== -1 && (
+                    <p className="text-[10px] text-gray-400 mt-1">Sisa stok di toko: {item.stock}</p>
+                  )}
                 </div>
                 <button 
                   onClick={() => removeFromCart(index)} 
@@ -102,7 +98,6 @@ const CartView = ({
                 </div>
               )}
 
-              {/* KONTROL QUANTITY & SUB-TOTAL */}
               <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200">
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">
                   Sub: Rp {(item.price * item.quantity).toLocaleString()}
@@ -119,7 +114,12 @@ const CartView = ({
                   </span>
                   <button 
                     onClick={() => updateQuantity(index, 1)} 
-                    className="p-2 hover:bg-orange-50 text-orange-500 transition"
+                    disabled={item.stock !== -1 && item.quantity >= item.stock}
+                    className={`p-2 transition ${
+                      item.stock !== -1 && item.quantity >= item.stock 
+                      ? 'text-gray-300 cursor-not-allowed' 
+                      : 'hover:bg-orange-50 text-orange-500'
+                    }`}
                   >
                     <Plus size={14} />
                   </button>
@@ -130,7 +130,6 @@ const CartView = ({
         )}
       </div>
 
-      {/* FOOTER TOTAL & CHECKOUT */}
       <div className="p-6 border-t bg-white">
         <div className="flex justify-between items-center mb-4 px-1">
           <span className="text-gray-400 font-bold uppercase text-xs tracking-widest">Total Bayar</span>

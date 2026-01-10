@@ -40,20 +40,24 @@ export const useShop = (currentUser) => {
     };
   }, [currentUser]);
 
-  // --- PERBAIKAN 1: Logika Harga Varian di AddToCart ---
   const addToCart = (product, variantName, note) => {
     setCart(prevCart => {
       const existingIndex = prevCart.findIndex(item => 
         item.id === product.id && item.variant === variantName
       );
 
+      // VALIDASI STOK: Cek jika sudah ada di keranjang
       if (existingIndex > -1) {
+        const item = prevCart[existingIndex];
+        if (item.stock !== -1 && item.quantity >= item.stock) {
+          alert(`Maaf, stok ${item.name} sudah mencapai batas maksimal (${item.stock}).`);
+          return prevCart;
+        }
         const newCart = [...prevCart];
         newCart[existingIndex].quantity += 1;
         return newCart;
       }
 
-      // Pastikan mengambil harga yang benar dari array varian
       const variantObj = Array.isArray(product.variants) 
         ? product.variants.find(v => (v.name || v) === variantName)
         : null;
@@ -67,18 +71,25 @@ export const useShop = (currentUser) => {
         variant: variantName,
         note: note,
         quantity: 1,
-        variants: product.variants 
+        variants: product.variants,
+        stock: product.stock // Pastikan stok ikut tersimpan di item keranjang
       }];
     });
   };
 
-  // --- PERBAIKAN 2: Gunakan Index untuk Keamanan Tombol ---
   const updateQuantity = (index, delta) => {
     setCart(prev => {
-      if (!prev[index]) return prev; // Proteksi jika index tidak ditemukan
+      if (!prev[index]) return prev;
       const newCart = [...prev];
-      const newQty = newCart[index].quantity + delta;
+      const item = newCart[index];
+      const newQty = item.quantity + delta;
       
+      // VALIDASI STOK: Jangan biarkan melebihi stok yang ada
+      if (delta > 0 && item.stock !== -1 && newQty > item.stock) {
+        alert(`Stok terbatas! Hanya tersedia ${item.stock} porsi.`);
+        return prev;
+      }
+
       if (newQty > 0) {
         newCart[index] = { ...newCart[index], quantity: newQty };
         return newCart;
@@ -87,7 +98,6 @@ export const useShop = (currentUser) => {
     });
   };
 
-  // --- PERBAIKAN 3: Fungsi Update Detail untuk Dropdown & Catatan ---
   const updateCartItemDetails = (index, details) => {
     setCart(prev => {
       if (!prev[index]) return prev;
@@ -97,7 +107,6 @@ export const useShop = (currentUser) => {
     });
   };
 
-  // Gunakan index agar penghapusan akurat jika ada nama menu yang sama
   const removeFromCart = (index) => {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
@@ -140,6 +149,6 @@ export const useShop = (currentUser) => {
     cart, orders, currentOrder, setCurrentOrder,
     addToCart, updateQuantity, removeFromCart, checkout,
     markOrderDone,
-    updateCartItemDetails // WAJIB DI-RETURN AGAR BISA DIPAKAI APP.JSX
+    updateCartItemDetails 
   };
 };
