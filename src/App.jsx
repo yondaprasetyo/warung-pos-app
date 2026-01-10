@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
-import { db } from './firebase'; // Pastikan db diimport
-import { doc, writeBatch } from 'firebase/firestore'; // Import batch untuk update stok
+import { db } from './firebase'; 
+import { doc, writeBatch } from 'firebase/firestore'; 
 
 // Components
 import Header from './components/layout/Header';
@@ -47,25 +47,26 @@ const App = () => {
   const executeCheckout = async () => {
     if (customerNameInput.trim()) {
       try {
-        // 1. Simpan pesanan ke database (Memanggil fungsi dari useShop)
+        // 1. Simpan pesanan ke database
         const order = await checkout(customerNameInput);
         
         if (order) {
-          // 2. LOGIKA PENGURANGAN STOK OTOMATIS
+          // 2. LOGIKA PENGURANGAN STOK OTOMATIS (Client-Side)
           const batch = writeBatch(db);
           let hasStockUpdate = false;
 
           cart.forEach((item) => {
-            // Hanya kurangi jika stok bukan -1 (bukan Unlimited)
+            // Hanya kurangi jika stok bukan -1 (Unlimited)
             if (item.stock !== -1) {
               const productRef = doc(db, "products", item.id);
+              // Pastikan stok tidak menjadi negatif
               const newStock = Math.max(0, item.stock - item.quantity);
               batch.update(productRef, { stock: newStock });
               hasStockUpdate = true;
             }
           });
 
-          // Commit semua perubahan stok sekaligus
+          // Jalankan semua update stok sekaligus
           if (hasStockUpdate) {
             await batch.commit();
           }
@@ -74,6 +75,7 @@ const App = () => {
           navigateTo('receipt');
         }
       } catch (err) {
+        // Jika Rules belum diperbarui, error ini akan muncul di sini
         alert("Gagal memproses pesanan: " + err.message);
       }
     }
@@ -103,6 +105,7 @@ const App = () => {
     </div>
   );
 
+  // LOGIC: PUBLIC MODE (Mode Pelanggan)
   if (!currentUser && isPublicMode) {
     return (
       <div className="min-h-screen bg-gray-50">
