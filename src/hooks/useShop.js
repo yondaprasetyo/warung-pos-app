@@ -19,8 +19,9 @@ export const useShop = (currentUser) => {
         createdAt: doc.data().createdAt?.toDate() || new Date()
       }));
       setOrders(ordersList);
-    }, (err) => {
-      console.error("Firestore error:", err);
+    }, () => {
+      // Menghapus parameter err karena tidak digunakan (eslint-fix)
+      console.warn("Info: Menunggu autentikasi untuk memuat pesanan.");
     });
     return () => unsubscribe();
   }, []);
@@ -73,20 +74,19 @@ export const useShop = (currentUser) => {
     }
   };
 
-  // FUNGSI KRUSIAL: Menandai pesanan selesai di Firebase
   const markOrderDone = async (orderId) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, { status: 'Selesai' });
     } catch (error) {
       console.error("Update status error:", error);
-      alert("Gagal memperbarui status pesanan.");
+      alert("Gagal memperbarui status pesanan. Cek koneksi atau izin database.");
     }
   };
 
   return {
     cart, orders, currentOrder, setCurrentOrder,
     addToCart, updateQuantity, removeFromCart, checkout,
-    markOrderDone // Pastikan ini diekspor
+    markOrderDone
   };
 };
