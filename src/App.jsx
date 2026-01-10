@@ -84,7 +84,7 @@ const App = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
-          <h1 className="font-black text-orange-500 text-xl italic">Warung POS</h1>
+          <h1 className="font-black text-orange-500 text-xl italic">Warung Makan Mamah Yonda</h1>
           <div className="flex gap-2">
             <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold">
               🛒 {cart.reduce((a, b) => a + b.quantity, 0)}
