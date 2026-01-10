@@ -61,9 +61,8 @@ export const useAuth = () => {
           ...doc.data()
         }));
         setUsers(usersList);
-      } catch (error) {
-        // Error ini wajar jika user yang login bukan Admin
-        console.error("Gagal mengambil daftar user:", error.message);
+      } catch { 
+        console.error("Gagal menghapus user");
       }
     };
     
