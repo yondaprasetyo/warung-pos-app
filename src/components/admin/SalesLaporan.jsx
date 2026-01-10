@@ -3,7 +3,7 @@ import { useShop } from '../../hooks/useShop';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../firebase';
 import { collection, getDocs } from 'firebase/firestore';
-import { Search, MessageSquare, Filter, Package, TrendingUp, Calendar, Printer } from 'lucide-react';
+import { Search, MessageSquare, Filter, Package, TrendingUp, Calendar, Printer, StickyNote } from 'lucide-react';
 
 const SalesLaporan = () => {
   const { currentUser } = useAuth();
@@ -35,12 +35,14 @@ const SalesLaporan = () => {
     fetchStock();
   }, [orders]);
 
-  // --- EXTRACT VARIAN UNIK ---
+  // --- EXTRACT VARIAN UNIK (HANYA YANG RELEVAN) ---
   const allVariants = useMemo(() => {
     const variants = new Set();
     orders.forEach(o => {
       o.items?.forEach(item => {
-        if (item.variant) variants.add(item.variant);
+        if (item.variant && item.variant.toUpperCase() !== "TANPA VARIAN") {
+          variants.add(item.variant);
+        }
       });
     });
     return ['Semua', ...Array.from(variants)];
@@ -311,18 +313,21 @@ const SalesLaporan = () => {
                         {o.items?.map((item, idx) => (
                           <div key={idx} className="flex flex-col border-l-4 border-gray-50 pl-4 group-hover:border-orange-200 transition-colors">
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black text-gray-600 uppercase">{item.name}</span>
+                              <span className="text-[10px] font-black text-gray-600 uppercase italic leading-none">{item.name}</span>
                               <span className="text-[9px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-black">x{item.quantity}</span>
-                              {item.variant && (
+                              
+                              {/* FIX 1: HANYA TAMPILKAN VARIAN YANG BUKAN "TANPA VARIAN" */}
+                              {item.variant && item.variant.toUpperCase() !== "TANPA VARIAN" && (
                                 <span className={`text-[8px] px-2 py-0.5 rounded-md font-black italic uppercase shadow-sm ${item.variant === selectedVariant ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-600'}`}>
                                   {item.variant}
                                 </span>
                               )}
                             </div>
-                            {/* CATATAN PELANGGAN (NOTES) */}
+
+                            {/* FIX 2: MENAMPILKAN NOTES (CATATAN) DENGAN VISUAL MENCOLOK */}
                             {item.notes && (
-                              <div className="text-[9px] text-red-500 font-black italic mt-1.5 uppercase tracking-tighter flex items-center gap-1.5 bg-red-50 w-fit px-2 py-1 rounded-lg">
-                                <MessageSquare size={10} /> {item.notes}
+                              <div className="text-[9px] text-orange-600 font-black italic mt-1.5 uppercase tracking-tighter flex items-center gap-1.5 bg-orange-50 w-fit px-2 py-1 rounded-lg border border-orange-100">
+                                <StickyNote size={10} className="text-orange-500" /> "{item.notes}"
                               </div>
                             )}
                           </div>
