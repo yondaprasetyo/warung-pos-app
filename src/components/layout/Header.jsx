@@ -1,5 +1,6 @@
 import React from 'react';
-import { ShoppingCart, Receipt, User, LogOut, Users, ArrowLeft, Utensils } from 'lucide-react';
+// Tambahkan BarChart3 ke dalam import lucide-react
+import { ShoppingCart, Receipt, User, LogOut, Users, ArrowLeft, Utensils, BarChart3 } from 'lucide-react';
 
 const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
   return (
@@ -20,9 +21,18 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
             <div className="text-xs opacity-90 capitalize">{user?.role}</div>
           </div>
 
-          {/* TOMBOL BARU: KELOLA MENU (Hanya untuk Admin) */}
+          {/* TOMBOL ADMIN: KELOLA MENU, USERS, & LAPORAN */}
           {user?.role === 'admin' && (
             <>
+              {/* TOMBOL LAPORAN PENJUALAN (BARU) */}
+              <button 
+                onClick={() => onNavigate('laporan')} 
+                className={`p-2 rounded-lg transition ${currentView === 'laporan' ? 'bg-white text-orange-600' : 'bg-white/20 hover:bg-white/30'}`}
+                title="Laporan Penjualan"
+              >
+                <BarChart3 size={20} />
+              </button>
+
               <button 
                 onClick={() => onNavigate('manage-menu')} 
                 className={`p-2 rounded-lg transition ${currentView === 'manage-menu' ? 'bg-white text-orange-600' : 'bg-white/20 hover:bg-white/30'}`}
