@@ -1,70 +1,85 @@
 import React from 'react';
-import { ShoppingPlus } from 'lucide-react'; // Jika tidak ada, bisa gunakan icon Plus biasa
+import { Plus, Info } from 'lucide-react';
 
 const ProductCard = ({ item, onAddToCart }) => {
-  // Menu dianggap habis jika (stok bukan -1 DAN stok <= 0) ATAU status isAvailable adalah false
-  const isOutOfStock = (item.stock !== -1 && item.stock <= 0) || item.isAvailable === false;
+  // Logika stok kritis (3 atau kurang)
+  const isStockLow = item.stock !== -1 && item.stock <= 3 && item.stock > 0;
+  const isOutOfStock = item.stock === 0;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-300 group flex flex-col h-full">
-      {/* Container Gambar Produk */}
-      <div className="relative h-40 bg-orange-50 flex items-center justify-center overflow-hidden">
+    <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group flex flex-col h-full">
+      {/* AREA GAMBAR */}
+      <div className="relative h-40 overflow-hidden">
         <img 
-          src={item.imageUrl || 'https://via.placeholder.com/150'} 
+          src={item.image || "/api/placeholder/400/320"} 
           alt={item.name}
-          className={`w-full h-full object-cover transition duration-500 group-hover:scale-110 
-            ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
-        
-        {/* Badge Stok Habis / Tidak Tersedia */}
+        {/* OVERLAY STATUS STOK */}
         {isOutOfStock && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
-            <span className="bg-red-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
-              {item.isAvailable === false ? 'Tidak Tersedia' : 'Habis'}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
+            <span className="bg-white text-gray-900 px-4 py-1 rounded-full font-black text-xs tracking-widest uppercase">
+              Habis Terjual
             </span>
           </div>
         )}
       </div>
 
-      {/* Detail Produk */}
-      <div className="p-4 flex flex-col flex-grow">
-        {/* Kategori */}
-        <div className="text-[10px] text-orange-500 font-bold mb-1 uppercase tracking-widest">
-          {item.category}
-        </div>
-        
-        {/* Nama Produk */}
-        <h3 className={`font-bold text-sm mb-1 truncate leading-tight group-hover:text-orange-600 transition-colors ${isOutOfStock ? 'text-gray-400' : 'text-gray-800'}`}>
-          {item.name}
-        </h3>
-        
-        {/* Harga & Informasi Stok */}
-        <div className="flex justify-between items-center mb-4">
-          <span className={`font-black block ${isOutOfStock ? 'text-gray-400' : 'text-orange-600'}`}>
-            Rp {item.price?.toLocaleString()}
+      {/* AREA KONTEN */}
+      <div className="p-4 flex flex-col flex-1">
+        <div className="mb-1">
+          <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">
+            {item.category}
           </span>
-          {/* Tampilkan sisa stok jika bukan unlimited dan tidak habis */}
-          {!isOutOfStock && item.stock !== -1 && (
-            <span className="text-[9px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded">
-              Sisa: {item.stock}
-            </span>
-          )}
+          <h3 className="font-bold text-gray-800 leading-tight group-hover:text-orange-600 transition-colors line-clamp-2 h-10">
+            {item.name}
+          </h3>
         </div>
 
-        {/* Tombol Aksi */}
         <div className="mt-auto">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation(); 
-              if (!isOutOfStock) onAddToCart(item);   
-            }}
-            disabled={isOutOfStock}
-            className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 
-              ${isOutOfStock 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                : 'bg-orange-500 text-white hover:bg-orange-600 shadow-md hover:shadow-orange-200 active:scale-95'}`}
+          <div className="flex flex-col mb-3">
+            <span className="text-lg font-black text-gray-900">
+              Rp {item.price?.toLocaleString()}
+            </span>
+            
+            {/* INDIKATOR STOK KRITIS */}
+            <div className="flex items-center gap-1.5 mt-1">
+              {item.stock === -1 ? (
+                <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md">
+                  Stok Tersedia
+                </span>
+              ) : (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                  isStockLow 
+                    ? 'bg-red-100 text-red-600 animate-pulse' // Berkedip merah jika stok sedikit
+                    : isOutOfStock 
+                    ? 'bg-gray-100 text-gray-400' 
+                    : 'bg-blue-50 text-blue-600'
+                }`}>
+                  {isStockLow && <Info size={10} />}
+                  Sisa {item.stock} Porsi
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* TOMBOL AKSI */}
+          <button
+            onClick={() => onAddToCart(item)}
+            disabled={isOutOfStock} // Kunci tombol jika habis
+            className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+              isOutOfStock
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-orange-500 text-white hover:bg-orange-600 shadow-md shadow-orange-100 active:scale-95'
+            }`}
           >
-            {isOutOfStock ? (item.isAvailable === false ? 'Tidak Tersedia' : 'Stok Habis') : '+ Tambah'}
+            {isOutOfStock ? (
+              'Habis'
+            ) : (
+              <>
+                <Plus size={16} /> Tambah
+              </>
+            )}
           </button>
         </div>
       </div>

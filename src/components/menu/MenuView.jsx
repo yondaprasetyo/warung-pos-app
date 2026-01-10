@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, MessageSquare, Check } from 'lucide-react';
+import { Search, X, MessageSquare, Check, AlertTriangle } from 'lucide-react';
 import { db } from '../../firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import ProductCard from './ProductCard';
@@ -30,18 +30,19 @@ const MenuView = ({ onAddToCart }) => {
     return () => unsubscribe();
   }, []);
 
-  // PERBAIKAN: Fungsi untuk mengecek varian
   const handleOpenModal = (product) => {
-    // Cek apakah variants adalah array dan memiliki isi
+    // Validasi tambahan: Jika stok 0, jangan izinkan buka modal
+    if (product.stock === 0) {
+      alert("Maaf, menu ini sudah habis!");
+      return;
+    }
+
     const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
 
     if (!hasVariants) {
-      // Jika tidak ada varian, langsung tambahkan
       onAddToCart(product, '', ''); 
     } else {
-      // Jika ada varian (Array), tampilkan modal
       setActiveProduct(product);
-      // Default pilih varian pertama
       setSelectedVar(product.variants[0].name || product.variants[0]);
       setNote(''); 
       setShowModal(true);
@@ -50,12 +51,10 @@ const MenuView = ({ onAddToCart }) => {
 
   const confirmAdd = () => {
     if (activeProduct) {
-      // Cari objek varian yang dipilih untuk mendapatkan harganya jika perlu
       const variantObj = Array.isArray(activeProduct.variants) 
         ? activeProduct.variants.find(v => v.name === selectedVar)
         : null;
       
-      // Kirim data ke keranjang
       onAddToCart(activeProduct, selectedVar, note, variantObj?.price);
       setShowModal(false);
       setActiveProduct(null);
@@ -68,7 +67,7 @@ const MenuView = ({ onAddToCart }) => {
     return matchCategory && matchSearch;
   });
 
-  if (loading) return <div className="text-center p-20 text-orange-500 font-bold">Menyiapkan Menu...</div>;
+  if (loading) return <div className="text-center p-20 text-orange-500 font-bold italic">Menyiapkan Menu Lezat...</div>;
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-24">
@@ -104,11 +103,19 @@ const MenuView = ({ onAddToCart }) => {
       {/* MENU GRID */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
         {filteredMenu.map(item => (
-          <ProductCard 
-            key={item.id} 
-            item={item} 
-            onAddToCart={handleOpenModal} 
-          />
+          <div key={item.id} className="relative group">
+            {/* LABEL STOK KRITIS (Floating Label) */}
+            {item.stock !== -1 && item.stock > 0 && item.stock <= 3 && (
+              <div className="absolute -top-2 -right-2 z-10 bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-lg animate-bounce">
+                SISA {item.stock}!
+              </div>
+            )}
+            
+            <ProductCard 
+              item={item} 
+              onAddToCart={handleOpenModal} 
+            />
+          </div>
         ))}
       </div>
 
@@ -123,13 +130,26 @@ const MenuView = ({ onAddToCart }) => {
               >
                 <X size={20} />
               </button>
-              <h3 className="text-white text-2xl font-bold truncate">{activeProduct.name}</h3>
+              <div>
+                <h3 className="text-white text-2xl font-bold truncate">{activeProduct.name}</h3>
+                {/* Info Stok di Modal */}
+                {activeProduct.stock !== -1 && (
+                  <p className={`text-xs font-bold ${activeProduct.stock <= 3 ? 'text-red-200' : 'text-orange-100'}`}>
+                    Tersedia: {activeProduct.stock} porsi
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="p-6">
+              {activeProduct.stock <= 3 && activeProduct.stock > 0 && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 text-xs font-bold">
+                  <AlertTriangle size={14} /> Stok hampir habis! Segera pesan sekarang.
+                </div>
+              )}
+
               <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Pilih Bagian/Varian</label>
               <div className="flex flex-wrap gap-2 mt-3 mb-6">
-                {/* PERBAIKAN: Mapping Array Varian, bukan .split() */}
                 {activeProduct.variants.map((v, idx) => {
                   const name = typeof v === 'string' ? v : v.name;
                   const price = typeof v === 'object' ? v.price : null;
