@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, Plus, Minus, ChevronDown, Check, ArrowLeft, ShoppingBag, AlertCircle } from 'lucide-react';
+import { Trash2, Plus, Minus, ChevronDown, ArrowLeft, ShoppingBag, AlertCircle, Edit3 } from 'lucide-react';
 
 const CartView = ({ 
   cart, 
@@ -49,95 +49,111 @@ const CartView = ({
             const isMaxStockReached = item.stock !== -1 && item.quantity >= item.stock;
 
             return (
-              <div key={`cart-item-${item.id}-${index}`} className="bg-gray-50 rounded-2xl p-4 border border-gray-100 shadow-sm flex gap-4">
+              <div key={`cart-item-${item.id}-${index}`} className="bg-gray-50 rounded-2xl p-4 border border-gray-100 shadow-sm flex flex-col gap-3">
                 
-                {/* 1. PENAMBAHAN FOTO PRODUK (Menggunakan imageUrl) */}
-                <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-white border border-gray-200">
-                  <img 
-                    src={item.imageUrl || "/api/placeholder/100/100"} 
-                    alt={item.name} 
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.target.src = "/api/placeholder/100/100" }}
+                <div className="flex gap-4">
+                  {/* 1. FOTO PRODUK */}
+                  <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-white border border-gray-200">
+                    <img 
+                      src={item.imageUrl || "/api/placeholder/100/100"} 
+                      alt={item.name} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.src = "/api/placeholder/100/100" }}
+                    />
+                  </div>
+
+                  {/* 2. DETAIL PRODUK */}
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-bold text-gray-800 leading-tight text-sm uppercase">{item.name}</h3>
+                        <p className="text-orange-600 font-bold text-xs">Rp {item.price.toLocaleString()}</p>
+                        
+                        {/* WARNING STOK */}
+                        {item.stock !== -1 && (
+                          <div className="mt-1">
+                            {isMaxStockReached ? (
+                              <span className="text-[8px] bg-red-500 text-white px-2 py-0.5 rounded-md font-black animate-pulse flex items-center gap-1 w-fit">
+                                <AlertCircle size={10} /> STOK HABIS
+                              </span>
+                            ) : (
+                              <p className="text-[9px] text-gray-400 font-medium italic">
+                                Sisa stok: {item.stock - item.quantity}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => removeFromCart(index)} 
+                        className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+
+                    {/* 3. DROPDOWN VARIAN */}
+                    {Array.isArray(item.variants) && item.variants.length > 0 && (
+                      <div className="mt-2 relative">
+                        <select 
+                          value={item.variant}
+                          onChange={(e) => {
+                            const selectedName = e.target.value;
+                            const variantObj = item.variants.find(v => (v.name || v) === selectedName);
+                            const newPrice = variantObj?.price ? Number(variantObj.price) : Number(item.basePrice);
+                            updateCartItemDetails(index, { 
+                              variant: selectedName,
+                              price: newPrice 
+                            });
+                          }}
+                          className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[10px] font-black text-gray-500 outline-none appearance-none pr-8 uppercase"
+                        >
+                          {item.variants.map((v, i) => (
+                            <option key={i} value={v.name || v}>{v.name || v}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. INPUT CATATAN (Fitur Baru) */}
+                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-inner">
+                  <Edit3 size={12} className="text-gray-400" />
+                  <input 
+                    type="text"
+                    placeholder="Contoh: Tidak pedas, nasi setengah..."
+                    value={item.notes || ""}
+                    onChange={(e) => updateCartItemDetails(index, { notes: e.target.value })}
+                    className="w-full bg-transparent text-[11px] font-medium text-gray-600 outline-none placeholder:text-gray-300"
                   />
                 </div>
 
-                {/* 2. DETAIL PRODUK */}
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold text-gray-800 leading-tight text-sm">{item.name}</h3>
-                      <p className="text-orange-600 font-bold text-xs">Rp {item.price.toLocaleString()}</p>
-                      
-                      {/* WARNING STOK */}
-                      {item.stock !== -1 && (
-                        <div className="mt-1 flex flex-col gap-1">
-                          {isMaxStockReached ? (
-                            <span className="text-[9px] bg-red-500 text-white px-2 py-0.5 rounded-md font-black animate-pulse flex items-center gap-1 w-fit">
-                              <AlertCircle size={10} /> STOK HABIS
-                            </span>
-                          ) : (
-                            <p className="text-[9px] text-gray-400 font-medium">
-                              Sisa: <span className="font-bold">{item.stock - item.quantity}</span> porsi
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <button 
-                      onClick={() => removeFromCart(index)} 
-                      className="text-red-400 hover:text-red-600 p-1"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-
-                  {/* 3. DROPDOWN VARIAN (Solusi error unused-vars) */}
-                  {Array.isArray(item.variants) && item.variants.length > 0 && (
-                    <div className="mt-2 relative">
-                      <select 
-                        value={item.variant}
-                        onChange={(e) => {
-                          const selectedName = e.target.value;
-                          const variantObj = item.variants.find(v => (v.name || v) === selectedName);
-                          const newPrice = variantObj?.price ? Number(variantObj.price) : Number(item.basePrice);
-                          
-                          // MEMANGGIL FUNGSI AGAR TIDAK ERROR DI VS CODE
-                          updateCartItemDetails(index, { 
-                            variant: selectedName,
-                            price: newPrice 
-                          });
-                        }}
-                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[11px] font-bold text-gray-600 outline-none appearance-none pr-8"
-                      >
-                        {item.variants.map((v, i) => (
-                          <option key={i} value={v.name || v}>{v.name || v}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    </div>
-                  )}
-
-                  {/* 4. SUBTOTAL & QUANTITY */}
-                  <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-200/50">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">
-                      Sub: Rp {(item.price * item.quantity).toLocaleString()}
+                {/* 5. SUBTOTAL & QUANTITY CONTROL */}
+                <div className="flex justify-between items-center pt-2 border-t border-gray-200/50">
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-gray-300 uppercase tracking-tighter">Subtotal</span>
+                    <span className="text-[11px] font-black text-gray-700">
+                      Rp {(item.price * item.quantity).toLocaleString()}
                     </span>
-                    <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                      <button 
-                        onClick={() => updateQuantity(index, -1)} 
-                        className="p-1.5 hover:bg-orange-50 text-orange-500"
-                      >
-                        <Minus size={12} />
-                      </button>
-                      <span className="w-6 text-center font-bold text-xs text-gray-700">{item.quantity}</span>
-                      <button 
-                        onClick={() => updateQuantity(index, 1)} 
-                        disabled={isMaxStockReached}
-                        className={`p-1.5 ${isMaxStockReached ? 'text-gray-200 bg-gray-50' : 'hover:bg-orange-50 text-orange-500'}`}
-                      >
-                        <Plus size={12} />
-                      </button>
-                    </div>
+                  </div>
+                  
+                  <div className="flex items-center bg-white border-2 border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                    <button 
+                      onClick={() => updateQuantity(index, -1)} 
+                      className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="w-8 text-center font-black text-sm text-gray-800">{item.quantity}</span>
+                    <button 
+                      onClick={() => updateQuantity(index, 1)} 
+                      disabled={isMaxStockReached}
+                      className={`p-2 transition-colors ${isMaxStockReached ? 'text-gray-200 bg-gray-50' : 'hover:bg-green-50 text-orange-500'}`}
+                    >
+                      <Plus size={14} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -147,17 +163,19 @@ const CartView = ({
       </div>
 
       {/* FOOTER */}
-      <div className="p-6 border-t bg-white">
+      <div className="p-6 border-t bg-white shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
         <div className="flex justify-between items-center mb-4">
-          <span className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Total Bayar</span>
-          <span className="text-2xl font-black text-gray-800">
-            Rp {total.toLocaleString()}
-          </span>
+          <div>
+            <p className="text-gray-400 font-black uppercase text-[9px] tracking-widest">Total Pembayaran</p>
+            <p className="text-2xl font-black text-orange-600 tracking-tighter">
+              Rp {total.toLocaleString()}
+            </p>
+          </div>
         </div>
         <button 
           onClick={onCheckout}
           disabled={cart.length === 0}
-          className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black text-lg shadow-lg hover:bg-orange-600 active:scale-95 transition-all disabled:bg-gray-200"
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-orange-200 hover:shadow-orange-300 active:scale-[0.98] transition-all disabled:from-gray-300 disabled:to-gray-400 disabled:shadow-none"
         >
           KONFIRMASI PESANAN
         </button>
