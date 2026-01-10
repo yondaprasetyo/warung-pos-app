@@ -25,16 +25,24 @@ const SalesLaporan = () => {
 
     // 2. Proses Data Orders (Monitoring)
     orders.forEach(order => {
-      const orderDate = new Date(order.createdAt).toDateString();
+      // Gunakan objek Date untuk memastikan format tanggal seragam
+      const d = new Date(order.createdAt);
+      const orderDateStr = d.toDateString(); 
       const isDone = order.status === 'Selesai';
 
       if (isDone) {
-        if (orderDate === todayStr) {
+        // 1. Logika untuk Omzet Hari Ini (Sudah berjalan)
+        if (orderDateStr === todayStr) {
           todayRevenue += (order.total || 0);
           todayCount++;
         }
-        const dayData = last7Days.find(d => d.dateStr === orderDate);
-        if (dayData) dayData.total += (order.total || 0);
+
+        // 2. PERBAIKAN: Logika untuk Grafik Mingguan
+        // Pastikan perbandingan string tanggal tepat
+        const dayData = last7Days.find(d => d.dateStr === orderDateStr);
+        if (dayData) {
+          dayData.total += (order.total || 0);
+        }
       }
     });
 
