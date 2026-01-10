@@ -7,14 +7,17 @@ const SalesLaporan = () => {
   const { orders } = useShop(currentUser);
 
   const stats = useMemo(() => {
-    const todayStr = new Date().toDateString();
+    // 1. Ambil tanggal hari ini dalam format YYYY-MM-DD (contoh: 2024-05-22)
+    const todayISO = new Date().toISOString().split('T')[0];
     
-    // 1. Inisialisasi Data 7 Hari Terakhir untuk Grafik (Dashboard)
+    // 2. Inisialisasi 7 hari terakhir menggunakan format ISO untuk pencocokan presisi
     const last7Days = [...Array(7)].map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
       return {
-        dateStr: d.toDateString(),
+        // isoDate digunakan untuk perbandingan data (pasti cocok)
+        isoDate: d.toISOString().split('T')[0],
+        // label digunakan untuk tampilan di sumbu X grafik
         label: d.toLocaleDateString('id-ID', { weekday: 'short' }),
         total: 0
       };
@@ -23,32 +26,36 @@ const SalesLaporan = () => {
     let todayRevenue = 0;
     let todayCount = 0;
 
-    // 2. Proses Data Orders (Monitoring)
+    // 3. Proses Data Orders
     orders.forEach(order => {
-      // Gunakan objek Date untuk memastikan format tanggal seragam
-      const d = new Date(order.createdAt);
-      const orderDateStr = d.toDateString(); 
-      const isDone = order.status === 'Selesai';
+      if (!order.createdAt || order.status !== 'Selesai') return;
 
-      if (isDone) {
-        // 1. Logika untuk Omzet Hari Ini (Sudah berjalan)
-        if (orderDateStr === todayStr) {
-          todayRevenue += (order.total || 0);
-          todayCount++;
-        }
+      // Konversi createdAt ke format ISO YYYY-MM-DD
+      const orderDateISO = new Date(order.createdAt).toISOString().split('T')[0];
 
-        // 2. PERBAIKAN: Logika untuk Grafik Mingguan
-        // Pastikan perbandingan string tanggal tepat
-        const dayData = last7Days.find(d => d.dateStr === orderDateStr);
-        if (dayData) {
-          dayData.total += (order.total || 0);
-        }
+      // Hitung Omzet Hari Ini
+      if (orderDateISO === todayISO) {
+        todayRevenue += (order.total || 0);
+        todayCount++;
+      }
+
+      // Masukkan ke grafik: cari berdasarkan isoDate
+      const dayData = last7Days.find(d => d.isoDate === orderDateISO);
+      if (dayData) {
+        dayData.total += (order.total || 0);
       }
     });
 
+    // Cari nilai tertinggi untuk skala grafik (minimal 1 agar tidak bagi nol)
     const maxTotal = Math.max(...last7Days.map(d => d.total), 1);
 
-    return { todayRevenue, todayCount, allTimeCount: orders.length, chartData: last7Days, maxTotal };
+    return { 
+      todayRevenue, 
+      todayCount, 
+      allTimeCount: orders.length, 
+      chartData: last7Days, 
+      maxTotal 
+    };
   }, [orders]);
 
   return (
