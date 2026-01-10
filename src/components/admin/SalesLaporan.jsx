@@ -125,9 +125,10 @@ const SalesLaporan = () => {
           <h3 className="text-4xl font-black text-gray-800 text-center">{stats.totalCount}</h3>
         </div>
         <div className="bg-white p-8 rounded-[2.5rem] border-2 border-gray-50 flex flex-col justify-center">
-          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1 text-center">Rata-rata Harian</p>
+          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1 text-center">Rata-rata per Pesanan</p>
           <h3 className="text-4xl font-black text-orange-500 text-center">
-            Rp {Math.round(stats.totalRevenue / (stats.chartData.length || 1)).toLocaleString()}
+            {/* PERBAIKAN: Pembagi menggunakan totalCount agar lebih akurat */}
+            Rp {stats.totalCount > 0 ? Math.round(stats.totalRevenue / stats.totalCount).toLocaleString() : 0}
           </h3>
         </div>
       </div>
@@ -180,7 +181,7 @@ const SalesLaporan = () => {
         </div>
       </div>
 
-      {/* DATA TABLE DENGAN RINCIAN VARIAN */}
+      {/* DATA TABLE */}
       <div className="bg-white rounded-[2.5rem] border-2 border-gray-50 shadow-sm overflow-hidden">
         <div className="p-8 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
           <h4 className="font-black text-gray-700 uppercase tracking-widest text-xs">📜 Rincian Transaksi</h4>
@@ -209,7 +210,6 @@ const SalesLaporan = () => {
                     </td>
                     <td className="p-6">
                       <div className="font-black text-gray-800 uppercase text-xs mb-2 group-hover:text-orange-600 transition-colors">{o.customerName}</div>
-                      {/* RINCIAN ITEM & VARIAN */}
                       <div className="space-y-2">
                         {o.items?.map((item, idx) => (
                           <div key={idx} className="flex justify-between items-start text-[10px] text-gray-500 max-w-sm italic">

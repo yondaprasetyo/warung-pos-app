@@ -57,7 +57,9 @@ const ProductManagement = () => {
       };
 
       if (editingId) {
-        await updateDoc(doc(doc(db, "products", editingId)), payload);
+        // Hanya gunakan satu fungsi doc()
+        const productRef = doc(db, "products", editingId); 
+        await updateDoc(productRef, payload);
         alert("✅ Menu diperbarui!");
       } else {
         await addDoc(collection(db, "products"), { ...payload, createdAt: serverTimestamp() });
