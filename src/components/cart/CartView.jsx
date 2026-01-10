@@ -48,16 +48,19 @@ const CartView = ({ cart, updateQuantity, removeFromCart, updateCartItemDetails,
                       value={item.variant}
                       onChange={(e) => {
                         const selectedName = e.target.value;
-                        const selectedObj = item.variants.find(v => (v.name || v) === selectedName);
-                        // Ambil harga dari objek varian, jika tidak ada pakai harga dasar
-                        const newPrice = selectedObj?.price || item.basePrice || item.price;
+                        // Cari objek varian dari array variants untuk mendapatkan harganya
+                        const variantObj = item.variants.find(v => (v.name || v) === selectedName);
                         
+                        // Tentukan harga baru: jika varian punya harga sendiri pakai itu, 
+                        // jika tidak pakai harga dasar produk
+                        const newPrice = variantObj?.price ? Number(variantObj.price) : Number(item.basePrice);
+
                         updateCartItemDetails(index, { 
                           variant: selectedName,
-                          price: Number(newPrice) 
+                          price: newPrice 
                         });
                       }}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 focus:ring-2 focus:ring-orange-500 outline-none appearance-none cursor-pointer pr-10 shadow-sm"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700"
                     >
                       {item.variants.map((v, i) => {
                         const vName = v.name || v;

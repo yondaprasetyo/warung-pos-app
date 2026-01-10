@@ -47,26 +47,48 @@ export const useShop = (currentUser) => {
   }, [currentUser]); //
 
   // 2. FUNGSI KERANJANG (CART)
-  const addToCart = (product, variant = '', note = '') => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id && item.variant === variant);
-      if (existing) {
-        return prev.map(item => 
-          (item.id === product.id && item.variant === variant) 
-            ? { ...item, quantity: item.quantity + 1, note } 
-            : item
-        );
+  const addToCart = (product, variantName, note) => {
+    setCart(prevCart => {
+      // Cari apakah item dengan varian yang sama sudah ada
+      const existingIndex = prevCart.findIndex(item => 
+        item.id === product.id && item.variant === variantName
+      );
+
+      if (existingIndex > -1) {
+        const newCart = [...prevCart];
+        newCart[existingIndex].quantity += 1;
+        return newCart;
       }
-      return [...prev, { ...product, quantity: 1, variant, note }];
+
+      // Ambil harga varian jika ada
+      const variantObj = Array.isArray(product.variants) 
+        ? product.variants.find(v => (v.name || v) === variantName)
+        : null;
+
+      const finalPrice = variantObj?.price ? Number(variantObj.price) : Number(product.price);
+
+      return [...prevCart, {
+        ...product,
+        basePrice: product.price, // Simpan harga asli sebagai cadangan
+        price: finalPrice,
+        variant: variantName,
+        note: note,
+        quantity: 1,
+        variants: product.variants // Simpan array varian untuk dropdown di cart
+      }];
     });
   };
 
-  const updateQuantity = (id, variant, delta) => {
-    setCart(prev => prev.map(item => 
-      (item.id === id && item.variant === variant) 
-        ? { ...item, quantity: Math.max(1, item.quantity + delta) } 
-        : item
-    ));
+  const updateQuantity = (index, delta) => {
+    setCart(prev => {
+      const newCart = [...prev];
+      const newQty = newCart[index].quantity + delta;
+      if (newQty > 0) {
+        newCart[index].quantity = newQty;
+        return newCart;
+      }
+      return prev;
+    });
   };
 
   const removeFromCart = (id, variant) => {
