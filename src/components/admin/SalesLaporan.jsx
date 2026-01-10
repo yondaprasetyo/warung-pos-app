@@ -7,16 +7,14 @@ const SalesLaporan = () => {
   const { orders } = useShop(currentUser);
 
   const stats = useMemo(() => {
-    // 1. Ambil tanggal lokal hari ini dalam format YYYY-MM-DD (Pasti cocok dengan WIB)
+    // Fungsi tanggal lokal yang konsisten
     const getLocalDate = (date) => {
       const d = new Date(date);
-      // Format 'en-CA' menghasilkan YYYY-MM-DD secara konsisten
-      return d.toLocaleDateString('en-CA'); 
+      return d.toLocaleDateString('en-CA'); // Format: YYYY-MM-DD
     };
 
     const todayStr = getLocalDate(new Date());
     
-    // 2. Siapkan 7 hari terakhir
     const last7Days = [...Array(7)].map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -30,36 +28,29 @@ const SalesLaporan = () => {
     let todayRevenue = 0;
     let todayCount = 0;
 
-    // 3. Proses Orders
     orders.forEach(order => {
-      // Pastikan status adalah 'Selesai' (Huruf 'S' besar sesuai tabel Anda)
+      // Pastikan status 'Selesai' (cek besar kecil huruf sesuai tabel Anda)
       if (!order.createdAt || order.status !== 'Selesai') return;
 
       const orderDateStr = getLocalDate(order.createdAt);
+      // PAKSA JADI ANGKA: Number() untuk menghindari error string
+      const orderTotal = Number(order.total) || 0;
 
-      // Hitung Omzet Hari Ini
       if (orderDateStr === todayStr) {
-        todayRevenue += (order.total || 0);
+        todayRevenue += orderTotal;
         todayCount++;
       }
 
-      // Masukkan ke Grafik
       const dayData = last7Days.find(d => d.dateStr === orderDateStr);
       if (dayData) {
-        dayData.total += (order.total || 0);
+        dayData.total += orderTotal;
       }
     });
 
-    // Cari nilai tertinggi agar batang grafik punya skala (minimal 1)
+    // Cari nilai tertinggi untuk skala (minimal 1 agar tidak pembagian nol)
     const maxTotal = Math.max(...last7Days.map(d => d.total), 1);
 
-    return { 
-      todayRevenue, 
-      todayCount, 
-      allTimeCount: orders.length, 
-      chartData: last7Days, 
-      maxTotal 
-    };
+    return { todayRevenue, todayCount, allTimeCount: orders.length, chartData: last7Days, maxTotal };
   }, [orders]);
 
   return (
