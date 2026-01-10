@@ -89,7 +89,7 @@ const App = () => {
             <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold">
               🛒 {cart.reduce((a, b) => a + b.quantity, 0)}
             </button>
-            <button onClick={() => setIsPublicMode(false)} className="bg-gray-100 text-gray-400 px-4 py-2 rounded-xl text-sm font-bold">Login Staff</button>
+            <button onClick={() => setIsPublicMode(false)} className="bg-gray-100 text-gray-400 px-4 py-2 rounded-xl text-sm font-bold">Login</button>
           </div>
         </header>
         <main className="p-4 max-w-7xl mx-auto">
