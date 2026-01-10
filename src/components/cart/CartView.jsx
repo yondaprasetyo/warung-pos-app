@@ -31,8 +31,8 @@ const CartView = ({ cart, updateQuantity, removeFromCart, updateCartItemDetails,
                 </button>
               </div>
 
-              {/* --- DROPDOWN VARIAN (Perbaikan Panah Dobel) --- */}
-              {item.variants && item.variants.trim() !== "" && (
+              {/* --- PERBAIKAN: DROPDOWN VARIAN UNTUK ARRAY --- */}
+              {Array.isArray(item.variants) && item.variants.length > 0 && (
                 <div className="mt-2">
                   <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                     <Check size={10} className="text-green-500" /> Pilih Bagian
@@ -40,15 +40,24 @@ const CartView = ({ cart, updateQuantity, removeFromCart, updateCartItemDetails,
                   <div className="relative group">
                     <select 
                       value={item.variant}
-                      onChange={(e) => updateCartItemDetails(index, { variant: e.target.value })}
-                      // Fokus pada appearance-none dan padding right
+                      onChange={(e) => {
+                        const selectedName = e.target.value;
+                        // Cari objek varian yang sesuai untuk mendapatkan harga barunya
+                        const selectedObj = item.variants.find(v => (v.name || v) === selectedName);
+                        const newPrice = selectedObj?.price || item.basePrice || item.price;
+                        
+                        updateCartItemDetails(index, { 
+                          variant: selectedName,
+                          price: Number(newPrice) 
+                        });
+                      }}
                       className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 focus:ring-2 focus:ring-orange-500 outline-none appearance-none cursor-pointer pr-10 shadow-sm"
                     >
-                      {item.variants.split(',').map((v, i) => (
-                        <option key={i} value={v.trim()}>{v.trim()}</option>
-                      ))}
+                      {item.variants.map((v, i) => {
+                        const vName = v.name || v;
+                        return <option key={i} value={vName}>{vName}</option>;
+                      })}
                     </select>
-                    {/* Ikon panah kustom diletakkan secara absolut */}
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-orange-500 transition-colors">
                       <ChevronDown size={16} />
                     </div>
