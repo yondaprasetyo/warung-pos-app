@@ -47,26 +47,20 @@ const App = () => {
   const executeCheckout = async () => {
     if (customerNameInput.trim()) {
       try {
-        // 1. Simpan pesanan ke database
         const order = await checkout(customerNameInput);
-        
         if (order) {
-          // 2. LOGIKA PENGURANGAN STOK OTOMATIS (Client-Side)
           const batch = writeBatch(db);
           let hasStockUpdate = false;
 
           cart.forEach((item) => {
-            // Hanya kurangi jika stok bukan -1 (Unlimited)
             if (item.stock !== -1) {
               const productRef = doc(db, "products", item.id);
-              // Pastikan stok tidak menjadi negatif
               const newStock = Math.max(0, item.stock - item.quantity);
               batch.update(productRef, { stock: newStock });
               hasStockUpdate = true;
             }
           });
 
-          // Jalankan semua update stok sekaligus
           if (hasStockUpdate) {
             await batch.commit();
           }
@@ -75,7 +69,6 @@ const App = () => {
           navigateTo('receipt');
         }
       } catch (err) {
-        // Jika Rules belum diperbarui, error ini akan muncul di sini
         alert("Gagal memproses pesanan: " + err.message);
       }
     }
@@ -105,8 +98,39 @@ const App = () => {
     </div>
   );
 
-  // LOGIC: PUBLIC MODE (Mode Pelanggan)
-  if (!currentUser && isPublicMode) {
+  // --- LOGIKA URUTAN TAMPILAN (DIPERBAIKI) ---
+
+  // 1. PRIORITAS UTAMA: JIKA USER LOGIN (ADMIN/STAFF)
+  if (currentUser) {
+    return (
+      <div className="min-h-screen bg-orange-50/30 pb-10">
+        <Header user={currentUser} cartCount={cart.reduce((a, b) => a + b.quantity, 0)} onNavigate={navigateTo} onLogout={logout} currentView={currentView} />
+        <main className="mt-6 px-4 max-w-7xl mx-auto">
+          {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
+          {currentView === 'cart' && (
+            <CartView 
+              cart={cart} 
+              updateQuantity={updateQuantity} 
+              removeFromCart={removeFromCart} 
+              updateCartItemDetails={updateCartItemDetails}
+              onCheckout={handleConfirmCheckout} 
+              onBack={() => setCurrentView('menu')}
+            />
+          )}
+          {currentView === 'orders' && <OrderHistory orders={orders} />}
+          {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
+          {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
+          {currentView === 'users' && currentUser.role === 'admin' && <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => { logout(); navigateTo('register'); }} />}
+          {currentView === 'receipt' && <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />}
+          {currentView === 'profile' && <ProfileView user={currentUser} onUpdate={() => alert('Fitur segera hadir')} />}
+        </main>
+        {showNameModal && renderNameModal()}
+      </div>
+    );
+  }
+
+  // 2. JIKA DALAM MODE PELANGGAN (DIPERBAIKI: HANYA JIKA TIDAK LOGIN)
+  if (isPublicMode) {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
@@ -137,39 +161,13 @@ const App = () => {
     );
   }
 
-  if (!currentUser) {
-    if (currentView === 'register') return <RegisterView onRegister={(d) => register(d) && navigateTo('login')} onBack={() => navigateTo('login')} error={authError} />;
-    return (
-      <div className="relative">
-        <LoginView onLogin={login} onRegisterClick={() => navigateTo('register')} error={authError} />
-        <button onClick={() => setIsPublicMode(true)} className="absolute top-4 right-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all">🛒 Mode Pelanggan</button>
-      </div>
-    );
-  }
-
+  // 3. JIKA TIDAK LOGIN DAN TIDAK MODE PELANGGAN: TAMPILKAN LOGIN
+  if (currentView === 'register') return <RegisterView onRegister={(d) => register(d) && navigateTo('login')} onBack={() => navigateTo('login')} error={authError} />;
+  
   return (
-    <div className="min-h-screen bg-orange-50/30 pb-10">
-      <Header user={currentUser} cartCount={cart.reduce((a, b) => a + b.quantity, 0)} onNavigate={navigateTo} onLogout={logout} currentView={currentView} />
-      <main className="mt-6 px-4 max-w-7xl mx-auto">
-        {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
-        {currentView === 'cart' && (
-          <CartView 
-            cart={cart} 
-            updateQuantity={updateQuantity} 
-            removeFromCart={removeFromCart} 
-            updateCartItemDetails={updateCartItemDetails}
-            onCheckout={handleConfirmCheckout} 
-            onBack={() => setCurrentView('menu')}
-          />
-        )}
-        {currentView === 'orders' && <OrderHistory orders={orders} />}
-        {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
-        {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
-        {currentView === 'users' && currentUser.role === 'admin' && <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => { logout(); navigateTo('register'); }} />}
-        {currentView === 'receipt' && <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />}
-        {currentView === 'profile' && <ProfileView user={currentUser} onUpdate={() => alert('Fitur segera hadir')} />}
-      </main>
-      {showNameModal && renderNameModal()}
+    <div className="relative">
+      <LoginView onLogin={login} onRegisterClick={() => navigateTo('register')} error={authError} />
+      <button onClick={() => setIsPublicMode(true)} className="absolute top-4 right-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all">🛒 Mode Pelanggan</button>
     </div>
   );
 };
