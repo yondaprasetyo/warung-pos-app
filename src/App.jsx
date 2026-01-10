@@ -28,7 +28,8 @@ const App = () => {
   
   const { 
     cart, orders, currentOrder, setCurrentOrder,
-    addToCart, updateQuantity, removeFromCart, checkout
+    addToCart, updateQuantity, removeFromCart, checkout,
+    updateCartItemDetails // PASTIKAN FUNGSI INI ADA DI useShop.js
   } = useShop(currentUser);
 
   const navigateTo = (view) => {
@@ -60,7 +61,7 @@ const App = () => {
   // UI MODAL NAMA
   const renderNameModal = () => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="bg-orange-500 p-6 text-white text-center">
           <h3 className="text-xl font-bold italic">Konfirmasi Pesanan</h3>
           <p className="text-orange-100 text-sm">Masukkan nama pelanggan</p>
@@ -72,7 +73,7 @@ const App = () => {
             onKeyDown={(e) => e.key === 'Enter' && executeCheckout()}
           />
           <div className="flex flex-col gap-3 mt-8">
-            <button onClick={executeCheckout} className="w-full py-4 rounded-2xl font-black text-white bg-orange-500 shadow-xl">SIMPAN & CETAK STRUK</button>
+            <button onClick={executeCheckout} className="w-full py-4 rounded-2xl font-black text-white bg-orange-500 shadow-xl hover:bg-orange-600 active:scale-95 transition-all">SIMPAN & CETAK STRUK</button>
             <button onClick={() => setShowNameModal(false)} className="w-full py-3 text-gray-400 font-bold">Nanti Saja</button>
           </div>
         </div>
@@ -80,7 +81,7 @@ const App = () => {
     </div>
   );
 
-  // LOGIC: PUBLIC MODE
+  // LOGIC: PUBLIC MODE (Mode Pelanggan)
   if (!currentUser && isPublicMode) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -95,7 +96,15 @@ const App = () => {
         </header>
         <main className="p-4 max-w-7xl mx-auto">
           {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
-          {currentView === 'cart' && <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} onCheckout={handleConfirmCheckout} />}
+          {currentView === 'cart' && (
+            <CartView 
+              cart={cart} 
+              updateQuantity={updateQuantity} 
+              removeFromCart={removeFromCart} 
+              updateCartItemDetails={updateCartItemDetails}
+              onCheckout={handleConfirmCheckout} 
+            />
+          )}
           {currentView === 'receipt' && <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />}
         </main>
         {showNameModal && renderNameModal()}
@@ -109,7 +118,7 @@ const App = () => {
     return (
       <div className="relative">
         <LoginView onLogin={login} onRegisterClick={() => navigateTo('register')} error={authError} />
-        <button onClick={() => setIsPublicMode(true)} className="absolute top-4 right-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg">🛒 Mode Pelanggan</button>
+        <button onClick={() => setIsPublicMode(true)} className="absolute top-4 right-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all">🛒 Mode Pelanggan</button>
       </div>
     );
   }
@@ -120,12 +129,20 @@ const App = () => {
       <Header user={currentUser} cartCount={cart.reduce((a, b) => a + b.quantity, 0)} onNavigate={navigateTo} onLogout={logout} currentView={currentView} />
       <main className="mt-6 px-4 max-w-7xl mx-auto">
         {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
-        {currentView === 'cart' && <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} onCheckout={handleConfirmCheckout} />}
-        {currentView === 'orders' && <OrderHistory orders={orders} />}
         
-        {/* TAMBAHKAN BARIS INI UNTUK MERENDER LAPORAN */}
+        {/* PERBAIKAN: Menambahkan updateCartItemDetails pada props CartView */}
+        {currentView === 'cart' && (
+          <CartView 
+            cart={cart} 
+            updateQuantity={updateQuantity} 
+            removeFromCart={removeFromCart} 
+            updateCartItemDetails={updateCartItemDetails}
+            onCheckout={handleConfirmCheckout} 
+          />
+        )}
+        
+        {currentView === 'orders' && <OrderHistory orders={orders} />}
         {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
-
         {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
         {currentView === 'users' && currentUser.role === 'admin' && <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => { logout(); navigateTo('register'); }} />}
         {currentView === 'receipt' && <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />}
