@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { auth, db } from '../firebase'; // Pastikan import ini benar
+import { auth, db } from '../firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -13,40 +13,46 @@ import {
   collection, 
   getDocs, 
   deleteDoc 
-} from 'firebase/firestore'; // Tambahkan import collection, getDocs, deleteDoc
+} from 'firebase/firestore';
 
 export const useAuth = () => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [users, setUsers] = useState([]); // Kembalikan state users
+  const [users, setUsers] = useState([]);
   const [authError, setAuthError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // 1. Cek status login user secara real-time
+  // 1. MONITOR STATUS AUTH & AMBIL PROFIL
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setLoading(true);
       if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          setCurrentUser({ ...user, ...userDoc.data() });
-        } else {
-           setCurrentUser(user); 
+        try {
+          // Hanya ambil dokumen profil jika user login
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            setCurrentUser({ uid: user.uid, email: user.email, ...userDoc.data() });
+          } else {
+            setCurrentUser(user); 
+          }
+        } catch (err) {
+          // Tangkap error permission agar aplikasi tidak crash
+          console.warn("Profil Firestore belum bisa diakses:", err.message);
+          setCurrentUser(user); 
         }
       } else {
         setCurrentUser(null);
+        setUsers([]); 
       }
       setLoading(false);
     });
-    return unsubscribe;
+    return () => unsubscribe();
   }, []);
 
-  // 2. Fetch Daftar Semua User (Khusus untuk tampilan Admin)
+  // 2. FETCH DAFTAR SEMUA USER (Dijalankan hanya setelah login berhasil)
   useEffect(() => {
     const fetchUsers = async () => {
-      // PERBAIKAN: Jika belum ada user yang login, JANGAN lakukan fetch
-      if (!currentUser) {
-        setUsers([]); // Reset daftar user jika logout
-        return;
-      }
+      // Pastikan currentUser sudah ada & proses loading profil selesai
+      if (!currentUser) return;
 
       try {
         const querySnapshot = await getDocs(collection(db, "users"));
@@ -56,9 +62,8 @@ export const useAuth = () => {
         }));
         setUsers(usersList);
       } catch (error) {
-        // Error ini biasanya muncul jika user login tapi bukan Admin 
-        // (tergantung Security Rules Anda nanti)
-        console.error("Error fetching users:", error);
+        // Error ini wajar jika user yang login bukan Admin
+        console.error("Gagal mengambil daftar user:", error.message);
       }
     };
     
@@ -71,7 +76,7 @@ export const useAuth = () => {
       await signInWithEmailAndPassword(auth, email, password);
       return true;
     } catch (error) {
-      console.error("Login Error:", error);
+      console.error("Login Error:", error.code);
       setAuthError('Email atau password salah!');
       return false;
     }
@@ -90,15 +95,10 @@ export const useAuth = () => {
         createdAt: new Date().toISOString()
       };
 
-      // Simpan ke Firestore
       await setDoc(doc(db, "users", user.uid), newUser);
-      
-      // Update state lokal agar Admin langsung melihat user baru tanpa refresh
       setUsers(prev => [...prev, { id: user.uid, ...newUser }]);
-      
       return true;
     } catch (error) {
-      console.error(error);
       if (error.code === 'auth/email-already-in-use') {
         setAuthError('Email sudah terdaftar!');
       } else {
@@ -109,33 +109,33 @@ export const useAuth = () => {
   };
 
   const logout = async () => {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
   };
 
-  // 3. Tambahkan fungsi Delete User (Hapus dari Database Firestore)
   const deleteUser = async (userId) => {
     if (window.confirm("Yakin ingin menghapus user ini?")) {
       try {
         await deleteDoc(doc(db, "users", userId));
-        // Update state lokal
-        setUsers(users.filter(u => u.id !== userId));
+        setUsers(prev => prev.filter(u => u.id !== userId));
       } catch (error) {
-        console.error("Error deleting user:", error);
-        alert("Gagal menghapus user");
+        alert("Gagal menghapus user: " + error.message);
       }
     }
   };
 
-  // Jangan lupa return 'users' dan 'deleteUser' di sini!
   return { 
     currentUser, 
-    users,        // <--- Penting: Kembalikan users
+    users, 
     authError, 
     setAuthError, 
     login, 
     logout, 
     register, 
-    deleteUser,   // <--- Penting: Kembalikan deleteUser
+    deleteUser, 
     loading 
   };
 };
