@@ -101,7 +101,7 @@ const App = () => {
               cart={cart} 
               updateQuantity={updateQuantity} 
               removeFromCart={removeFromCart} 
-              updateCartItemDetails={updateCartItemDetails}
+              updateCartItemDetails={updateCartItemDetails} // Baris ini krusial!
               onCheckout={handleConfirmCheckout} 
             />
           )}
