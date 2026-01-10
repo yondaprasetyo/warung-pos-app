@@ -84,10 +84,10 @@ export const useShop = (currentUser) => {
       const item = newCart[index];
       const newQty = item.quantity + delta;
       
-      // VALIDASI STOK: Jangan biarkan melebihi stok yang ada
+      // CEK STOK: Jika menambah (+) dan stok tidak tak terbatas (-1), pastikan tidak lebih dari stok
       if (delta > 0 && item.stock !== -1 && newQty > item.stock) {
-        alert(`Stok terbatas! Hanya tersedia ${item.stock} porsi.`);
-        return prev;
+        alert(`Maaf, sisa stok ${item.name} hanya ada ${item.stock}.`);
+        return prev; // Batalkan perubahan jika melebihi stok
       }
 
       if (newQty > 0) {

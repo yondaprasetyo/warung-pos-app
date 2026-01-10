@@ -109,15 +109,18 @@ const CartView = ({
                   >
                     <Minus size={14} />
                   </button>
+                  
                   <span className="w-8 text-center font-bold text-sm text-gray-700">
                     {item.quantity}
                   </span>
+                  
+                  {/* LOGIKA PENTING: Matikan tombol jika quantity mencapai stok */}
                   <button 
                     onClick={() => updateQuantity(index, 1)} 
                     disabled={item.stock !== -1 && item.quantity >= item.stock}
                     className={`p-2 transition ${
                       item.stock !== -1 && item.quantity >= item.stock 
-                      ? 'text-gray-300 cursor-not-allowed' 
+                      ? 'text-gray-200 cursor-not-allowed bg-gray-50' 
                       : 'hover:bg-orange-50 text-orange-500'
                     }`}
                   >
