@@ -7,14 +7,22 @@ const SalesLaporan = () => {
   const { orders } = useShop(currentUser);
 
   const stats = useMemo(() => {
-    // Fungsi tanggal lokal yang konsisten
-    const getLocalDate = (date) => {
-      const d = new Date(date);
-      return d.toLocaleDateString('en-CA'); // Format: YYYY-MM-DD
+    // 1. Fungsi penanganan tanggal (Firebase Timestamp vs Date standar)
+    const getLocalDate = (dateSource) => {
+      try {
+        if (!dateSource) return null;
+        // Penanganan toDate() untuk Firebase
+        const d = dateSource.toDate ? dateSource.toDate() : new Date(dateSource);
+        if (isNaN(d.getTime())) return null;
+        return d.toLocaleDateString('en-CA'); // YYYY-MM-DD
+      } catch {
+        return null;
+      }
     };
 
     const todayStr = getLocalDate(new Date());
     
+    // 2. Inisialisasi 7 hari terakhir
     const last7Days = [...Array(7)].map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -28,26 +36,28 @@ const SalesLaporan = () => {
     let todayRevenue = 0;
     let todayCount = 0;
 
+    // 3. Iterasi pesanan untuk mengisi data
     orders.forEach(order => {
-      // Pastikan status 'Selesai' (cek besar kecil huruf sesuai tabel Anda)
+      // Hanya proses status 'Selesai'
       if (!order.createdAt || order.status !== 'Selesai') return;
 
       const orderDateStr = getLocalDate(order.createdAt);
-      // PAKSA JADI ANGKA: Number() untuk menghindari error string
       const orderTotal = Number(order.total) || 0;
 
+      // Update Angka Kartu
       if (orderDateStr === todayStr) {
         todayRevenue += orderTotal;
         todayCount++;
       }
 
+      // Update Array Grafik
       const dayData = last7Days.find(d => d.dateStr === orderDateStr);
       if (dayData) {
         dayData.total += orderTotal;
       }
     });
 
-    // Cari nilai tertinggi untuk skala (minimal 1 agar tidak pembagian nol)
+    // Cari nilai tertinggi untuk skala grafik (minimal 1 agar tidak bagi nol)
     const maxTotal = Math.max(...last7Days.map(d => d.total), 1);
 
     return { todayRevenue, todayCount, allTimeCount: orders.length, chartData: last7Days, maxTotal };
@@ -55,7 +65,7 @@ const SalesLaporan = () => {
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
-      {/* HEADER LAPORAN */}
+      {/* HEADER */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">Laporan Penjualan</h2>
         <div className="text-sm font-medium text-orange-600 bg-orange-50 px-4 py-1 rounded-full border border-orange-100">
@@ -63,7 +73,7 @@ const SalesLaporan = () => {
         </div>
       </div>
 
-      {/* SECTION DASHBOARD: KARTU ANGKA */}
+      {/* SECTION KARTU ANGKA */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-orange-500 text-white p-6 rounded-2xl shadow-lg shadow-orange-100">
           <p className="text-xs opacity-80 uppercase font-bold tracking-widest">Omzet Hari Ini</p>
@@ -79,29 +89,34 @@ const SalesLaporan = () => {
         </div>
       </div>
 
-      {/* SECTION DASHBOARD: GRAFIK MINGGUAN */}
+      {/* SECTION GRAFIK */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <h4 className="font-bold text-gray-700 mb-8 flex items-center gap-2">
           📈 Tren Omzet 7 Hari Terakhir
         </h4>
         <div className="flex items-end justify-between h-48 gap-3 px-2">
-          {stats.chartData.map((day, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center group relative">
-              <div 
-                className="w-full bg-orange-100 group-hover:bg-orange-400 rounded-t-lg transition-all duration-700"
-                style={{ height: `${(day.total / stats.maxTotal) * 100}%`, minHeight: '6px' }}
-              >
-                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
-                  Rp {day.total.toLocaleString()}
+          {stats.chartData.map((day, i) => {
+            // Kalkulasi tinggi batang
+            const percentage = (day.total / stats.maxTotal) * 100;
+            
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center group relative">
+                <div 
+                  className="w-full bg-orange-100 group-hover:bg-orange-400 rounded-t-lg transition-all duration-700"
+                  style={{ height: `${percentage}%`, minHeight: '6px' }}
+                >
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                    Rp {day.total.toLocaleString()}
+                  </div>
                 </div>
+                <span className="text-[10px] font-bold text-gray-400 mt-3">{day.label}</span>
               </div>
-              <span className="text-[10px] font-bold text-gray-400 mt-3">{day.label}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* SECTION MONITORING: TABEL TRANSAKSI TERBARU */}
+      {/* SECTION TABEL TRANSAKSI */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-5 border-b bg-gray-50/50 flex justify-between items-center">
           <h4 className="font-bold text-gray-700">📜 10 Transaksi Terakhir</h4>
@@ -120,22 +135,25 @@ const SalesLaporan = () => {
               </tr>
             </thead>
             <tbody className="divide-y text-sm">
-              {orders.slice(0, 10).map((order) => (
-                <tr key={order.id} className="hover:bg-orange-50/30 transition-colors">
-                  <td className="p-4 text-gray-500 font-medium">
-                    {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                  <td className="p-4 font-bold text-gray-800">{order.customerName}</td>
-                  <td className="p-4 text-right font-black text-gray-900">Rp {order.total?.toLocaleString()}</td>
-                  <td className="p-4 text-center">
-                    <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
-                      order.status === 'Selesai' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'
-                    }`}>
-                      {order.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {orders.slice(0, 10).map((order) => {
+                const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                return (
+                  <tr key={order.id} className="hover:bg-orange-50/30 transition-colors">
+                    <td className="p-4 text-gray-500 font-medium">
+                      {orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="p-4 font-bold text-gray-800">{order.customerName}</td>
+                    <td className="p-4 text-right font-black text-gray-900">Rp {Number(order.total).toLocaleString()}</td>
+                    <td className="p-4 text-center">
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
+                        order.status === 'Selesai' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'
+                      }`}>
+                        {order.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
