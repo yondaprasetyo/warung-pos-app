@@ -5,7 +5,7 @@ const OrderDateSelector = ({ onSelectDate }) => {
   const [selectedDate, setSelectedDate] = useState('');
 
   const getDayName = (dateString) => {
-    const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const d = new Date(dateString);
     return days[d.getDay()];
   };

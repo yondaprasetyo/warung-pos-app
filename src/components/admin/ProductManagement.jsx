@@ -15,7 +15,7 @@ const ProductManagement = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState(''); // State untuk pencarian
+  const [searchTerm, setSearchTerm] = useState('');
   
   const [formData, setFormData] = useState({
     name: '', price: '', stock: '', category: 'Ayam', imageUrl: '', availableDays: [] 
@@ -32,6 +32,24 @@ const ProductManagement = () => {
   }, []);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  // LOGIKA RINGKASAN MENU PER HARI
+  const getDailyStats = () => {
+    const stats = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 };
+    products.forEach(p => {
+      if (p.availableDays && p.availableDays.length > 0) {
+        p.availableDays.forEach(dayId => {
+          if (Object.prototype.hasOwnProperty.call(stats, dayId)) stats[dayId]++;
+        });
+      } else {
+        // Jika tidak ada hari dipilih, asumsikan tersedia setiap hari
+        Object.keys(stats).forEach(key => stats[key]++);
+      }
+    });
+    return stats;
+  };
+
+  const dailyStats = getDailyStats();
 
   // LOGIKA FILTER PENCARIAN
   const filteredProducts = products.filter(product =>
@@ -90,7 +108,7 @@ const ProductManagement = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (loading) return <div className="p-10 text-center font-black text-orange-500 animate-pulse">MEMUAT DATA...</div>;
+  if (loading) return <div className="p-10 text-center font-black text-orange-500 animate-pulse text-2xl italic">MEMUAT DATA...</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 pb-24 font-sans text-gray-800">
@@ -98,7 +116,20 @@ const ProductManagement = () => {
         {editingId ? '📝 Edit Menu' : '🍽️ Tambah Menu'}
       </h2>
 
-      {/* FORM INPUT SECTION */}
+      {/* 1. SECTION RINGKASAN (STATS) */}
+      <div className="grid grid-cols-4 md:grid-cols-7 gap-2 mb-8">
+        {DAYS.map((day) => (
+          <div key={day.id} className="bg-white p-3 rounded-2xl border-2 border-orange-50 shadow-sm text-center">
+            <p className="text-[10px] font-black text-gray-400 uppercase italic">{day.label}</p>
+            <p className="text-xl font-black text-orange-600 leading-none mt-1">
+              {dailyStats[day.id]}
+            </p>
+            <p className="text-[8px] font-bold text-gray-400 uppercase mt-1">Menu</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 2. FORM INPUT SECTION */}
       <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] p-8 shadow-2xl border-4 border-orange-50 mb-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
           <div className="space-y-4">
@@ -118,20 +149,38 @@ const ProductManagement = () => {
           </div>
         </div>
 
-        {/* JADWAL HARI */}
+        {/* JADWAL HARI DENGAN TOMBOL AKSI CEPAT */}
         <div className="mb-10 p-6 bg-yellow-50 rounded-[2rem] border-2 border-yellow-100">
-            <div className="flex items-center gap-2 mb-4 text-orange-600">
-                <Calendar size={20} />
-                <label className="text-xs font-black uppercase italic">Jadwal Tampil Menu</label>
-            </div>
-            <div className="flex flex-wrap gap-2">
-                {DAYS.map((day) => (
-                    <button key={day.id} type="button" onClick={() => toggleDay(day.id)}
-                        className={`flex-1 min-w-[60px] py-4 rounded-xl text-[10px] font-black transition-all border-2 ${formData.availableDays?.includes(day.id) ? 'bg-orange-600 border-orange-700 text-white shadow-md' : 'bg-white border-gray-200 text-gray-400'}`}>
-                        {day.label.toUpperCase()}
-                    </button>
-                ))}
-            </div>
+          <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-orange-600">
+                  <Calendar size={20} />
+                  <label className="text-xs font-black uppercase italic">Jadwal Tampil Menu</label>
+              </div>
+              <div className="flex gap-2">
+                  <button 
+                      type="button" 
+                      onClick={() => setFormData({ ...formData, availableDays: [1, 2, 3, 4, 5, 6, 0] })}
+                      className="text-[9px] font-black bg-orange-200 text-orange-700 px-3 py-1 rounded-lg hover:bg-orange-600 hover:text-white transition-all"
+                  >
+                      PILIH SEMUA
+                  </button>
+                  <button 
+                      type="button" 
+                      onClick={() => setFormData({ ...formData, availableDays: [] })}
+                      className="text-[9px] font-black bg-gray-200 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-400 hover:text-white transition-all"
+                  >
+                      HAPUS SEMUA
+                  </button>
+              </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+              {DAYS.map((day) => (
+                  <button key={day.id} type="button" onClick={() => toggleDay(day.id)}
+                      className={`flex-1 min-w-[60px] py-4 rounded-xl text-[10px] font-black transition-all border-2 ${formData.availableDays?.includes(day.id) ? 'bg-orange-600 border-orange-700 text-white shadow-md' : 'bg-white border-gray-200 text-gray-400'}`}>
+                      {day.label.toUpperCase()}
+                  </button>
+              ))}
+          </div>
         </div>
 
         {/* VARIAN MENU */}
@@ -179,16 +228,12 @@ const ProductManagement = () => {
       {/* --- SECTION DAFTAR MENU + SEARCH --- */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h3 className="text-xl font-black uppercase italic tracking-tighter">Daftar Menu Saat Ini</h3>
-        
-        {/* SEARCH BAR */}
         <div className="relative max-w-sm w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
-                type="text" 
-                placeholder="Cari menu atau kategori..." 
+                type="text" placeholder="Cari menu atau kategori..." 
                 className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-100 rounded-2xl outline-none font-bold text-sm focus:border-orange-500 transition-all shadow-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             />
         </div>
       </div>
@@ -216,7 +261,7 @@ const ProductManagement = () => {
                         <div className="flex items-center gap-1 mt-1">
                             <Calendar size={10} className="text-orange-500" />
                             <p className="text-[9px] font-bold text-orange-500 uppercase tracking-tighter">
-                                {p.availableDays?.length > 0 ? p.availableDays.sort().map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
+                                {p.availableDays?.length > 0 ? p.availableDays.sort((a,b) => a-b).map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
                             </p>
                         </div>
                     </div>
