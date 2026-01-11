@@ -1,205 +1,128 @@
-import React, { useState, useEffect } from 'react';
-import { Search, X, MessageSquare, Check, AlertTriangle } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { db } from '../../firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import ProductCard from './ProductCard';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { formatRupiah } from '../../utils/format';
+import ItemSelectionModal from './ItemSelectionModal';
+import { Utensils, Info } from 'lucide-react';
 
-const MenuView = ({ onAddToCart }) => {
-  const [menuItems, setMenuItems] = useState([]);
+const MenuView = ({ onAddToCart, currentDay }) => {
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('Semua');
-  const [searchQuery, setSearchQuery] = useState('');
 
-  const [showModal, setShowModal] = useState(false);
-  const [activeProduct, setActiveProduct] = useState(null);
-  const [selectedVar, setSelectedVar] = useState('');
-  const [note, setNote] = useState('');
-
-  const categories = [
-    'Semua', 'Ayam', 'Ikan', 'Daging', 'Telur', 
-    'Sayur', 'Tumisan/Osengan', 'Gorengan', 'Nasi', 'Menu Tambahan'
-  ];
-
+  // 1. Ambil data Real-time dari Firestore
   useEffect(() => {
-    const q = query(collection(db, "products"), orderBy("name", "asc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setMenuItems(data);
+    const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
+      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setProducts(items);
       setLoading(false);
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
-  const handleOpenModal = (product) => {
-    if (product.stock === 0) {
-      alert("Maaf, menu ini sudah habis!");
-      return;
-    }
+  // 2. LOGIKA FILTER UTAMA
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      // Filter 1: Jika stok benar-benar 0 (Habis), sembunyikan
+      if (p.stock === 0) return false;
 
-    // Selalu buka modal untuk semua produk agar user bisa mengisi "Catatan Tambahan"
-    // Ini memperbaiki masalah dimana produk tanpa varian langsung masuk keranjang tanpa catatan
-    setActiveProduct(product);
-    
-    // Set varian default jika ada
-    const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-    setSelectedVar(hasVariants ? (product.variants[0].name || product.variants[0]) : '');
-    
-    setNote(''); // Reset catatan setiap buka modal
-    setShowModal(true);
-  };
+      // Filter 2: Cek Jadwal Hari
+      // Jika availableDays kosong atau tidak ada, menu dianggap tersedia SETIAP HARI
+      if (!p.availableDays || p.availableDays.length === 0) return true;
 
-  const confirmAdd = () => {
-    if (activeProduct) {
-      // Cari objek varian untuk mendapatkan harga khusus varian jika ada
-      const variantObj = Array.isArray(activeProduct.variants) 
-        ? activeProduct.variants.find(v => (v.name || v) === selectedVar)
-        : null;
-      
-      const priceToUse = variantObj?.price ? Number(variantObj.price) : Number(activeProduct.price);
+      // Hanya tampilkan jika hari ini (currentDay) ada di dalam daftar hari tersedia
+      return p.availableDays.includes(currentDay);
+    });
+  }, [products, currentDay]);
 
-      // KIRIM: Produk, Nama Varian, Isi Catatan (note), dan Harga
-      onAddToCart(activeProduct, selectedVar, note, priceToUse);
-      
-      setShowModal(false);
-      setActiveProduct(null);
-      setNote(''); // Bersihkan state setelah dikirim
-    }
-  };
+  // Kelompokkan menu berdasarkan kategori untuk tampilan lebih rapi
+  const categories = [...new Set(filteredProducts.map(p => p.category))];
 
-  const filteredMenu = menuItems.filter(item => {
-    const matchCategory = selectedCategory === 'Semua' || item.category === selectedCategory;
-    const matchSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCategory && matchSearch;
-  });
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 font-black text-orange-500 uppercase italic tracking-widest text-xs">Menyiapkan Menu...</p>
+      </div>
+    );
+  }
 
-  if (loading) return <div className="text-center p-20 text-orange-500 font-bold italic">Menyiapkan Menu Lezat...</div>;
+  if (filteredProducts.length === 0) {
+    return (
+      <div className="text-center py-20 px-6">
+        <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Utensils className="text-orange-600" size={32} />
+        </div>
+        <h3 className="font-black text-gray-800 uppercase italic">Yah, Menu Belum Tersedia</h3>
+        <p className="text-gray-400 text-sm mt-2 font-medium">Sepertinya untuk hari ini belum ada menu yang aktif. Silakan hubungi kasir.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-24">
-      {/* SEARCH BAR & CATEGORIES tetap sama */}
-      <div className="mb-8 relative max-w-2xl mx-auto">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-        <input 
-          type="text"
-          placeholder="Lagi pengen makan apa hari ini?..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-4 rounded-2xl border-none shadow-md focus:ring-2 focus:ring-orange-500 transition outline-none"
-        />
-      </div>
-
-      <div className="flex gap-3 overflow-x-auto pb-6 mb-4 scrollbar-hide">
-        {categories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-5 py-2.5 rounded-xl whitespace-nowrap transition-all duration-300 font-semibold text-sm
-              ${selectedCategory === cat
-                ? 'bg-orange-600 text-white shadow-lg shadow-orange-200 -translate-y-1'
-                : 'bg-white text-gray-600 hover:bg-orange-50 border border-gray-100'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* MENU GRID */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-        {filteredMenu.map(item => (
-          <div key={item.id} className="relative group">
-            {item.stock !== -1 && item.stock > 0 && item.stock <= 3 && (
-              <div className="absolute -top-2 -right-2 z-10 bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-lg animate-bounce">
-                SISA {item.stock}!
-              </div>
-            )}
-            <ProductCard 
-              item={item} 
-              onAddToCart={handleOpenModal} 
-            />
+    <div className="p-4 space-y-10">
+      {categories.map(category => (
+        <section key={category}>
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="text-xl font-black text-gray-800 uppercase italic tracking-tighter border-l-4 border-orange-500 pl-3">
+              {category}
+            </h2>
+            <div className="h-[2px] flex-1 bg-gradient-to-r from-gray-200 to-transparent"></div>
           </div>
-        ))}
-      </div>
 
-      {/* MODAL PILIH VARIAN & CATATAN */}
-      {showModal && activeProduct && (
-        <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="relative h-32 bg-orange-500 p-6 flex items-end">
-              <button 
-                onClick={() => setShowModal(false)} 
-                className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/40 transition"
-              >
-                <X size={20} />
-              </button>
-              <div>
-                <h3 className="text-white text-2xl font-bold truncate uppercase tracking-tighter italic">{activeProduct.name}</h3>
-                {activeProduct.stock !== -1 && (
-                  <p className={`text-xs font-bold ${activeProduct.stock <= 3 ? 'text-red-200' : 'text-orange-100'}`}>
-                    Tersedia: {activeProduct.stock} porsi
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="p-6">
-              {/* Render Varian hanya jika ada */}
-              {Array.isArray(activeProduct.variants) && activeProduct.variants.length > 0 && (
-                <>
-                  <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Pilih Bagian/Varian</label>
-                  <div className="flex flex-wrap gap-2 mt-3 mb-6">
-                    {activeProduct.variants.map((v, idx) => {
-                      const name = typeof v === 'string' ? v : v.name;
-                      const price = typeof v === 'object' ? v.price : null;
-                      return (
-                        <button 
-                          key={idx}
-                          onClick={() => setSelectedVar(name)}
-                          className={`px-4 py-2 rounded-xl border-2 font-bold transition-all flex flex-col items-start
-                            ${selectedVar === name 
-                              ? 'border-orange-500 bg-orange-50 text-orange-600' 
-                              : 'border-gray-100 text-gray-500 hover:border-orange-200'}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            {selectedVar === name && <Check size={16} />}
-                            {name}
-                          </div>
-                          {price && <span className="text-[10px] opacity-70">Rp {Number(price).toLocaleString()}</span>}
-                        </button>
-                      );
-                    })}
+          <div className="grid grid-cols-1 gap-4">
+            {filteredProducts
+              .filter(p => p.category === category)
+              .map(product => (
+                <div 
+                  key={product.id}
+                  onClick={() => setSelectedProduct(product)}
+                  className="bg-white rounded-[2rem] p-3 flex gap-4 shadow-sm border border-gray-100 active:scale-[0.98] transition-all overflow-hidden relative group"
+                >
+                  {/* Foto Produk */}
+                  <div className="w-28 h-28 rounded-[1.5rem] overflow-hidden bg-gray-100 shrink-0 border border-gray-50">
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-gray-300">No Image</div>
+                    )}
                   </div>
-                </>
-              )}
 
-              {/* INPUT CATATAN - Memastikan Tersambung ke State 'note' */}
-              <label className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <MessageSquare size={16} /> Catatan Tambahan
-              </label>
-              <textarea 
-                placeholder="Contoh: Gak pake sambal, kuah banyak..."
-                className="w-full p-4 mt-2 border-2 border-gray-100 rounded-2xl bg-gray-50 outline-none focus:border-orange-500 h-24 resize-none transition-all font-medium"
-                value={note} // Menghubungkan ke state note
-                onChange={(e) => setNote(e.target.value)} // Mengubah state saat user mengetik
-              />
+                  {/* Detail Produk */}
+                  <div className="flex flex-col justify-center flex-1">
+                    <h3 className="font-black text-gray-800 uppercase italic leading-tight mb-1">{product.name}</h3>
+                    <p className="text-orange-600 font-black text-lg italic tracking-tighter">
+                      {formatRupiah(product.price)}
+                    </p>
+                    
+                    {/* Indikator Stok Terbatas */}
+                    {product.stock > 0 && product.stock <= 5 && (
+                      <span className="text-[9px] font-black text-red-500 uppercase mt-2 animate-pulse flex items-center gap-1">
+                        <Info size={10} /> Stok Hampir Habis (Sisa {product.stock})
+                      </span>
+                    )}
+                  </div>
 
-              <div className="flex gap-3 mt-8">
-                <button 
-                  onClick={() => setShowModal(false)} 
-                  className="flex-1 py-4 font-bold text-gray-400 hover:text-gray-600 transition"
-                >
-                  Batal
-                </button>
-                <button 
-                  onClick={confirmAdd} 
-                  className="flex-[2] py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-100 hover:bg-orange-600 active:scale-95 transition-all uppercase italic"
-                >
-                  Tambahkan
-                </button>
-              </div>
-            </div>
+                  {/* Tombol Plus */}
+                  <div className="absolute bottom-4 right-4 bg-orange-500 text-white w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-200">
+                    <span className="text-2xl font-black leading-none">+</span>
+                  </div>
+                </div>
+              ))}
           </div>
-        </div>
+        </section>
+      ))}
+
+      {/* MODAL PEMILIHAN VARIAN & CATATAN */}
+      {selectedProduct && (
+        <ItemSelectionModal 
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onConfirm={(item) => {
+            onAddToCart(item);
+            setSelectedProduct(null);
+          }}
+        />
       )}
     </div>
   );
