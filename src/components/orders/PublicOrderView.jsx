@@ -30,7 +30,7 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
     return ['Semua', ...new Set(cats)];
   }, [products]);
 
-  const processedProducts = useMemo(() => {
+  const filteredItems = useMemo(() => {
     return products.map(p => {
       const isAvailableToday = !p.availableDays || 
                                p.availableDays.length === 0 || 
@@ -41,30 +41,32 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         isOutOfStock: p.stock === 0 
       };
     }).filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = activeCategory === 'Semua' || p.category === activeCategory;
-      return matchesSearch && matchesCategory;
+      const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchCat = activeCategory === 'Semua' || p.category === activeCategory;
+      return matchSearch && matchCat;
     });
   }, [products, searchTerm, activeCategory, orderDateInfo]);
 
   if (loading) return (
-    <div className="p-20 text-center font-black text-orange-500 animate-pulse uppercase tracking-[0.2em]">Menyiapkan Kasir...</div>
+    <div className="p-20 text-center font-black text-orange-500 animate-pulse uppercase tracking-[0.2em]">
+      Menyiapkan Kasir...
+    </div>
   );
 
   return (
-    <div className="bg-gray-100 min-h-screen relative">
-      {/* KASIR HEADER FIXED */}
+    <div className="bg-gray-100 min-h-screen">
+      {/* HEADER FIXED */}
       <div className="fixed top-0 left-0 right-0 z-[100] bg-white shadow-lg border-b">
-        <div className="bg-gray-900 px-4 py-2.5 flex justify-between items-center text-white">
+        <div className="bg-gray-900 px-4 py-2.5 flex justify-between items-center text-white font-black italic">
           <div className="flex items-center gap-2">
             <Calendar size={12} className="text-orange-500" />
-            <span className="text-[10px] font-black uppercase tracking-widest italic truncate">POS: {orderDateInfo?.fullDate}</span>
+            <span className="text-[10px] uppercase tracking-widest truncate">POS: {orderDateInfo?.fullDate}</span>
           </div>
           <button 
             onClick={() => { triggerHaptic(); onChangeDate(); }} 
-            className="text-[9px] font-black border border-white/20 px-3 py-1.5 rounded-lg uppercase hover:bg-orange-600 transition-all active:scale-90"
+            className="text-[9px] border border-white/20 px-3 py-1.5 rounded-lg uppercase active:bg-orange-600 transition-all"
           >
-            Ubah
+            Ganti Tanggal
           </button>
         </div>
 
@@ -73,7 +75,7 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text"
-              placeholder="Cari menu cepat..."
+              placeholder="Cari menu kasir..."
               className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-orange-500/20 shadow-inner"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -102,13 +104,10 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         </div>
       </div>
 
-      {/* SPACER KASIR */}
-      <div className="h-[165px]"></div>
-
-      {/* PRODUCT GRID */}
-      <div className="p-4 md:p-6 pb-40">
+      {/* SPACER (pt) UNTUK AREA KASIR */}
+      <div className="pt-[165px] p-4 md:p-6 pb-40">
         <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-          {processedProducts.map(product => {
+          {filteredItems.map(product => {
             const canOrder = product.isAvailableToday && !product.isOutOfStock;
             return (
               <button
@@ -120,7 +119,7 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                   }
                 }}
                 className={`bg-white p-2 rounded-[2rem] shadow-sm border-2 transition-all flex flex-col text-left relative active:scale-95 ${
-                  !canOrder ? 'opacity-40 grayscale border-transparent' : 'hover:border-orange-500 border-transparent shadow-orange-100/10'
+                  !canOrder ? 'opacity-40 grayscale border-transparent cursor-not-allowed' : 'hover:border-orange-500 border-transparent shadow-orange-100/10'
                 }`}
               >
                 <div className="w-full aspect-square rounded-[1.5rem] overflow-hidden bg-gray-50 mb-3 relative shadow-inner">
@@ -133,10 +132,18 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                 </div>
 
                 <div className="px-1 flex flex-col flex-1">
-                  <h4 className="font-bold text-gray-800 uppercase text-[9px] leading-tight mb-2 line-clamp-2 h-7 px-1">{product.name}</h4>
+                  <h4 className="font-bold text-gray-800 uppercase text-[9px] leading-tight mb-2 line-clamp-2 h-7 px-1">
+                    {product.name}
+                  </h4>
                   <div className="flex justify-between items-center mt-auto">
-                    <p className="text-orange-600 font-black text-xs italic">{formatRupiah(product.price)}</p>
-                    {canOrder && <div className="text-orange-500"><Plus size={16} strokeWidth={4} /></div>}
+                    <p className="text-orange-600 font-black text-xs italic">
+                      {formatRupiah(product.price)}
+                    </p>
+                    {canOrder && (
+                      <div className="text-orange-500">
+                        <Plus size={16} strokeWidth={4} />
+                      </div>
+                    )}
                   </div>
                 </div>
               </button>
@@ -149,7 +156,10 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         <ItemSelectionModal 
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          onConfirm={(item) => { onAddToCart(item); setSelectedProduct(null); }}
+          onConfirm={(item) => {
+            onAddToCart(item);
+            setSelectedProduct(null);
+          }}
         />
       )}
     </div>

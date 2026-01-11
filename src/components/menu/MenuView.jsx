@@ -52,36 +52,37 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
     triggerHaptic();
     setUserSelectedTab(category);
 
-    // Scroll tab horizontal ke tengah
     if (e?.currentTarget) {
       e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center' });
     }
 
-    // Scroll vertical ke section (Presisi karena scroll-padding-top di CSS)
     const element = sectionRefs.current[category];
     if (element) {
+      // Langsung menggunakan scrollIntoView karena terbantu scroll-padding-top di CSS
       element.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="text-orange-500 font-black animate-pulse italic uppercase tracking-widest">Memuat Menu...</div>
+    <div className="flex items-center justify-center min-h-screen font-black text-orange-500 animate-pulse italic uppercase">
+      Memuat Menu...
     </div>
   );
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* HEADER FIXED */}
+      {/* HEADER: POSISI FIXED DENGAN Z-INDEX TINGGI */}
       <div className="fixed top-0 left-0 right-0 z-[100] bg-white shadow-xl border-b border-gray-100">
         <div className="bg-orange-600 px-4 py-3 flex justify-between items-center text-white">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-hidden">
             <Calendar size={14} className="shrink-0" />
-            <span className="text-[10px] font-black uppercase italic truncate">Menu: {orderDateInfo?.fullDate}</span>
+            <span className="text-[10px] font-black uppercase italic truncate tracking-tighter">
+              Menu: {orderDateInfo?.fullDate}
+            </span>
           </div>
           <button 
             onClick={() => { triggerHaptic(); onChangeDate(); }}
-            className="text-[9px] font-black bg-white text-orange-600 px-4 py-1.5 rounded-full uppercase active:scale-90 transition-transform shadow-sm"
+            className="text-[9px] font-black bg-white text-orange-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm"
           >
             Ubah
           </button>
@@ -93,7 +94,7 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
             <input 
               type="text" 
               placeholder="Cari menu favorit..." 
-              className="w-full pl-12 pr-4 py-3.5 bg-gray-100 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500/20 shadow-inner"
+              className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500/20 transition-all shadow-inner"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -117,11 +118,8 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         </div>
       </div>
 
-      {/* SPACER (Penting: Menghindari konten tertutup header) */}
-      <div className="h-[200px]"></div>
-
-      {/* MENU CONTENT */}
-      <div className="p-4 space-y-12 max-w-2xl mx-auto pb-40">
+      {/* CONTENT: pt-[210px] WAJIB SAMA DENGAN TINGGI HEADER FIXED */}
+      <div className="pt-[210px] p-4 space-y-12 max-w-2xl mx-auto pb-40">
         {categories.length > 0 ? (
           categories.map(category => (
             <section key={category} ref={el => sectionRefs.current[category] = el}>
@@ -131,40 +129,48 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
               </div>
 
               <div className="grid grid-cols-1 gap-5">
-                {processedProducts.filter(p => p.category === category).map(product => {
-                  const canOrder = product.isAvailableToday && !product.isOutOfStock;
-                  return (
-                    <div 
-                      key={product.id}
-                      onClick={() => canOrder && setSelectedProduct(product)}
-                      className={`bg-white rounded-[2.8rem] p-3 flex gap-4 border border-gray-50 transition-all shadow-sm ${
-                        !canOrder ? 'opacity-50 grayscale' : 'active:scale-[0.97] cursor-pointer hover:border-orange-100 shadow-orange-900/5'
-                      }`}
-                    >
-                      <div className="w-24 h-24 rounded-[2rem] overflow-hidden bg-gray-100 shrink-0 border border-gray-50 shadow-inner">
-                        <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
-                      </div>
-
-                      <div className="flex flex-col justify-center flex-1">
-                        <h3 className="font-black text-gray-800 uppercase italic text-[11px] mb-1.5 leading-tight line-clamp-2">{product.name}</h3>
-                        <p className="text-orange-600 font-black text-lg italic">{formatRupiah(product.price)}</p>
-                      </div>
-
-                      {canOrder && (
-                        <div className="flex items-center pr-3">
-                          <div className="w-12 h-12 bg-orange-500 text-white rounded-[1.3rem] flex items-center justify-center shadow-lg shadow-orange-200">
-                            <Plus size={24} strokeWidth={4} />
-                          </div>
+                {processedProducts
+                  .filter(p => p.category === category)
+                  .map(product => {
+                    const canOrder = product.isAvailableToday && !product.isOutOfStock;
+                    return (
+                      <div 
+                        key={product.id}
+                        onClick={() => canOrder && setSelectedProduct(product)}
+                        className={`bg-white rounded-[2.8rem] p-3 flex gap-4 border border-gray-50 transition-all shadow-sm ${
+                          !canOrder ? 'opacity-50 grayscale' : 'active:scale-[0.97] cursor-pointer hover:border-orange-100 shadow-orange-900/5'
+                        }`}
+                      >
+                        <div className="w-24 h-24 rounded-[2rem] overflow-hidden bg-gray-100 shrink-0 border border-gray-50 shadow-inner">
+                          <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        <div className="flex flex-col justify-center flex-1">
+                          <h3 className="font-black text-gray-800 uppercase italic text-[11px] mb-1.5 leading-tight line-clamp-2">
+                            {product.name}
+                          </h3>
+                          <p className="text-orange-600 font-black text-lg italic">
+                            {formatRupiah(product.price)}
+                          </p>
+                        </div>
+
+                        {canOrder && (
+                          <div className="flex items-center pr-3">
+                            <div className="w-12 h-12 bg-orange-500 text-white rounded-[1.3rem] flex items-center justify-center shadow-lg shadow-orange-200">
+                              <Plus size={24} strokeWidth={4} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             </section>
           ))
         ) : (
-          <div className="text-center py-20 text-gray-300 font-black uppercase italic">Menu tidak ditemukan</div>
+          <div className="text-center py-20 text-gray-300 font-black uppercase italic tracking-widest">
+            Menu tidak ditemukan
+          </div>
         )}
       </div>
 
@@ -172,7 +178,10 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         <ItemSelectionModal 
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          onConfirm={(item) => { onAddToCart(item); setSelectedProduct(null); }}
+          onConfirm={(item) => {
+            onAddToCart(item);
+            setSelectedProduct(null);
+          }}
         />
       )}
     </div>

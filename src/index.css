@@ -14,12 +14,12 @@
 
 html {
   scroll-behavior: smooth;
-  /* Jarak aman supaya judul kategori tidak tertutup header saat discroll */
+  /* Jarak aman agar judul kategori tidak tertutup header fixed */
   scroll-padding-top: 210px; 
 }
 
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
-  /* Mencegah bouncing effect di iOS yang merusak posisi fixed */
+  /* Mencegah efek bouncing yang merusak posisi fixed di mobile */
   overscroll-behavior-y: none; 
 }
