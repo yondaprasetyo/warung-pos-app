@@ -18,7 +18,7 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
             </button>
           )}
           <h1 className="text-xl md:text-2xl font-bold truncate tracking-tight">
-            🍽️ <span className="hidden xs:inline">Warung Makan</span> Mamah Yonda
+            🍽️ <span className="hidden xs:inline"></span> Warung Makan Mamah Yonda
           </h1>
         </div>
         
