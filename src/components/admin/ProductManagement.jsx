@@ -4,7 +4,7 @@ import {
   collection, addDoc, getDocs, doc, 
   updateDoc, deleteDoc, serverTimestamp 
 } from 'firebase/firestore';
-import { Calendar, Package, Tag, Layers, Trash2, Edit3, Plus, Image } from 'lucide-react';
+import { Calendar, Package, Tag, Layers, Trash2, Edit3, Plus, Image, Box, Search } from 'lucide-react';
 
 const DAYS = [
   { id: 1, label: 'Sen' }, { id: 2, label: 'Sel' }, { id: 3, label: 'Rab' },
@@ -15,6 +15,7 @@ const ProductManagement = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(''); // State untuk pencarian
   
   const [formData, setFormData] = useState({
     name: '', price: '', stock: '', category: 'Ayam', imageUrl: '', availableDays: [] 
@@ -31,6 +32,12 @@ const ProductManagement = () => {
   }, []);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  // LOGIKA FILTER PENCARIAN
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const toggleDay = (dayId) => {
     const currentDays = formData.availableDays || [];
@@ -83,16 +90,16 @@ const ProductManagement = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (loading) return <div className="p-10 text-center font-black text-orange-500 animate-pulse">MEMUAT...</div>;
+  if (loading) return <div className="p-10 text-center font-black text-orange-500 animate-pulse">MEMUAT DATA...</div>;
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6 pb-24 font-sans text-gray-800">
-      <h2 className="text-3xl font-black mb-8 uppercase italic tracking-tighter">
+    <div className="max-w-6xl mx-auto p-4 md:p-6 pb-24 font-sans text-gray-800">
+      <h2 className="text-3xl font-black mb-8 uppercase italic tracking-tighter flex items-center gap-3">
         {editingId ? '📝 Edit Menu' : '🍽️ Tambah Menu'}
       </h2>
 
+      {/* FORM INPUT SECTION */}
       <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] p-8 shadow-2xl border-4 border-orange-50 mb-12">
-        {/* IDENTITAS PRODUK */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
           <div className="space-y-4">
              <div className="aspect-square bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center">
@@ -101,7 +108,7 @@ const ProductManagement = () => {
              <input type="text" placeholder="URL Foto" className="w-full p-3 bg-gray-50 rounded-xl text-[10px] font-bold outline-none" value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} />
           </div>
           <div className="md:col-span-2 space-y-6">
-            <input type="text" required placeholder="Nama Masakan" className="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+            <input type="text" required placeholder="Nama Masakan" className="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none uppercase" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
             <div className="grid grid-cols-2 gap-4">
                <input type="number" required placeholder="Harga Dasar" className="w-full p-4 bg-orange-50 rounded-2xl font-black text-orange-600 text-xl" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
                <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}>
@@ -113,8 +120,8 @@ const ProductManagement = () => {
 
         {/* JADWAL HARI */}
         <div className="mb-10 p-6 bg-yellow-50 rounded-[2rem] border-2 border-yellow-100">
-            <div className="flex items-center gap-2 mb-4">
-                <Calendar className="text-orange-600" size={20} />
+            <div className="flex items-center gap-2 mb-4 text-orange-600">
+                <Calendar size={20} />
                 <label className="text-xs font-black uppercase italic">Jadwal Tampil Menu</label>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -127,7 +134,7 @@ const ProductManagement = () => {
             </div>
         </div>
 
-        {/* BAGIAN VARIAN MENU (YANG TADI HILANG) */}
+        {/* VARIAN MENU */}
         <div className="mb-10 space-y-4">
             <div className="flex justify-between items-center">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Layers size={14} /> Varian Menu</label>
@@ -153,13 +160,13 @@ const ProductManagement = () => {
             </div>
         </div>
 
-        {/* PENGATURAN STOK */}
+        {/* STOK */}
         <div className="mb-10 p-6 bg-gray-50 rounded-[2rem] flex items-center gap-6">
             <div className="flex-1">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah Stok</label>
-                <input type="number" disabled={formData.stock === -1} placeholder="Jml" className="w-full p-4 bg-white rounded-xl outline-none font-black text-2xl" value={formData.stock === -1 ? '' : formData.stock} onChange={(e) => setFormData({...formData, stock: e.target.value})} />
+                <input type="number" disabled={formData.stock === -1} className="w-full p-4 bg-white rounded-xl outline-none font-black text-2xl" value={formData.stock === -1 ? '' : formData.stock} onChange={(e) => setFormData({...formData, stock: e.target.value})} />
             </div>
-            <label className="flex items-center gap-3 text-xs font-black text-gray-500 cursor-pointer bg-white px-6 py-4 rounded-2xl border border-gray-200">
+            <label className="flex items-center gap-3 text-xs font-black text-gray-500 cursor-pointer bg-white px-6 py-4 rounded-2xl border border-gray-200 shadow-sm">
                 <input type="checkbox" className="w-6 h-6 accent-orange-500" checked={formData.stock === -1} onChange={(e) => setFormData({...formData, stock: e.target.checked ? -1 : ''})} /> ♾️ UNLIMITED
             </label>
         </div>
@@ -169,36 +176,87 @@ const ProductManagement = () => {
         </button>
       </form>
 
-      {/* TABEL LIST (SUDAH ADA JADWALNYA) */}
+      {/* --- SECTION DAFTAR MENU + SEARCH --- */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <h3 className="text-xl font-black uppercase italic tracking-tighter">Daftar Menu Saat Ini</h3>
+        
+        {/* SEARCH BAR */}
+        <div className="relative max-w-sm w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input 
+                type="text" 
+                placeholder="Cari menu atau kategori..." 
+                className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-100 rounded-2xl outline-none font-bold text-sm focus:border-orange-500 transition-all shadow-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
+      </div>
+
       <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-gray-100">
-        <table className="w-full text-left">
+        <table className="w-full text-left border-collapse">
           <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest italic">
             <tr>
               <th className="p-6">Produk & Jadwal</th>
-              <th className="p-6">Harga</th>
+              <th className="p-6">Varian & Harga</th>
+              <th className="p-6">Stok</th>
               <th className="p-6 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {products.map((p) => (
-              <tr key={p.id} className="hover:bg-orange-50/20 transition-all">
-                <td className="p-6">
-                  <p className="font-black text-gray-800 uppercase italic text-lg">{p.name}</p>
-                  <p className="text-[9px] font-bold text-orange-500 mt-1 uppercase tracking-tighter">
-                    {p.availableDays?.length > 0 ? p.availableDays.sort().map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
-                  </p>
+            {filteredProducts.map((p) => (
+              <tr key={p.id} className="hover:bg-orange-50/20 transition-all group">
+                <td className="p-6 align-top">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
+                        {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Image className="m-auto mt-3 text-gray-300" size={20} />}
+                    </div>
+                    <div>
+                        <p className="font-black text-gray-800 uppercase italic text-base leading-tight">{p.name}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                            <Calendar size={10} className="text-orange-500" />
+                            <p className="text-[9px] font-bold text-orange-500 uppercase tracking-tighter">
+                                {p.availableDays?.length > 0 ? p.availableDays.sort().map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
+                            </p>
+                        </div>
+                    </div>
+                  </div>
                 </td>
-                <td className="p-6 font-black text-orange-600 text-xl italic">Rp {Number(p.price).toLocaleString('id-ID')}</td>
-                <td className="p-6">
+                <td className="p-6 align-top">
+                    <div className="space-y-2">
+                        <div className="text-[10px] font-black text-orange-600">Rp {Number(p.price).toLocaleString('id-ID')} <span className="text-gray-400 font-bold">(Dasar)</span></div>
+                        {p.variants && p.variants.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                                {p.variants.map((v, idx) => (
+                                    <span key={idx} className="text-[8px] font-black bg-white border border-gray-200 px-2 py-1 rounded-md text-gray-500 italic">
+                                        {v.name}: Rp {Number(v.price).toLocaleString('id-ID')}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </td>
+                <td className="p-6 align-top">
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase ${p.stock === -1 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
+                        <Box size={12} />
+                        {p.stock === -1 ? 'Unlimited' : `${p.stock} Porsi`}
+                    </div>
+                </td>
+                <td className="p-6 text-center">
                   <div className="flex justify-center gap-2">
-                    <button onClick={() => startEdit(p)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all"><Edit3 size={18} /></button>
-                    <button onClick={async () => { if(window.confirm('Hapus menu?')) { await deleteDoc(doc(db, "products", p.id)); fetchProducts(); } }} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={18} /></button>
+                    <button onClick={() => startEdit(p)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"><Edit3 size={18} /></button>
+                    <button onClick={async () => { if(window.confirm('Hapus menu ini?')) { await deleteDoc(doc(db, "products", p.id)); fetchProducts(); } }} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        {filteredProducts.length === 0 && (
+            <div className="p-20 text-center font-bold text-gray-400 uppercase text-xs italic">
+                Menu tidak ditemukan...
+            </div>
+        )}
       </div>
     </div>
   );
