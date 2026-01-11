@@ -40,7 +40,10 @@ const ItemSelectionModal = ({ product, onClose, onConfirm }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    // PERBAIKAN PENTING:
+    // Ubah z-[200] menjadi z-[9999] agar tampil DI ATAS Header (z-1000)
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      
       {/* Backdrop dengan animasi opacity */}
       <div 
         className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
@@ -51,15 +54,15 @@ const ItemSelectionModal = ({ product, onClose, onConfirm }) => {
 
       {/* Panel Modal dengan animasi Slide-Up */}
       <div 
-        className={`relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden transition-transform duration-300 ease-out shadow-2xl ${
+        className={`relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden transition-transform duration-300 ease-out shadow-2xl flex flex-col max-h-[90vh] ${
           isAnimating ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
         {/* Handle bar kecil untuk mobile */}
-        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-4 mb-2 sm:hidden" />
+        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-4 mb-2 sm:hidden shrink-0" />
 
         {/* Header Gambar */}
-        <div className="relative h-60 sm:h-64 bg-gray-100">
+        <div className="relative h-60 sm:h-64 bg-gray-100 shrink-0">
           {product.imageUrl ? (
             <img src={product.imageUrl} className="w-full h-full object-cover" alt={product.name} />
           ) : (
@@ -73,7 +76,9 @@ const ItemSelectionModal = ({ product, onClose, onConfirm }) => {
           </button>
         </div>
 
-        <div className="p-6 sm:p-8 space-y-6">
+        {/* Area Konten dengan Scroll Otomatis (overflow-y-auto) */}
+        {/* Ini penting agar di HP kecil tombol 'Tambah' tidak terpotong */}
+        <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
           {/* Info Utama */}
           <div>
             <h2 className="text-2xl font-black text-gray-800 uppercase italic tracking-tighter leading-tight">
@@ -82,7 +87,7 @@ const ItemSelectionModal = ({ product, onClose, onConfirm }) => {
             <p className="text-orange-600 font-black text-xl italic">{formatRupiah(basePrice)}</p>
           </div>
 
-          {/* FITUR VARIAN (Dari script lama Anda) */}
+          {/* FITUR VARIAN */}
           {product.variants && product.variants.length > 0 && (
             <div className="space-y-3">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pilih Varian</label>
