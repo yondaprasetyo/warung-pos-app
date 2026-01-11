@@ -1,18 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 @layer utilities {
-  /* Sembunyikan scrollbar untuk Chrome, Safari dan Opera */
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-
-  /* Sembunyikan scrollbar untuk IE, Edge dan Firefox */
   .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
+
 html {
   scroll-behavior: smooth;
+  /* Jarak aman supaya judul kategori tidak tertutup header saat discroll */
+  scroll-padding-top: 210px; 
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+  /* Mencegah bouncing effect di iOS yang merusak posisi fixed */
+  overscroll-behavior-y: none; 
 }
