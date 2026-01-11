@@ -3,23 +3,18 @@
 @tailwind utilities;
 
 @layer utilities {
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
-html {
-  scroll-behavior: smooth;
-  /* Jarak aman agar judul kategori tidak tertutup header fixed */
-  scroll-padding-top: 210px; 
+/* Pastikan tidak ada margin/padding default yang mengganggu */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
 }
 
-body {
-  @apply bg-gray-50 text-gray-900 antialiased;
-  /* Mencegah efek bouncing yang merusak posisi fixed di mobile */
-  overscroll-behavior-y: none; 
+/* Area konten utama harus punya jarak dari atas */
+.main-content-area {
+  padding-top: 190px; /* Sesuaikan dengan tinggi header */
 }

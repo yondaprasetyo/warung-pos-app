@@ -10,20 +10,24 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [userSelectedTab, setUserSelectedTab] = useState(null); 
+  const [activeTab, setActiveTab] = useState('');
   
   const sectionRefs = useRef({});
-  const categoryScrollRef = useRef(null);
 
+  // Fetch data dari Firebase
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setProducts(items);
+      if (items.length > 0 && !activeTab) {
+        setActiveTab(items[0].category);
+      }
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [activeTab]);
 
+  // Logika filter produk
   const processedProducts = useMemo(() => {
     return products.map(p => {
       const isAvailableToday = !p.availableDays || 
@@ -37,58 +41,69 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
     }).filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [products, searchTerm, orderDateInfo]);
 
+  // Ambil list kategori unik
   const categories = useMemo(() => {
-    const activeCats = processedProducts.map(p => p.category);
-    return [...new Set(activeCats)];
+    const cats = processedProducts.map(p => p.category);
+    return [...new Set(cats)];
   }, [processedProducts]);
 
-  const activeTab = userSelectedTab || (categories.length > 0 ? categories[0] : '');
+  // Handler Klik Kategori dengan Manual Offset Scroll
+  const handleCategoryClick = (category, e) => {
+    setActiveTab(category);
+    
+    // 1. Scroll tab kategori agar ke tengah (horizontal)
+    if (e?.currentTarget) {
+      e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
 
-  const triggerHaptic = () => {
+    // 2. Scroll ke section produk dengan perhitungan offset header
+    const element = sectionRefs.current[category];
+    if (element) {
+      const headerHeight = 200; // Tinggi estimasi header fixed
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - headerHeight;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    }
+
+    // Efek getar (Haptic) jika tersedia
     if (window.navigator?.vibrate) window.navigator.vibrate(10);
   };
 
-  const handleCategoryClick = (category, e) => {
-    triggerHaptic();
-    setUserSelectedTab(category);
-
-    if (e?.currentTarget) {
-      e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center' });
-    }
-
-    const element = sectionRefs.current[category];
-    if (element) {
-      // Langsung menggunakan scrollIntoView karena terbantu scroll-padding-top di CSS
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen font-black text-orange-500 animate-pulse italic uppercase">
-      Memuat Menu...
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="text-orange-500 font-black animate-pulse italic uppercase tracking-widest">
+        Memuat Menu...
+      </div>
     </div>
   );
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      {/* HEADER: POSISI FIXED DENGAN Z-INDEX TINGGI */}
-      <div className="fixed top-0 left-0 right-0 z-[100] bg-white shadow-xl border-b border-gray-100">
+    <div className="relative min-h-screen bg-gray-50">
+      
+      {/* HEADER FIXED - Terkunci di atas agar tidak hilang saat scroll */}
+      <header className="fixed top-0 left-0 right-0 z-[999] bg-white shadow-xl border-b border-gray-100">
+        {/* Baris Atas: Info Tanggal */}
         <div className="bg-orange-600 px-4 py-3 flex justify-between items-center text-white">
           <div className="flex items-center gap-2 overflow-hidden">
             <Calendar size={14} className="shrink-0" />
-            <span className="text-[10px] font-black uppercase italic truncate tracking-tighter">
+            <span className="text-[10px] font-black uppercase italic tracking-tighter truncate">
               Menu: {orderDateInfo?.fullDate}
             </span>
           </div>
           <button 
-            onClick={() => { triggerHaptic(); onChangeDate(); }}
-            className="text-[9px] font-black bg-white text-orange-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm"
+            onClick={onChangeDate}
+            className="text-[9px] font-black bg-white text-orange-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm transition-transform"
           >
             Ubah
           </button>
         </div>
 
-        <div className="p-4 space-y-4 max-w-2xl mx-auto">
+        {/* Baris Bawah: Search & Tabs Kategori */}
+        <div className="p-4 max-w-2xl mx-auto space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
@@ -100,7 +115,7 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
             />
           </div>
           
-          <div ref={categoryScrollRef} className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <nav className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             {categories.map(cat => (
               <button
                 key={cat}
@@ -108,26 +123,34 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                 className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase transition-all whitespace-nowrap border-2 ${
                   activeTab === cat 
                   ? 'bg-orange-600 border-orange-600 text-white shadow-lg' 
-                  : 'bg-white border-gray-100 text-gray-400'
+                  : 'bg-white border-gray-100 text-gray-400 hover:border-orange-100'
                 }`}
               >
                 {cat}
               </button>
             ))}
-          </div>
+          </nav>
         </div>
-      </div>
+      </header>
 
-      {/* CONTENT: pt-[210px] WAJIB SAMA DENGAN TINGGI HEADER FIXED */}
-      <div className="pt-[210px] p-4 space-y-12 max-w-2xl mx-auto pb-40">
+      {/* AREA KONTEN - Padding Top (pt-[210px]) sangat krusial agar tidak tertutup header */}
+      <main className="pt-[210px] p-4 space-y-12 max-w-2xl mx-auto pb-40">
         {categories.length > 0 ? (
           categories.map(category => (
-            <section key={category} ref={el => sectionRefs.current[category] = el}>
+            <section 
+              key={category} 
+              ref={el => sectionRefs.current[category] = el}
+              className="scroll-mt-[210px]"
+            >
+              {/* Judul Kategori */}
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-2 h-7 bg-orange-500 rounded-full shadow-sm shadow-orange-200"></div>
-                <h2 className="text-xl font-black text-gray-800 uppercase italic tracking-tight">{category}</h2>
+                <h2 className="text-xl font-black text-gray-800 uppercase italic tracking-tight">
+                  {category}
+                </h2>
               </div>
 
+              {/* Grid Produk */}
               <div className="grid grid-cols-1 gap-5">
                 {processedProducts
                   .filter(p => p.category === category)
@@ -138,22 +161,31 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                         key={product.id}
                         onClick={() => canOrder && setSelectedProduct(product)}
                         className={`bg-white rounded-[2.8rem] p-3 flex gap-4 border border-gray-50 transition-all shadow-sm ${
-                          !canOrder ? 'opacity-50 grayscale' : 'active:scale-[0.97] cursor-pointer hover:border-orange-100 shadow-orange-900/5'
+                          !canOrder 
+                          ? 'opacity-50 grayscale cursor-not-allowed' 
+                          : 'active:scale-[0.97] cursor-pointer hover:border-orange-100 shadow-orange-900/5'
                         }`}
                       >
+                        {/* Gambar Produk */}
                         <div className="w-24 h-24 rounded-[2rem] overflow-hidden bg-gray-100 shrink-0 border border-gray-50 shadow-inner">
-                          <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
+                          <img 
+                            src={product.imageUrl} 
+                            alt={product.name} 
+                            className="w-full h-full object-cover" 
+                          />
                         </div>
 
+                        {/* Nama & Harga */}
                         <div className="flex flex-col justify-center flex-1">
                           <h3 className="font-black text-gray-800 uppercase italic text-[11px] mb-1.5 leading-tight line-clamp-2">
                             {product.name}
                           </h3>
-                          <p className="text-orange-600 font-black text-lg italic">
+                          <p className="text-orange-600 font-black text-lg italic tracking-tighter">
                             {formatRupiah(product.price)}
                           </p>
                         </div>
 
+                        {/* Tombol Tambah */}
                         {canOrder && (
                           <div className="flex items-center pr-3">
                             <div className="w-12 h-12 bg-orange-500 text-white rounded-[1.3rem] flex items-center justify-center shadow-lg shadow-orange-200">
@@ -172,8 +204,9 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
             Menu tidak ditemukan
           </div>
         )}
-      </div>
+      </main>
 
+      {/* MODAL PILIHAN ITEM */}
       {selectedProduct && (
         <ItemSelectionModal 
           product={selectedProduct}
