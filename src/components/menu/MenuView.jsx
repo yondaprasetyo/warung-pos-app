@@ -65,8 +65,7 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
       });
     }
 
-    // Offset 180px agar judul section tidak tertutup sticky header
-    const offset = 180; 
+    const offset = 200; 
     const element = sectionRefs.current[category];
     if (element) {
       const top = element.getBoundingClientRect().top + window.pageYOffset - offset;
@@ -74,54 +73,63 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
     }
   };
 
-  if (loading) return <div className="p-20 text-center font-black text-orange-500 animate-pulse uppercase italic text-xl">Memuat Menu...</div>;
+  if (loading) {
+    return (
+      <div className="bg-gray-50 min-h-screen">
+        <div className="bg-white p-4 space-y-4 shadow-sm">
+          <div className="h-10 bg-gray-200 rounded-2xl animate-pulse w-full"></div>
+          <div className="flex gap-2 overflow-hidden">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-8 bg-gray-200 rounded-full animate-pulse w-24 shrink-0"></div>
+            ))}
+          </div>
+        </div>
+        <div className="p-4 space-y-4 max-w-2xl mx-auto mt-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="bg-white rounded-[2rem] p-3 flex gap-4 border border-gray-100 animate-pulse">
+              <div className="w-16 h-16 rounded-2xl bg-gray-200 shrink-0"></div>
+              <div className="flex flex-col justify-center flex-1 space-y-2">
+                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen relative">
-      
-      {/* BAGIAN FIX: Wrapper Sticky ini menyatukan Tanggal + Search + Kategori 
-          agar menempel di paling atas layar (top-0)
-      */}
-      <div className="sticky top-0 z-[100] w-full flex flex-col shadow-xl">
-        
-        {/* 1. Bar Info Tanggal */}
-        <div className="bg-orange-600 px-4 py-2.5 flex justify-between items-center text-white">
+      <div className="sticky top-0 z-[50] w-full flex flex-col shadow-lg border-b border-gray-100">
+        <div className="bg-orange-600 px-4 py-2 flex justify-between items-center text-white">
           <div className="flex items-center gap-2">
-            <Calendar size={14} className="animate-pulse" />
-            <span className="text-[10px] font-black uppercase italic tracking-wider">
-              Menu Untuk: {orderDateInfo?.fullDate}
+            <Calendar size={12} className="shrink-0" />
+            <span className="text-[10px] font-bold uppercase tracking-tight">
+              Menu: {orderDateInfo?.fullDate}
             </span>
           </div>
-          <button 
-            onClick={() => { triggerHaptic(); onChangeDate(); }}
-            className="text-[9px] font-black bg-white text-orange-600 px-3 py-1 rounded-full uppercase italic active:scale-95 transition-transform"
-          >
-            Ganti Tanggal
-          </button>
+          <button onClick={() => { triggerHaptic(); onChangeDate(); }} className="text-[9px] font-black bg-white text-orange-600 px-3 py-1 rounded-full uppercase">Ubah</button>
         </div>
 
-        {/* 2. Container Putih (Search & Tabs) */}
-        <div className="bg-white px-4 py-4 space-y-4 border-b border-gray-100">
+        <div className="bg-white p-3 space-y-3">
           <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
               type="text" 
-              placeholder="Cari menu favoritmu..." 
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500/20 shadow-inner"
+              placeholder="Cari menu favorit..." 
+              className="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500/20"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth max-w-2xl mx-auto px-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth max-w-2xl mx-auto">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={(e) => handleCategoryClick(cat, e)}
-                className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase transition-all whitespace-nowrap border-2 ${
-                  activeTab === cat 
-                  ? 'bg-orange-600 border-orange-600 text-white shadow-lg scale-105' 
-                  : 'bg-white border-gray-100 text-gray-400 hover:border-orange-200'
+                className={`px-5 py-2 rounded-full text-[10px] font-black uppercase transition-all whitespace-nowrap border-2 ${
+                  activeTab === cat ? 'bg-orange-600 border-orange-600 text-white shadow-md' : 'bg-white border-gray-100 text-gray-400'
                 }`}
               >
                 {cat}
@@ -131,80 +139,43 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         </div>
       </div>
 
-      {/* MENU LIST CONTENT */}
-      <div className="p-4 space-y-10 max-w-2xl mx-auto pb-32 pt-6">
-        {categories.length > 0 ? (
-          categories.map(category => (
-            <section key={category} ref={el => sectionRefs.current[category] = el}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-1.5 h-6 bg-orange-500 rounded-full"></div>
-                <h2 className="text-lg font-black text-gray-800 uppercase italic tracking-tighter">
-                  {category}
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                {processedProducts
-                  .filter(p => p.category === category)
-                  .map(product => {
-                    const canOrder = product.isAvailableToday && !product.isOutOfStock;
-                    return (
-                      <div 
-                        key={product.id}
-                        onClick={() => {
-                          if (canOrder) {
-                            triggerHaptic();
-                            setSelectedProduct(product);
-                          }
-                        }}
-                        className={`bg-white rounded-[2rem] p-3 flex gap-4 border transition-all relative overflow-hidden ${
-                          !canOrder ? 'opacity-60 grayscale' : 'shadow-sm active:scale-[0.98] cursor-pointer'
-                        }`}
-                      >
-                        {!canOrder && (
-                          <div className="absolute inset-0 z-10 bg-white/20 flex items-center justify-center">
-                            <span className="bg-gray-900/90 text-white text-[9px] font-black px-4 py-2 rounded-full uppercase -rotate-3 border border-white/20">
-                              {product.isOutOfStock ? 'Habis Terjual' : 'Tidak Tersedia'}
-                            </span>
-                          </div>
-                        )}
-
-                        <div className="w-20 h-20 rounded-2xl overflow-hidden bg-gray-100 shrink-0 border">
-                          <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
-                        </div>
-
-                        <div className="flex flex-col justify-center flex-1">
-                          <h3 className="font-black text-gray-800 uppercase italic text-sm mb-0.5">{product.name}</h3>
-                          <p className="text-orange-600 font-black text-base italic">{formatRupiah(product.price)}</p>
-                        </div>
-
-                        {canOrder && (
-                          <div className="flex items-center pr-1">
-                            <div className="w-9 h-9 bg-orange-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-orange-100">
-                              <Plus size={20} strokeWidth={4} />
-                            </div>
-                          </div>
-                        )}
+      <div className="p-4 space-y-8 max-w-2xl mx-auto pb-32 pt-6">
+        {categories.map(category => (
+          <section key={category} ref={el => sectionRefs.current[category] = el}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-5 bg-orange-500 rounded-full"></div>
+              <h2 className="text-sm font-black text-gray-800 uppercase italic">{category}</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {processedProducts.filter(p => p.category === category).map(product => {
+                const canOrder = product.isAvailableToday && !product.isOutOfStock;
+                return (
+                  <div key={product.id} onClick={() => canOrder && setSelectedProduct(product)} className={`bg-white rounded-[2rem] p-3 flex gap-4 border border-gray-100 transition-all ${!canOrder ? 'opacity-50 grayscale' : 'active:scale-[0.97] shadow-sm cursor-pointer'}`}>
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-50 shrink-0">
+                      <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex flex-col justify-center flex-1">
+                      <h3 className="font-bold text-gray-800 text-xs uppercase">{product.name}</h3>
+                      <p className="text-orange-600 font-black text-sm">{formatRupiah(product.price)}</p>
+                    </div>
+                    {canOrder && (
+                      <div className="flex items-center pr-1">
+                        <div className="w-8 h-8 bg-orange-500 text-white rounded-xl flex items-center justify-center shadow-lg"><Plus size={18} strokeWidth={3} /></div>
                       </div>
-                    );
-                  })}
-              </div>
-            </section>
-          ))
-        ) : (
-          <div className="text-center py-20 text-gray-300 font-black italic uppercase text-xs">Menu tidak ditemukan</div>
-        )}
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
 
       {selectedProduct && (
         <ItemSelectionModal 
           product={selectedProduct}
           onClose={() => { triggerHaptic(); setSelectedProduct(null); }}
-          onConfirm={(item) => {
-            triggerHaptic();
-            onAddToCart(item);
-            setSelectedProduct(null);
-          }}
+          onConfirm={(item) => { triggerHaptic(); onAddToCart(item); setSelectedProduct(null); }}
         />
       )}
     </div>
