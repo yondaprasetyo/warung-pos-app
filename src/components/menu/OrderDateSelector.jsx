@@ -1,8 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, ChevronRight, Clock } from 'lucide-react';
 
-const OrderDateSelector = ({ onSelectDate }) => {
+// TAMBAHKAN prop 'user' di sini
+const OrderDateSelector = ({ onSelectDate, user }) => {
   const [selectedDate, setSelectedDate] = useState('');
+
+  // 1. Logika Otomatis untuk Admin/Kasir
+  useEffect(() => {
+    // Cek jika user login dan role-nya admin atau kasir
+    if (user && (user.role === 'admin' || user.role === 'cashier')) {
+      const today = new Date();
+      // Format YYYY-MM-DD sesuai local time
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+
+      // Langsung jalankan fungsi select date tanpa menampilkan UI
+      onSelectDate({
+        fullDate: formattedDate,
+        dayId: today.getDay()
+      });
+    }
+  }, [user, onSelectDate]);
+
+  // 2. Jika Admin/Kasir, jangan render apa-apa (return null) agar UI tidak kedip
+  if (user && (user.role === 'admin' || user.role === 'cashier')) {
+    return null; 
+  }
+
+  // --- LOGIKA UNTUK CUSTOMER (SAMA SEPERTI SEBELUMNYA) ---
 
   const getDayName = (dateString) => {
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -16,19 +43,24 @@ const OrderDateSelector = ({ onSelectDate }) => {
       const dateObj = new Date(selectedDate);
       onSelectDate({
         fullDate: selectedDate,
-        dayId: dateObj.getDay() // Mengambil ID hari (0-6)
+        dayId: dateObj.getDay()
       });
     }
   };
 
   // Batasi pemilihan tanggal (hari ini sampai 7 hari ke depan)
-  const today = new Date().toISOString().split('T')[0];
+  const todayDate = new Date();
+  const year = todayDate.getFullYear();
+  const month = String(todayDate.getMonth() + 1).padStart(2, '0');
+  const day = String(todayDate.getDate()).padStart(2, '0');
+  const minDate = `${year}-${month}-${day}`;
+
   const nextWeek = new Date();
   nextWeek.setDate(nextWeek.getDate() + 7);
   const maxDate = nextWeek.toISOString().split('T')[0];
 
   return (
-    <div className="fixed inset-0 z-[999] bg-orange-600 flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[999] bg-orange-600 flex items-center justify-center p-6 animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-md rounded-[3rem] p-8 shadow-2xl text-center">
         <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <Calendar className="text-orange-600" size={40} />
@@ -46,11 +78,11 @@ const OrderDateSelector = ({ onSelectDate }) => {
             <input 
               type="date" 
               required
-              min={today}
+              min={minDate}
               max={maxDate}
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl font-black text-center outline-none focus:border-orange-500 transition-all"
+              className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl font-black text-center outline-none focus:border-orange-500 transition-all cursor-pointer"
             />
           </div>
 
@@ -65,7 +97,7 @@ const OrderDateSelector = ({ onSelectDate }) => {
 
           <button 
             type="submit"
-            className="w-full bg-gray-800 text-white py-5 rounded-2xl font-black uppercase italic shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all"
+            className="w-full bg-gray-800 text-white py-5 rounded-2xl font-black uppercase italic shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all active:scale-95"
           >
             Lihat Menu <ChevronRight size={20} />
           </button>
