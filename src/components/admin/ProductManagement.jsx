@@ -111,7 +111,7 @@ const ProductManagement = () => {
     <div className="max-w-5xl mx-auto p-4 md:p-6 pb-24 font-sans">
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-black text-gray-800 uppercase italic tracking-tighter">
-          {editingId ? 'CEK KODE BARU' : 'TAMBAH BARU'}
+          {editingId ? '📝 Edit Menu Pelanggan' : '🍽️ Tambah Menu Baru'}
         </h2>
         {editingId && (
           <button 
