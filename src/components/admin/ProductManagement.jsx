@@ -17,12 +17,7 @@ const ProductManagement = () => {
   const [editingId, setEditingId] = useState(null);
   
   const [formData, setFormData] = useState({
-    name: '',
-    price: '',
-    stock: '',
-    category: 'Ayam',
-    imageUrl: '',
-    availableDays: [] 
+    name: '', price: '', stock: '', category: 'Ayam', imageUrl: '', availableDays: [] 
   });
 
   const [variants, setVariants] = useState([{ name: '', useSpecialPrice: false, price: '' }]);
@@ -62,6 +57,7 @@ const ProductManagement = () => {
           price: v.useSpecialPrice ? Number(v.price) : Number(formData.price),
           useSpecialPrice: v.useSpecialPrice
         })),
+        availableDays: formData.availableDays || [],
         updatedAt: serverTimestamp()
       };
 
@@ -96,7 +92,7 @@ const ProductManagement = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (loading) return <div className="p-10 text-center font-black text-orange-500 animate-pulse">MEMUAT...</div>;
+  if (loading) return <div className="p-10 text-center font-black text-orange-500 animate-pulse uppercase">Memuat Data...</div>;
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 pb-24 font-sans text-gray-800">
@@ -104,20 +100,20 @@ const ProductManagement = () => {
         {editingId ? '📝 Edit Menu' : '🍽️ Tambah Menu'}
       </h2>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] p-8 shadow-2xl border-2 border-gray-50 mb-12">
+      <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] p-8 shadow-2xl border-4 border-orange-50 mb-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
-          <div className="space-y-4">
+          <div className="space-y-4 text-center">
              <div className="aspect-square bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center">
                 {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" alt="prev" /> : <Image className="text-gray-300" size={40} />}
              </div>
-             <input type="text" placeholder="URL Foto" className="w-full p-3 bg-gray-50 rounded-xl text-[10px] font-bold outline-none" value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} />
+             <input type="text" placeholder="URL Foto Menu" className="w-full p-3 bg-gray-100 rounded-xl text-[10px] font-bold outline-none" value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} />
           </div>
 
           <div className="md:col-span-2 space-y-6">
-            <input type="text" required placeholder="Nama Masakan" className="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none border-2 border-transparent focus:border-orange-500" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+            <input type="text" required placeholder="Nama Masakan" className="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none border-2 border-transparent focus:border-orange-500 uppercase" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
             <div className="grid grid-cols-2 gap-4">
                <input type="number" required placeholder="Harga Dasar" className="w-full p-4 bg-orange-50 rounded-2xl font-black text-orange-600 text-xl outline-none" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
-               <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold outline-none" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}>
+               <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold outline-none border-2 border-transparent" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}>
                   <option value="Ayam">Ayam</option><option value="Ikan">Ikan</option><option value="Sayur">Sayur</option><option value="Nasi">Nasi</option><option value="Minuman">Minuman</option>
                </select>
             </div>
@@ -128,14 +124,14 @@ const ProductManagement = () => {
         <div className="mb-10 p-6 bg-yellow-50 rounded-[2rem] border-2 border-yellow-100">
             <div className="flex items-center gap-2 mb-4">
                 <Calendar className="text-orange-600" size={20} />
-                <label className="text-xs font-black uppercase">Jadwal Tampil Menu</label>
+                <label className="text-xs font-black uppercase italic">Setting Jadwal Tampil Menu</label>
             </div>
             <div className="flex flex-wrap gap-2">
                 {DAYS.map((day) => {
                     const active = formData.availableDays?.includes(day.id);
                     return (
                         <button key={day.id} type="button" onClick={() => toggleDay(day.id)}
-                            className={`flex-1 min-w-[60px] py-4 rounded-xl text-[10px] font-black transition-all border-2 ${active ? 'bg-orange-600 border-orange-700 text-white' : 'bg-white border-gray-200 text-gray-400'}`}>
+                            className={`flex-1 min-w-[60px] py-4 rounded-xl text-[10px] font-black transition-all border-2 ${active ? 'bg-orange-600 border-orange-700 text-white shadow-md' : 'bg-white border-gray-200 text-gray-400 hover:border-orange-200'}`}>
                             {day.label.toUpperCase()}
                         </button>
                     )
@@ -144,14 +140,14 @@ const ProductManagement = () => {
         </div>
 
         <button type="submit" className="w-full bg-orange-600 text-white py-6 rounded-3xl font-black text-xl uppercase italic shadow-xl hover:bg-orange-700 transition-all">
-          {editingId ? 'Simpan Perubahan' : 'Tambahkan Menu'}
+          {editingId ? 'Update Data Menu' : 'Tambahkan Menu Baru'}
         </button>
       </form>
 
       {/* TABEL LIST */}
       <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-gray-100">
         <table className="w-full text-left">
-          <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest italic">
             <tr>
               <th className="p-6">Produk & Jadwal</th>
               <th className="p-6">Harga</th>
@@ -162,15 +158,17 @@ const ProductManagement = () => {
             {products.map((p) => (
               <tr key={p.id} className="hover:bg-orange-50/20 transition-all">
                 <td className="p-6">
-                  <p className="font-black text-gray-800 uppercase italic">{p.name}</p>
-                  <p className="text-[9px] font-bold text-orange-500 mt-1 uppercase">
-                    {p.availableDays?.length > 0 ? p.availableDays.map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
+                  <p className="font-black text-gray-800 uppercase italic text-lg">{p.name}</p>
+                  <p className="text-[9px] font-bold text-orange-500 mt-1 uppercase tracking-tighter">
+                    {p.availableDays?.length > 0 ? p.availableDays.sort().map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'Tersedia Setiap Hari'}
                   </p>
                 </td>
-                <td className="p-6 font-black text-orange-600">Rp {Number(p.price).toLocaleString()}</td>
-                <td className="p-6 flex justify-center gap-2">
-                  <button onClick={() => startEdit(p)} className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Edit3 size={16} /></button>
-                  <button onClick={async () => { if(window.confirm('Hapus?')) { await deleteDoc(doc(db, "products", p.id)); fetchProducts(); } }} className="p-3 bg-red-50 text-red-400 rounded-xl"><Trash2 size={16} /></button>
+                <td className="p-6 font-black text-orange-600 text-xl italic">Rp {Number(p.price).toLocaleString('id-ID')}</td>
+                <td className="p-6">
+                  <div className="flex justify-center gap-2">
+                    <button onClick={() => startEdit(p)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all"><Edit3 size={18} /></button>
+                    <button onClick={async () => { if(window.confirm('Hapus menu ini?')) { await deleteDoc(doc(db, "products", p.id)); fetchProducts(); } }} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={18} /></button>
+                  </div>
                 </td>
               </tr>
             ))}
