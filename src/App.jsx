@@ -167,7 +167,7 @@ const App = () => {
   return (
     <div className="relative">
       <LoginView onLogin={login} onRegisterClick={() => navigateTo('register')} error={authError} />
-      <button onClick={() => setIsPublicMode(true)} className="absolute top-4 right-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all">🛒 Mode Pelanggan</button>
+      <button onClick={() => setIsPublicMode(true)} className="absolute top-4 right-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all">🛒 Pesan Sekarang</button>
     </div>
   );
 };
