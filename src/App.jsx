@@ -110,7 +110,6 @@ const App = () => {
   // 1. PRIORITAS UTAMA: JIKA USER LOGIN (ADMIN/STAFF)
   if (currentUser) {
     // Admin tetap harus pilih tanggal jika ingin melihat filter menu
-    // PERBAIKAN DI SINI: Pass 'user' dan 'authLoading'
     if (!orderDate && currentView === 'menu') {
         return (
           <OrderDateSelector 
@@ -123,8 +122,19 @@ const App = () => {
 
     return (
       <div className="min-h-screen bg-orange-50/30 pb-10">
-        <Header user={currentUser} cartCount={cart.reduce((a, b) => a + b.quantity, 0)} onNavigate={navigateTo} onLogout={logout} currentView={currentView} />
-        <main className="mt-6 px-4 max-w-7xl mx-auto">
+        <Header 
+            user={currentUser} 
+            cartCount={cart.reduce((a, b) => a + b.quantity, 0)} 
+            onNavigate={navigateTo} 
+            onLogout={logout} 
+            currentView={currentView} 
+        />
+        
+        {/* --- FIXED AREA START --- */}
+        {/* pt-[88px] digunakan karena Header fixed tingginya 72px + 16px gap */}
+        <main className="pt-[88px] px-4 max-w-7xl mx-auto">
+        {/* --- FIXED AREA END --- */}
+        
           {currentView === 'menu' && (
             <MenuView 
                 onAddToCart={addToCart} 
@@ -170,6 +180,7 @@ const App = () => {
 
     return (
       <div className="min-h-screen bg-gray-50">
+        {/* Note: Header publik menggunakan sticky, bukan fixed, jadi aman tanpa padding khusus */}
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
           <h1 className="font-black text-orange-500 text-xl italic leading-none">Warung Makan<br/><span className="text-gray-800">Mamah Yonda</span></h1>
           <div className="flex gap-2">
