@@ -14,7 +14,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
   
   const sectionRefs = useRef({});
 
-  // Fetch data dari Firebase
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -27,7 +26,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
     return () => unsub();
   }, [activeTab]);
 
-  // Logika filter produk
   const processedProducts = useMemo(() => {
     return products.map(p => {
       const isAvailableToday = !p.availableDays || 
@@ -41,40 +39,31 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
     }).filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [products, searchTerm, orderDateInfo]);
 
-  // Ambil list kategori unik
   const categories = useMemo(() => {
     const cats = processedProducts.map(p => p.category);
     return [...new Set(cats)];
   }, [processedProducts]);
 
-  // Handler Klik Kategori dengan Manual Offset Scroll
   const handleCategoryClick = (category, e) => {
     setActiveTab(category);
-    
-    // 1. Scroll tab kategori agar ke tengah (horizontal)
     if (e?.currentTarget) {
       e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }
 
-    // 2. Scroll ke section produk dengan perhitungan offset header
     const element = sectionRefs.current[category];
     if (element) {
-      const headerHeight = 200; // Tinggi estimasi header fixed
+      // 72px (Header Utama) + 248px (Header Menu) = 320px
+      const headerHeight = 320; 
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
       const offsetPosition = elementPosition - headerHeight;
 
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      });
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
     }
-
-    // Efek getar (Haptic) jika tersedia
     if (window.navigator?.vibrate) window.navigator.vibrate(10);
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 pt-[72px]">
       <div className="text-orange-500 font-black animate-pulse italic uppercase tracking-widest">
         Memuat Menu...
       </div>
@@ -84,9 +73,8 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
   return (
     <div className="relative min-h-screen bg-gray-50">
       
-      {/* HEADER FIXED - Terkunci di atas agar tidak hilang saat scroll */}
-      <header className="fixed top-0 left-0 right-0 z-[999] bg-white shadow-xl border-b border-gray-100">
-        {/* Baris Atas: Info Tanggal */}
+      {/* HEADER MENU - Sticky di Top 72px (di bawah Header Utama) */}
+      <header className="fixed top-[72px] left-0 right-0 z-[999] bg-white shadow-xl border-b border-gray-100">
         <div className="bg-orange-600 px-4 py-3 flex justify-between items-center text-white">
           <div className="flex items-center gap-2 overflow-hidden">
             <Calendar size={14} className="shrink-0" />
@@ -102,7 +90,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
           </button>
         </div>
 
-        {/* Baris Bawah: Search & Tabs Kategori */}
         <div className="p-4 max-w-2xl mx-auto space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -133,16 +120,15 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         </div>
       </header>
 
-      {/* AREA KONTEN - Padding Top (pt-[210px]) sangat krusial agar tidak tertutup header */}
-      <main className="pt-[210px] p-4 space-y-12 max-w-2xl mx-auto pb-40">
+      {/* KONTEN UTAMA - Padding Top 320px (72 + Tinggi Header Menu) */}
+      <main className="pt-[320px] p-4 space-y-12 max-w-2xl mx-auto pb-40">
         {categories.length > 0 ? (
           categories.map(category => (
             <section 
               key={category} 
               ref={el => sectionRefs.current[category] = el}
-              className="scroll-mt-[210px]"
+              className="scroll-mt-[320px]"
             >
-              {/* Judul Kategori */}
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-2 h-7 bg-orange-500 rounded-full shadow-sm shadow-orange-200"></div>
                 <h2 className="text-xl font-black text-gray-800 uppercase italic tracking-tight">
@@ -150,7 +136,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                 </h2>
               </div>
 
-              {/* Grid Produk */}
               <div className="grid grid-cols-1 gap-5">
                 {processedProducts
                   .filter(p => p.category === category)
@@ -166,7 +151,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                           : 'active:scale-[0.97] cursor-pointer hover:border-orange-100 shadow-orange-900/5'
                         }`}
                       >
-                        {/* Gambar Produk */}
                         <div className="w-24 h-24 rounded-[2rem] overflow-hidden bg-gray-100 shrink-0 border border-gray-50 shadow-inner">
                           <img 
                             src={product.imageUrl} 
@@ -174,8 +158,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                             className="w-full h-full object-cover" 
                           />
                         </div>
-
-                        {/* Nama & Harga */}
                         <div className="flex flex-col justify-center flex-1">
                           <h3 className="font-black text-gray-800 uppercase italic text-[11px] mb-1.5 leading-tight line-clamp-2">
                             {product.name}
@@ -184,8 +166,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                             {formatRupiah(product.price)}
                           </p>
                         </div>
-
-                        {/* Tombol Tambah */}
                         {canOrder && (
                           <div className="flex items-center pr-3">
                             <div className="w-12 h-12 bg-orange-500 text-white rounded-[1.3rem] flex items-center justify-center shadow-lg shadow-orange-200">
@@ -206,7 +186,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         )}
       </main>
 
-      {/* MODAL PILIHAN ITEM */}
       {selectedProduct && (
         <ItemSelectionModal 
           product={selectedProduct}

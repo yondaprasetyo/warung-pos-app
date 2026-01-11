@@ -7,14 +7,15 @@
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
-/* Pastikan tidak ada margin/padding default yang mengganggu */
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
+html {
+  /* Scroll smooth global */
+  scroll-behavior: smooth;
+  /* Mencegah scroll default browser yang memantul di beberapa device */
+  overscroll-behavior-y: none;
 }
 
-/* Area konten utama harus punya jarak dari atas */
-.main-content-area {
-  padding-top: 190px; /* Sesuaikan dengan tinggi header */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #f9fafb; /* gray-50 */
 }

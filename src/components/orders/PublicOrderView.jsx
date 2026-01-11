@@ -22,9 +22,7 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
   }, []);
 
   const triggerHaptic = () => {
-    if (window.navigator?.vibrate) {
-      window.navigator.vibrate(10);
-    }
+    if (window.navigator?.vibrate) window.navigator.vibrate(10);
   };
 
   const categories = useMemo(() => {
@@ -52,7 +50,7 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 pt-[72px]">
         <div className="text-orange-500 font-black animate-pulse italic uppercase tracking-widest">
           MEMBUKA POS...
         </div>
@@ -63,9 +61,8 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
   return (
     <div className="relative min-h-screen bg-gray-100">
       
-      {/* FIXED HEADER - Dikunci di atas agar kasir mudah navigasi */}
-      <header className="fixed top-0 left-0 right-0 z-[999] bg-white shadow-lg border-b border-gray-200">
-        {/* Kasir Info Bar */}
+      {/* FIXED HEADER - Top 72px untuk memberi ruang Header Utama */}
+      <header className="fixed top-[72px] left-0 right-0 z-[999] bg-white shadow-lg border-b border-gray-200">
         <div className="bg-gray-900 px-4 py-2.5 flex justify-between items-center text-white">
           <div className="flex items-center gap-2 overflow-hidden">
             <Calendar size={14} className="text-orange-500 shrink-0" />
@@ -81,7 +78,6 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
           </button>
         </div>
 
-        {/* Search & Category Tabs */}
         <div className="p-4 space-y-3 max-w-7xl mx-auto w-full">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -116,13 +112,12 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         </div>
       </header>
 
-      {/* GRID KONTEN - Menggunakan Padding Top agar tidak tertutup header fixed */}
-      <main className="pt-[180px] p-4 md:p-6 pb-40">
+      {/* GRID KONTEN - Pt 280px (72 + Header POS) */}
+      <main className="pt-[280px] p-4 md:p-6 pb-40">
         {processedProducts.length > 0 ? (
           <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {processedProducts.map(product => {
               const canOrder = product.isAvailableToday && !product.isOutOfStock;
-              
               return (
                 <button
                   key={product.id}
@@ -134,8 +129,8 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                   }}
                   className={`bg-white p-2 rounded-[2.2rem] shadow-sm border-2 transition-all flex flex-col text-left relative active:scale-95 ${
                     !canOrder 
-                      ? 'opacity-40 grayscale border-transparent cursor-not-allowed' 
-                      : 'hover:border-orange-500 border-transparent shadow-orange-100/10'
+                    ? 'opacity-40 grayscale border-transparent cursor-not-allowed' 
+                    : 'hover:border-orange-500 border-transparent shadow-orange-100/10'
                   }`}
                 >
                   <div className="w-full aspect-square rounded-[1.6rem] overflow-hidden bg-gray-50 mb-3 relative shadow-inner">
@@ -165,9 +160,9 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                         {formatRupiah(product.price)}
                       </p>
                       {canOrder && (
-                         <div className="bg-orange-100 p-1.5 rounded-xl text-orange-600">
+                          <div className="bg-orange-100 p-1.5 rounded-xl text-orange-600">
                             <Plus size={14} strokeWidth={4} />
-                         </div>
+                          </div>
                       )}
                     </div>
                   </div>
@@ -182,7 +177,6 @@ const PublicOrderView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         )}
       </main>
 
-      {/* MODAL SELEKSI */}
       {selectedProduct && (
         <ItemSelectionModal 
           product={selectedProduct}
