@@ -1,35 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, ChevronRight, Clock } from 'lucide-react';
 
-// TAMBAHKAN prop 'user' di sini
-const OrderDateSelector = ({ onSelectDate, user }) => {
+// TAMBAHKAN 'authLoading' di props
+const OrderDateSelector = ({ onSelectDate, user, authLoading }) => {
   const [selectedDate, setSelectedDate] = useState('');
 
   // 1. Logika Otomatis untuk Admin/Kasir
   useEffect(() => {
-    // Cek jika user login dan role-nya admin atau kasir
-    if (user && (user.role === 'admin' || user.role === 'cashier')) {
+    // Jalankan HANYA jika loading selesai (authLoading === false)
+    // DAN user terdeteksi sebagai admin/cashier
+    if (!authLoading && user && (user.role === 'admin' || user.role === 'cashier')) {
       const today = new Date();
-      // Format YYYY-MM-DD sesuai local time
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
       const formattedDate = `${year}-${month}-${day}`;
 
-      // Langsung jalankan fungsi select date tanpa menampilkan UI
+      // Auto-select date
       onSelectDate({
         fullDate: formattedDate,
         dayId: today.getDay()
       });
     }
-  }, [user, onSelectDate]);
+  }, [user, authLoading, onSelectDate]);
 
-  // 2. Jika Admin/Kasir, jangan render apa-apa (return null) agar UI tidak kedip
-  if (user && (user.role === 'admin' || user.role === 'cashier')) {
+  // 2. SAFETY CHECK:
+  // Jika auth masih loading, JANGAN tampilkan apa-apa (return null)
+  // Atau jika user adalah admin (tapi useEffect belum sempat redirect), jangan render form
+  if (authLoading || (user && (user.role === 'admin' || user.role === 'cashier'))) {
     return null; 
+    // Opsional: Bisa ganti 'return null' dengan spinner loading jika mau
+    // return <div className="fixed inset-0 bg-white flex items-center justify-center">Loading...</div>;
   }
 
-  // --- LOGIKA UNTUK CUSTOMER (SAMA SEPERTI SEBELUMNYA) ---
+  // --- LOGIKA UNTUK CUSTOMER (TAMPILAN POPUP) ---
 
   const getDayName = (dateString) => {
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -48,7 +52,6 @@ const OrderDateSelector = ({ onSelectDate, user }) => {
     }
   };
 
-  // Batasi pemilihan tanggal (hari ini sampai 7 hari ke depan)
   const todayDate = new Date();
   const year = todayDate.getFullYear();
   const month = String(todayDate.getMonth() + 1).padStart(2, '0');

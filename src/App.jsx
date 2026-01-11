@@ -9,7 +9,7 @@ import Header from './components/layout/Header';
 import LoginView from './components/auth/LoginView';
 import RegisterView from './components/auth/RegisterView';
 import MenuView from './components/menu/MenuView';
-import OrderDateSelector from './components/menu/OrderDateSelector'; // Tambahkan ini
+import OrderDateSelector from './components/menu/OrderDateSelector';
 import CartView from './components/cart/CartView';
 import OrderHistory from './components/orders/OrderHistory';
 import ReceiptView from './components/orders/ReceiptView';
@@ -110,8 +110,15 @@ const App = () => {
   // 1. PRIORITAS UTAMA: JIKA USER LOGIN (ADMIN/STAFF)
   if (currentUser) {
     // Admin tetap harus pilih tanggal jika ingin melihat filter menu
+    // PERBAIKAN DI SINI: Pass 'user' dan 'authLoading'
     if (!orderDate && currentView === 'menu') {
-        return <OrderDateSelector onSelectDate={(info) => setOrderDate(info)} />;
+        return (
+          <OrderDateSelector 
+            onSelectDate={(info) => setOrderDate(info)} 
+            user={currentUser}        // Kirim data user (agar tahu role admin)
+            authLoading={loading}     // Kirim status loading
+          />
+        );
     }
 
     return (
@@ -151,7 +158,14 @@ const App = () => {
   if (isPublicMode) {
     // WAJIB PILIH TANGGAL DULU
     if (!orderDate) {
-        return <OrderDateSelector onSelectDate={(info) => setOrderDate(info)} />;
+        // Mode publik tidak punya user logged in, jadi user={null}
+        return (
+          <OrderDateSelector 
+            onSelectDate={(info) => setOrderDate(info)} 
+            user={null}
+            authLoading={false}
+          />
+        );
     }
 
     return (
