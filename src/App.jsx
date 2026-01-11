@@ -9,6 +9,7 @@ import Header from './components/layout/Header';
 import LoginView from './components/auth/LoginView';
 import RegisterView from './components/auth/RegisterView';
 import MenuView from './components/menu/MenuView';
+import OrderDateSelector from './components/menu/OrderDateSelector'; // Tambahkan ini
 import CartView from './components/cart/CartView';
 import OrderHistory from './components/orders/OrderHistory';
 import ReceiptView from './components/orders/ReceiptView';
@@ -22,6 +23,9 @@ const App = () => {
   const [isPublicMode, setIsPublicMode] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
+  
+  // State baru untuk filter tanggal pesanan
+  const [orderDate, setOrderDate] = useState(null);
   
   const { 
     users, currentUser, authError, setAuthError,
@@ -47,7 +51,10 @@ const App = () => {
   const executeCheckout = async () => {
     if (customerNameInput.trim()) {
       try {
-        const order = await checkout(customerNameInput);
+        // Gabungkan info tanggal ke dalam catatan order jika perlu
+        const orderNote = `Order untuk tanggal: ${orderDate?.fullDate}`;
+        const order = await checkout(customerNameInput, orderNote);
+        
         if (order) {
           const batch = writeBatch(db);
           let hasStockUpdate = false;
@@ -98,15 +105,26 @@ const App = () => {
     </div>
   );
 
-  // --- LOGIKA URUTAN TAMPILAN (DIPERBAIKI) ---
+  // --- LOGIKA URUTAN TAMPILAN ---
 
   // 1. PRIORITAS UTAMA: JIKA USER LOGIN (ADMIN/STAFF)
   if (currentUser) {
+    // Admin tetap harus pilih tanggal jika ingin melihat filter menu
+    if (!orderDate && currentView === 'menu') {
+        return <OrderDateSelector onSelectDate={(info) => setOrderDate(info)} />;
+    }
+
     return (
       <div className="min-h-screen bg-orange-50/30 pb-10">
         <Header user={currentUser} cartCount={cart.reduce((a, b) => a + b.quantity, 0)} onNavigate={navigateTo} onLogout={logout} currentView={currentView} />
         <main className="mt-6 px-4 max-w-7xl mx-auto">
-          {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
+          {currentView === 'menu' && (
+            <MenuView 
+                onAddToCart={addToCart} 
+                orderDateInfo={orderDate} 
+                onChangeDate={() => setOrderDate(null)} 
+            />
+          )}
           {currentView === 'cart' && (
             <CartView 
               cart={cart} 
@@ -129,21 +147,32 @@ const App = () => {
     );
   }
 
-  // 2. JIKA DALAM MODE PELANGGAN (DIPERBAIKI: HANYA JIKA TIDAK LOGIN)
+  // 2. JIKA DALAM MODE PELANGGAN
   if (isPublicMode) {
+    // WAJIB PILIH TANGGAL DULU
+    if (!orderDate) {
+        return <OrderDateSelector onSelectDate={(info) => setOrderDate(info)} />;
+    }
+
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
-          <h1 className="font-black text-orange-500 text-xl italic">Warung Makan Mamah Yonda</h1>
+          <h1 className="font-black text-orange-500 text-xl italic leading-none">Warung Makan<br/><span className="text-gray-800">Mamah Yonda</span></h1>
           <div className="flex gap-2">
             <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold">
               🛒 {cart.reduce((a, b) => a + b.quantity, 0)}
             </button>
-            <button onClick={() => setIsPublicMode(false)} className="bg-gray-100 text-gray-400 px-4 py-2 rounded-xl text-sm font-bold">Login</button>
+            <button onClick={() => { setIsPublicMode(false); setOrderDate(null); }} className="bg-gray-100 text-gray-400 px-4 py-2 rounded-xl text-sm font-bold">Login</button>
           </div>
         </header>
-        <main className="p-4 max-w-7xl mx-auto">
-          {currentView === 'menu' && <MenuView onAddToCart={addToCart} />}
+        <main className="p-0 max-w-7xl mx-auto">
+          {currentView === 'menu' && (
+            <MenuView 
+                onAddToCart={addToCart} 
+                orderDateInfo={orderDate} 
+                onChangeDate={() => setOrderDate(null)} 
+            />
+          )}
           {currentView === 'cart' && (
             <CartView 
               cart={cart} 
@@ -161,13 +190,18 @@ const App = () => {
     );
   }
 
-  // 3. JIKA TIDAK LOGIN DAN TIDAK MODE PELANGGAN: TAMPILKAN LOGIN
+  // 3. JIKA TIDAK LOGIN DAN TIDAK MODE PELANGGAN
   if (currentView === 'register') return <RegisterView onRegister={(d) => register(d) && navigateTo('login')} onBack={() => navigateTo('login')} error={authError} />;
   
   return (
     <div className="relative">
       <LoginView onLogin={login} onRegisterClick={() => navigateTo('register')} error={authError} />
-      <button onClick={() => setIsPublicMode(true)} className="absolute top-4 right-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all">🛒 Pesan Sekarang</button>
+      <button 
+        onClick={() => setIsPublicMode(true)} 
+        className="absolute top-4 right-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all active:scale-95"
+      >
+        🛒 Pesan Sekarang
+      </button>
     </div>
   );
 };
