@@ -13,7 +13,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
   const [userSelectedTab, setUserSelectedTab] = useState(null); 
   
   const sectionRefs = useRef({});
-  const categoryScrollRef = useRef(null); // Ref untuk auto-center scroll
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
@@ -48,19 +47,16 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
 
   const activeTab = userSelectedTab || (categories.length > 0 ? categories[0] : '');
 
-  // FUNGSI 1: Haptic Feedback (Getar)
   const triggerHaptic = () => {
     if (window.navigator && window.navigator.vibrate) {
-      window.navigator.vibrate(10); // Getar halus 10ms
+      window.navigator.vibrate(10);
     }
   };
 
-  // FUNGSI 2: Auto Center Scroll & Scroll to Section
   const handleCategoryClick = (category, e) => {
     triggerHaptic();
     setUserSelectedTab(category);
 
-    // Auto-center logic
     if (e && e.currentTarget) {
       e.currentTarget.scrollIntoView({
         behavior: 'smooth',
@@ -69,7 +65,8 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
       });
     }
 
-    const offset = 220; 
+    // Offset 180px agar judul section tidak tertutup sticky header
+    const offset = 180; 
     const element = sectionRefs.current[category];
     if (element) {
       const top = element.getBoundingClientRect().top + window.pageYOffset - offset;
@@ -80,10 +77,14 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
   if (loading) return <div className="p-20 text-center font-black text-orange-500 animate-pulse uppercase italic text-xl">Memuat Menu...</div>;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 min-h-screen relative">
       
-      {/* HEADER & NAV FIXED */}
-      <div className="sticky top-0 z-[100] bg-white shadow-md">
+      {/* BAGIAN FIX: Wrapper Sticky ini menyatukan Tanggal + Search + Kategori 
+          agar menempel di paling atas layar (top-0)
+      */}
+      <div className="sticky top-0 z-[100] w-full flex flex-col shadow-xl">
+        
+        {/* 1. Bar Info Tanggal */}
         <div className="bg-orange-600 px-4 py-2.5 flex justify-between items-center text-white">
           <div className="flex items-center gap-2">
             <Calendar size={14} className="animate-pulse" />
@@ -93,29 +94,26 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
           </div>
           <button 
             onClick={() => { triggerHaptic(); onChangeDate(); }}
-            className="text-[9px] font-black bg-white text-orange-600 px-3 py-1 rounded-full uppercase italic active:scale-95"
+            className="text-[9px] font-black bg-white text-orange-600 px-3 py-1 rounded-full uppercase italic active:scale-95 transition-transform"
           >
             Ganti Tanggal
           </button>
         </div>
 
-        <div className="p-4 space-y-4 max-w-2xl mx-auto">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500" size={18} />
+        {/* 2. Container Putih (Search & Tabs) */}
+        <div className="bg-white px-4 py-4 space-y-4 border-b border-gray-100">
+          <div className="relative max-w-2xl mx-auto">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
               placeholder="Cari menu favoritmu..." 
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500/20"
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500/20 shadow-inner"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           
-          {/* Scroll Container Kategori */}
-          <div 
-            ref={categoryScrollRef}
-            className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth px-1"
-          >
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth max-w-2xl mx-auto px-1">
             {categories.map(cat => (
               <button
                 key={cat}
@@ -123,7 +121,7 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                 className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase transition-all whitespace-nowrap border-2 ${
                   activeTab === cat 
                   ? 'bg-orange-600 border-orange-600 text-white shadow-lg scale-105' 
-                  : 'bg-white border-gray-100 text-gray-400 hover:border-orange-200 active:bg-gray-50'
+                  : 'bg-white border-gray-100 text-gray-400 hover:border-orange-200'
                 }`}
               >
                 {cat}
@@ -133,7 +131,7 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
         </div>
       </div>
 
-      {/* MENU LIST */}
+      {/* MENU LIST CONTENT */}
       <div className="p-4 space-y-10 max-w-2xl mx-auto pb-32 pt-6">
         {categories.length > 0 ? (
           categories.map(category => (
@@ -160,7 +158,7 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
                           }
                         }}
                         className={`bg-white rounded-[2rem] p-3 flex gap-4 border transition-all relative overflow-hidden ${
-                          !canOrder ? 'opacity-60 grayscale' : 'shadow-sm active:scale-[0.98] cursor-pointer active:bg-orange-50/30'
+                          !canOrder ? 'opacity-60 grayscale' : 'shadow-sm active:scale-[0.98] cursor-pointer'
                         }`}
                       >
                         {!canOrder && (
@@ -182,7 +180,7 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
 
                         {canOrder && (
                           <div className="flex items-center pr-1">
-                            <div className="w-9 h-9 bg-orange-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-orange-100 group-active:scale-90 transition-transform">
+                            <div className="w-9 h-9 bg-orange-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-orange-100">
                               <Plus size={20} strokeWidth={4} />
                             </div>
                           </div>
