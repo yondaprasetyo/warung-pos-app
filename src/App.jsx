@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
-import { useStoreSchedule } from './hooks/useStoreSchedule'; // <<-- IMPORT HOOK INI
+import { useStoreSchedule } from './hooks/useStoreSchedule'; // Import Hook Schedule
 import { db } from './firebase'; 
 import { doc, writeBatch } from 'firebase/firestore'; 
 
@@ -37,6 +37,8 @@ const App = () => {
   const [isPublicMode, setIsPublicMode] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
+  
+  // State untuk filter tanggal pesanan
   const [orderDate, setOrderDate] = useState(null);
   
   const { 
@@ -50,16 +52,17 @@ const App = () => {
     updateCartItemDetails 
   } = useShop(currentUser);
 
-  // --- LOGIKA JADWAL TOKO (BARU) ---
+  // --- LOGIKA JADWAL TOKO (GLOBAL) ---
   const { checkIsClosed } = useStoreSchedule();
   
   // Cek apakah tanggal yang dipilih (orderDate) sedang libur?
-  const shopClosedInfo = React.useMemo(() => {
+  const shopClosedInfo = useMemo(() => {
      if (!orderDate) return null;
-     return checkIsClosed(orderDate.isoDate); // isoDate format YYYY-MM-DD
+     return checkIsClosed(orderDate.isoDate); 
   }, [orderDate, checkIsClosed]);
   // --------------------------------
 
+  // Effect: Auto-select tanggal untuk Admin
   useEffect(() => {
     if (currentUser && !orderDate) {
       const timer = setTimeout(() => {
@@ -141,7 +144,7 @@ const App = () => {
     </div>
   );
 
-  // 1. ADMIN MODE
+  // --- 1. MODE ADMIN / KASIR (LOGIN) ---
   if (currentUser) {
     return (
       <div className="min-h-screen bg-orange-50/30 pb-10">
@@ -162,7 +165,7 @@ const App = () => {
                 onUpdateDate={handleAdminDateChange}
                 isAdmin={true}
                 
-                // KIRIM PROP INI: Info Tutup Toko
+                // KIRIM PROP INI KE ADMIN: Info Tutup Toko
                 shopClosedInfo={shopClosedInfo} 
             />
           )}
@@ -188,8 +191,9 @@ const App = () => {
     );
   }
 
-  // 2. PUBLIC MODE
+  // --- 2. MODE PELANGGAN / PUBLIC ---
   if (isPublicMode) {
+    // WAJIB PILIH TANGGAL DULU
     if (!orderDate) {
         return (
           <OrderDateSelector 
@@ -219,7 +223,7 @@ const App = () => {
                 onChangeDate={() => setOrderDate(null)} 
                 isAdmin={false}
                 
-                // KIRIM PROP INI: Info Tutup Toko
+                // --- PERBAIKAN: KIRIM PROP INI KE PELANGGAN ---
                 shopClosedInfo={shopClosedInfo}
             />
           )}
@@ -240,6 +244,7 @@ const App = () => {
     );
   }
 
+  // --- 3. LANDING PAGE ---
   if (currentView === 'register') return <RegisterView onRegister={(d) => register(d) && navigateTo('login')} onBack={() => navigateTo('login')} error={authError} />;
   
   return (
