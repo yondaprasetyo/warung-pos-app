@@ -1,203 +1,192 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { db } from '../../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import React from 'react';
+import { Trash2, Plus, Minus, ChevronDown, ArrowLeft, ShoppingBag, StickyNote } from 'lucide-react';
 import { formatRupiah } from '../../utils/format';
-import ItemSelectionModal from './ItemSelectionModal';
-import { Search, Calendar, Plus } from 'lucide-react';
 
-const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
-  const [products, setProducts] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('');
-  
-  const sectionRefs = useRef({});
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
-      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setProducts(items);
-      if (items.length > 0 && !activeTab) {
-        setActiveTab(items[0].category);
-      }
-      setLoading(false);
-    });
-    return () => unsub();
-  }, [activeTab]);
-
-  const processedProducts = useMemo(() => {
-    return products.map(p => {
-      const isAvailableToday = !p.availableDays || 
-                               p.availableDays.length === 0 || 
-                               p.availableDays.includes(orderDateInfo?.dayId);
-      return { 
-        ...p, 
-        isAvailableToday: isAvailableToday && p.isAvailable !== false,
-        isOutOfStock: p.stock === 0,
-      };
-    }).filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [products, searchTerm, orderDateInfo]);
-
-  const categories = useMemo(() => {
-    const cats = processedProducts.map(p => p.category);
-    return [...new Set(cats)];
-  }, [processedProducts]);
-
-  const handleCategoryClick = (category, e) => {
-    setActiveTab(category);
-    if (e?.currentTarget) {
-      e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }
-
-    const element = sectionRefs.current[category];
-    if (element) {
-      // 72px (Header Utama) + 248px (Header Menu) = 320px
-      const headerHeight = 320; 
-      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
-      const offsetPosition = elementPosition - headerHeight;
-
-      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-    }
-    if (window.navigator?.vibrate) window.navigator.vibrate(10);
-  };
-
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 pt-[72px]">
-      <div className="text-orange-500 font-black animate-pulse italic uppercase tracking-widest">
-        Memuat Menu...
-      </div>
-    </div>
-  );
+const CartView = ({ 
+  cart, 
+  updateQuantity, 
+  removeFromCart, 
+  updateCartItemDetails, 
+  onCheckout, 
+  onBack 
+}) => {
+  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   return (
-    <div className="relative min-h-screen bg-gray-50">
+    <div className="bg-white rounded-[2.5rem] shadow-2xl h-[calc(100vh-140px)] flex flex-col overflow-hidden border border-gray-100">
       
-      {/* HEADER MENU - Sticky di Top 72px (di bawah Header Utama) */}
-      <header className="fixed top-[72px] left-0 right-0 z-[999] bg-white shadow-xl border-b border-gray-100">
-        <div className="bg-orange-600 px-4 py-3 flex justify-between items-center text-white">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <Calendar size={14} className="shrink-0" />
-            <span className="text-[10px] font-black uppercase italic tracking-tighter truncate">
-              Menu: {orderDateInfo?.fullDate}
-            </span>
-          </div>
+      {/* HEADER */}
+      <div className="p-6 bg-white border-b border-gray-50 flex justify-between items-center">
+        <div className="flex items-center gap-3">
           <button 
-            onClick={onChangeDate}
-            className="text-[9px] font-black bg-white text-orange-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm transition-transform"
+            onClick={onBack}
+            className="p-2.5 bg-gray-50 text-gray-400 hover:text-orange-500 rounded-2xl transition-all active:scale-90"
           >
-            Ubah
+            <ArrowLeft size={20} />
           </button>
-        </div>
-
-        <div className="p-4 max-w-2xl mx-auto space-y-4">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cari menu favorit..." 
-              className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500/20 transition-all shadow-inner"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div>
+            <h2 className="text-xl font-black text-gray-800 uppercase italic tracking-tighter leading-none">
+              Keranjang
+            </h2>
+            <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mt-1">
+              {cart.length} Menu Terpilih
+            </p>
           </div>
-          
-          <nav className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={(e) => handleCategoryClick(cat, e)}
-                className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase transition-all whitespace-nowrap border-2 ${
-                  activeTab === cat 
-                  ? 'bg-orange-600 border-orange-600 text-white shadow-lg' 
-                  : 'bg-white border-gray-100 text-gray-400 hover:border-orange-100'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </nav>
         </div>
-      </header>
+      </div>
 
-      {/* KONTEN UTAMA - Padding Top 320px (72 + Tinggi Header Menu) */}
-      <main className="pt-[320px] p-4 space-y-12 max-w-2xl mx-auto pb-40">
-        {categories.length > 0 ? (
-          categories.map(category => (
-            <section 
-              key={category} 
-              ref={el => sectionRefs.current[category] = el}
-              className="scroll-mt-[320px]"
+      {/* BODY / LIST ITEM */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-hide bg-gray-50/30">
+        {cart.length === 0 ? (
+          <div className="text-center py-20 flex flex-col items-center">
+            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm">
+              <ShoppingBag size={40} className="text-gray-100" />
+            </div>
+            <p className="text-gray-300 font-black mb-6 italic uppercase text-sm tracking-widest">Keranjang Kosong</p>
+            <button 
+              onClick={onBack}
+              className="bg-white border-2 border-orange-500 text-orange-600 px-8 py-3 rounded-2xl font-black text-xs uppercase italic hover:bg-orange-500 hover:text-white transition-all shadow-sm active:scale-95"
             >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-2 h-7 bg-orange-500 rounded-full shadow-sm shadow-orange-200"></div>
-                <h2 className="text-xl font-black text-gray-800 uppercase italic tracking-tight">
-                  {category}
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 gap-5">
-                {processedProducts
-                  .filter(p => p.category === category)
-                  .map(product => {
-                    const canOrder = product.isAvailableToday && !product.isOutOfStock;
-                    return (
-                      <div 
-                        key={product.id}
-                        onClick={() => canOrder && setSelectedProduct(product)}
-                        className={`bg-white rounded-[2.8rem] p-3 flex gap-4 border border-gray-50 transition-all shadow-sm ${
-                          !canOrder 
-                          ? 'opacity-50 grayscale cursor-not-allowed' 
-                          : 'active:scale-[0.97] cursor-pointer hover:border-orange-100 shadow-orange-900/5'
-                        }`}
-                      >
-                        <div className="w-24 h-24 rounded-[2rem] overflow-hidden bg-gray-100 shrink-0 border border-gray-50 shadow-inner">
-                          <img 
-                            src={product.imageUrl} 
-                            alt={product.name} 
-                            className="w-full h-full object-cover" 
-                          />
-                        </div>
-                        <div className="flex flex-col justify-center flex-1">
-                          <h3 className="font-black text-gray-800 uppercase italic text-[11px] mb-1.5 leading-tight line-clamp-2">
-                            {product.name}
-                          </h3>
-                          <p className="text-orange-600 font-black text-lg italic tracking-tighter">
-                            {formatRupiah(product.price)}
-                          </p>
-                        </div>
-                        {canOrder && (
-                          <div className="flex items-center pr-3">
-                            <div className="w-12 h-12 bg-orange-500 text-white rounded-[1.3rem] flex items-center justify-center shadow-lg shadow-orange-200">
-                              <Plus size={24} strokeWidth={4} />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-            </section>
-          ))
-        ) : (
-          <div className="text-center py-20 text-gray-300 font-black uppercase italic tracking-widest">
-            Menu tidak ditemukan
+              Cari Menu Enak
+            </button>
           </div>
-        )}
-      </main>
+        ) : (
+          cart.map((item, index) => {
+            const isMaxStockReached = item.stock !== -1 && item.quantity >= item.stock;
 
-      {selectedProduct && (
-        <ItemSelectionModal 
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onConfirm={(item) => {
-            onAddToCart(item);
-            setSelectedProduct(null);
-          }}
-        />
-      )}
+            return (
+              <div key={`cart-item-${item.id}-${index}`} className="bg-white rounded-[2rem] p-4 border border-gray-100 shadow-sm flex flex-col gap-4 hover:shadow-md transition-all">
+                
+                <div className="flex gap-4">
+                  {/* 1. FOTO PRODUK */}
+                  <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-50">
+                    <img 
+                      src={item.imageUrl || "https://via.placeholder.com/100"} 
+                      alt={item.name} 
+                      className="w-full h-full object-cover shadow-inner"
+                      onError={(e) => { e.target.src = "https://via.placeholder.com/100" }}
+                    />
+                  </div>
+
+                  {/* 2. DETAIL PRODUK */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <div className="truncate pr-2">
+                        <h3 className="font-black text-gray-800 leading-tight text-xs uppercase italic truncate">{item.name}</h3>
+                        <p className="text-orange-600 font-black text-sm italic mt-0.5">{formatRupiah(item.price)}</p>
+                      </div>
+                      <button 
+                        onClick={() => removeFromCart(index)} 
+                        className="text-gray-300 hover:text-red-500 transition-colors p-1.5 hover:bg-red-50 rounded-xl"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+
+                    {/* DROPDOWN VARIAN */}
+                    {Array.isArray(item.variants) && item.variants.length > 0 && (
+                      <div className="mt-2 relative">
+                        <select 
+                          // FIX: Menggunakan item.variant yang dikirim dari Modal
+                          value={item.variant || ""} 
+                          onChange={(e) => {
+                            const selectedName = e.target.value;
+                            // Cari objek varian lengkap dari array variants
+                            const variantObj = item.variants.find(v => (v.name || v) === selectedName);
+                            // Ambil harga baru (jika varian punya harga beda)
+                            // Jika tidak ada harga di varian, fallback ke harga lama
+                            const newPrice = variantObj && variantObj.price ? parseInt(variantObj.price) : item.price;
+                            
+                            updateCartItemDetails(index, { 
+                              variant: selectedName,
+                              selectedVariant: variantObj, // Update objek juga
+                              price: newPrice 
+                            });
+                          }}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-1.5 text-[9px] font-black text-blue-600 outline-none appearance-none pr-8 uppercase italic cursor-pointer"
+                        >
+                          {item.variants.map((v, i) => (
+                            <option key={i} value={v.name || v}>
+                              {v.name || v}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. INPUT CATATAN */}
+                <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border ${item.note ? 'bg-orange-50/50 border-orange-200' : 'bg-gray-50 border-gray-50'}`}>
+                  <StickyNote size={12} className={item.note ? 'text-orange-500' : 'text-gray-300'} />
+                  <input 
+                    type="text"
+                    placeholder="Catatan tambahan..."
+                    // Perhatikan: properti yang dikirim dari modal adalah 'note', pastikan konsisten
+                    value={item.note || ""}
+                    onChange={(e) => updateCartItemDetails(index, { note: e.target.value })}
+                    className="flex-1 bg-transparent text-[10px] font-bold text-gray-700 outline-none placeholder:text-gray-300 placeholder:italic"
+                  />
+                </div>
+
+                {/* 4. QUANTITY CONTROL */}
+                <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-gray-800 tracking-tighter">
+                      Subtotal: {formatRupiah(item.price * item.quantity)}
+                    </span>
+                    {item.stock !== -1 && (
+                      <span className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${isMaxStockReached ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}>
+                        {isMaxStockReached ? 'Stok Penuh' : `Stok: ${item.stock}`}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-1">
+                    <button 
+                      onClick={() => updateQuantity(index, -1)} 
+                      className="w-7 h-7 flex items-center justify-center bg-white rounded-lg text-gray-400 hover:text-red-500 shadow-sm transition-all"
+                    >
+                      <Minus size={12} />
+                    </button>
+                    <span className="w-8 text-center font-black text-xs text-gray-800">{item.quantity}</span>
+                    <button 
+                      onClick={() => updateQuantity(index, 1)} 
+                      disabled={isMaxStockReached}
+                      className={`w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-sm transition-all ${isMaxStockReached ? 'text-gray-200 cursor-not-allowed' : 'text-orange-600 hover:text-orange-500'}`}
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* FOOTER */}
+      <div className="p-6 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.04)]">
+        <div className="flex justify-between items-end mb-6">
+          <div className="space-y-1">
+            <p className="text-gray-400 font-black uppercase text-[9px] tracking-[0.2em]">Total Pembayaran</p>
+            <p className="text-3xl font-black text-orange-600 tracking-tighter italic leading-none">
+              {formatRupiah(total)}
+            </p>
+          </div>
+        </div>
+        
+        <button 
+          onClick={onCheckout}
+          disabled={cart.length === 0}
+          className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-[1.8rem] font-black text-sm uppercase italic tracking-widest shadow-xl shadow-orange-100 transition-all active:scale-95 disabled:bg-gray-200 disabled:shadow-none disabled:text-gray-400"
+        >
+          Konfirmasi Pesanan
+        </button>
+      </div>
     </div>
   );
 };
 
-export default MenuView;
+export default CartView;
