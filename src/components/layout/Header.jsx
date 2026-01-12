@@ -13,16 +13,14 @@ import {
 } from 'lucide-react';
 
 const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
-  // State untuk mengontrol buka/tutup menu di HP
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Daftar Menu Navigasi (Disatukan dalam array agar kodenya rapi & tidak berulang)
   const navItems = [
     { 
       id: 'laporan', 
       label: 'Laporan', 
       icon: <BarChart3 size={20} />, 
-      show: user?.role === 'admin' // Hanya admin
+      show: user?.role === 'admin' 
     },
     { 
       id: 'manage-menu', 
@@ -40,14 +38,14 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
       id: 'orders', 
       label: 'Pesanan', 
       icon: <Receipt size={20} />, 
-      show: true // Semua user bisa lihat
+      show: true 
     },
     { 
       id: 'cart', 
       label: 'Keranjang', 
       icon: <ShoppingCart size={20} />, 
       show: true,
-      badge: cartCount // Menampilkan badge jumlah
+      badge: cartCount 
     },
     { 
       id: 'profile', 
@@ -57,7 +55,6 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
     },
   ];
 
-  // Fungsi saat menu diklik (Navigasi + Tutup Menu Mobile)
   const handleNavClick = (view) => {
     onNavigate(view);
     setIsMobileMenuOpen(false);
@@ -67,27 +64,28 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
     <div className="fixed top-0 left-0 right-0 w-full bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg z-[1000] h-[72px]">
       <div className="max-w-6xl mx-auto px-4 h-full flex justify-between items-center relative">
         
-        {/* --- BAGIAN KIRI: LOGO & BACK BUTTON --- */}
-        <div className="flex items-center gap-3">
+        {/* --- BAGIAN KIRI: LOGO & JUDUL (DIPERBAIKI) --- */}
+        {/* 'min-w-0 flex-1' PENTING: Agar judul mau memendek (truncate) saat layar sempit */}
+        <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
           {currentView !== 'menu' && currentView !== 'public-order' && (
             <button 
               onClick={() => onNavigate('menu')} 
-              className="hover:bg-white/20 p-2 rounded-lg transition active:scale-95"
+              className="hover:bg-white/20 p-2 rounded-lg transition active:scale-95 flex-shrink-0"
             >
               <ArrowLeft size={24} />
             </button>
           )}
+          
           <h1 
             onClick={() => onNavigate('menu')}
-            className="text-xl md:text-2xl font-bold truncate tracking-tight cursor-pointer"
+            className="text-lg md:text-2xl font-bold truncate tracking-tight cursor-pointer leading-tight"
           >
-            🍽️ <span className="hidden xs:inline"></span> Warung Makan Mamah Yonda
+            🍽️ <span className="hidden sm:inline">Warung Makan</span> Mamah Yonda
           </h1>
         </div>
         
-        {/* --- BAGIAN KANAN (DESKTOP): TAMPIL JIKA LAYAR BESAR (md:flex) --- */}
-        <div className="hidden md:flex gap-2 items-center">
-          {/* Info User */}
+        {/* --- BAGIAN KANAN (DESKTOP) --- */}
+        <div className="hidden md:flex gap-2 items-center flex-shrink-0">
           <div className="text-sm mr-2 text-right">
             <div className="font-semibold">{user?.name}</div>
             <div className="text-xs opacity-90 capitalize bg-white/20 px-2 py-0.5 rounded-full inline-block">
@@ -95,7 +93,6 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
             </div>
           </div>
 
-          {/* Mapping Menu Button */}
           {navItems.map((item) => (
             item.show && (
               <button 
@@ -129,9 +126,10 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
           </button>
         </div>
 
-        {/* --- BAGIAN KANAN (MOBILE): TAMPIL JIKA LAYAR KECIL (md:hidden) --- */}
-        <div className="md:hidden flex items-center gap-2">
-          {/* Cart Icon tetap ditampilkan di luar agar cepat diakses */}
+        {/* --- BAGIAN KANAN (MOBILE) --- */}
+        {/* 'flex-shrink-0' PENTING: Agar tombol tidak gepeng terdorong judul */}
+        <div className="md:hidden flex items-center gap-1 flex-shrink-0">
+          {/* Cart Icon Mobile */}
           <button 
             onClick={() => handleNavClick('cart')} 
             className={`p-2 rounded-lg transition relative ${
@@ -158,12 +156,10 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
       </div>
 
       {/* --- MENU DROPDOWN (MOBILE) --- */}
-      {/* Tampil hanya jika isMobileMenuOpen = true */}
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-[72px] left-0 right-0 bg-white text-gray-800 shadow-2xl border-t border-gray-100 animate-in slide-in-from-top-5 duration-200">
-          <div className="p-4 flex flex-col gap-2">
+          <div className="p-4 flex flex-col gap-2 max-h-[calc(100vh-80px)] overflow-y-auto">
             
-            {/* Info User di Mobile */}
             <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl mb-2 border border-orange-100">
                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                   {user?.name?.charAt(0) || 'U'}
@@ -174,7 +170,6 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
                </div>
             </div>
 
-            {/* List Menu */}
             <div className="grid grid-cols-2 gap-2">
               {navItems.map((item) => (
                 item.show && (
@@ -199,7 +194,6 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
               ))}
             </div>
 
-            {/* Logout Mobile */}
             <button 
               onClick={() => { setIsMobileMenuOpen(false); onLogout(); }}
               className="mt-2 w-full flex items-center justify-center gap-2 p-3 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition"
