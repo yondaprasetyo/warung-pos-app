@@ -4,7 +4,7 @@ import {
   collection, addDoc, getDocs, doc, 
   updateDoc, deleteDoc, serverTimestamp 
 } from 'firebase/firestore';
-import { Calendar, Tag, Layers, Trash2, Edit3, Image, Box, Search } from 'lucide-react';
+import { Calendar, Tag, Layers, Trash2, Edit3, Image, Box, Search, ToggleLeft, ToggleRight } from 'lucide-react';
 // IMPORT COMPONENT SETTINGS JADWAL
 import StoreScheduleSettings from './StoreScheduleSettings';
 
@@ -30,37 +30,43 @@ const ProductManagement = () => {
     try {
       setLoading(true);
       const querySnapshot = await getDocs(collection(db, "products"));
-      setProducts(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      // Map data dan pastikan isAvailable defaultnya true jika belum ada fieldnya
+      setProducts(querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+          id: doc.id, 
+          ...data,
+          isAvailable: data.isAvailable !== false // Default true jika undefined
+        };
+      }));
     } catch (error) { console.error(error); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   // --- LOGIKA BARU: KATEGORI DINAMIS ---
-  // Mengambil kategori dari produk yang sudah ada di database + kategori default
   const uniqueCategories = useMemo(() => {
     const defaultCats = [
         "Ayam", "Ikan", "Sayur", "Nasi", "Minuman", 
         "Tumisan/Osengan", "Telur", "Gorengan", "Menu Tambahan"
     ];
-    // Ambil kategori dari database
     const dbCats = products.map(p => p.category).filter(Boolean);
-    
-    // Gabungkan dan hapus duplikat
     return [...new Set([...defaultCats, ...dbCats])].sort();
   }, [products]);
   // -------------------------------------
 
-  // LOGIKA RINGKASAN MENU PER HARI
   const getDailyStats = () => {
     const stats = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 };
     products.forEach(p => {
-      if (p.availableDays && p.availableDays.length > 0) {
-        p.availableDays.forEach(dayId => {
-          if (Object.prototype.hasOwnProperty.call(stats, dayId)) stats[dayId]++;
-        });
-      } else {
-        Object.keys(stats).forEach(key => stats[key]++);
+      // Hanya hitung jika produk aktif
+      if (p.isAvailable) {
+        if (p.availableDays && p.availableDays.length > 0) {
+          p.availableDays.forEach(dayId => {
+            if (Object.prototype.hasOwnProperty.call(stats, dayId)) stats[dayId]++;
+          });
+        } else {
+          Object.keys(stats).forEach(key => stats[key]++);
+        }
       }
     });
     return stats;
@@ -85,6 +91,26 @@ const ProductManagement = () => {
     setVariants(newVariants);
   };
 
+  // --- LOGIKA BARU: TOGGLE STATUS AKTIF/TIDAK ---
+  const handleToggleStatus = async (product) => {
+    try {
+      const newStatus = !product.isAvailable;
+      const productRef = doc(db, "products", product.id);
+      
+      // Update tampilan lokal dulu biar cepat (optimistic update)
+      setProducts(products.map(p => 
+        p.id === product.id ? { ...p, isAvailable: newStatus } : p
+      ));
+
+      // Update ke database
+      await updateDoc(productRef, { isAvailable: newStatus });
+    } catch (error) {
+      alert("Gagal mengubah status: " + error.message);
+      fetchProducts(); // Rollback jika gagal
+    }
+  };
+  // ----------------------------------------------
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -97,11 +123,14 @@ const ProductManagement = () => {
           price: v.useSpecialPrice ? Number(v.price) : Number(formData.price),
           useSpecialPrice: v.useSpecialPrice
         })),
+        isAvailable: true, // Default menu baru selalu aktif
         updatedAt: serverTimestamp()
       };
 
       if (editingId) {
-        await updateDoc(doc(db, "products", editingId), payload);
+        // Hapus isAvailable dari payload edit agar tidak mereset status yang sedang diset user
+        const { isAvailable, ...editPayload } = payload; 
+        await updateDoc(doc(db, "products", editingId), editPayload);
         alert("✅ Berhasil Update!");
       } else {
         await addDoc(collection(db, "products"), { ...payload, createdAt: serverTimestamp() });
@@ -145,7 +174,7 @@ const ProductManagement = () => {
             <p className="text-xl font-black text-orange-600 leading-none mt-1">
               {dailyStats[day.id]}
             </p>
-            <p className="text-[8px] font-bold text-gray-400 uppercase mt-1">Menu</p>
+            <p className="text-[8px] font-bold text-gray-400 uppercase mt-1">Menu Aktif</p>
           </div>
         ))}
       </div>
@@ -165,7 +194,7 @@ const ProductManagement = () => {
             <div className="grid grid-cols-2 gap-4">
                <input type="number" required placeholder="Harga Dasar" className="w-full p-4 bg-orange-50 rounded-2xl font-black text-orange-600 text-xl" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
                
-               {/* --- INPUT KATEGORI (DIPERBAIKI: HAPUS IKON DOBEL) --- */}
+               {/* --- INPUT KATEGORI DINAMIS --- */}
                <div className="relative">
                    <input 
                      required
@@ -176,7 +205,6 @@ const ProductManagement = () => {
                      value={formData.category} 
                      onChange={(e) => setFormData({...formData, category: e.target.value})}
                    />
-                   
                    <datalist id="category-options">
                      {uniqueCategories.map((cat, idx) => (
                        <option key={idx} value={cat} />
@@ -290,26 +318,27 @@ const ProductManagement = () => {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filteredProducts.map((p) => (
-              <tr key={p.id} className="hover:bg-orange-50/20 transition-all group">
+              <tr key={p.id} className={`transition-all group ${p.isAvailable ? 'hover:bg-orange-50/20' : 'bg-gray-50 opacity-60 grayscale-[0.8]'}`}>
                 <td className="p-6 align-top">
                   <div className="flex items-start gap-3">
                     <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
                         {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Image className="m-auto mt-3 text-gray-300" size={20} />}
                     </div>
                     <div>
-                        <p className="font-black text-gray-800 uppercase italic text-base leading-tight">{p.name}</p>
+                        <p className={`font-black uppercase italic text-base leading-tight ${p.isAvailable ? 'text-gray-800' : 'text-gray-500 line-through decoration-2'}`}>{p.name}</p>
                         <div className="flex items-center gap-1 mt-1">
-                            <Calendar size={10} className="text-orange-500" />
-                            <p className="text-[9px] font-bold text-orange-500 uppercase tracking-tighter">
+                            <Calendar size={10} className={p.isAvailable ? "text-orange-500" : "text-gray-400"} />
+                            <p className={`text-[9px] font-bold uppercase tracking-tighter ${p.isAvailable ? 'text-orange-500' : 'text-gray-400'}`}>
                                 {p.availableDays?.length > 0 ? p.availableDays.sort((a,b) => a-b).map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
                             </p>
                         </div>
+                        {!p.isAvailable && <span className="text-[8px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-md mt-1 inline-block">NON-AKTIF</span>}
                     </div>
                   </div>
                 </td>
                 <td className="p-6 align-top">
                     <div className="space-y-2">
-                        <div className="text-[10px] font-black text-orange-600">Rp {Number(p.price).toLocaleString('id-ID')} <span className="text-gray-400 font-bold">(Dasar)</span></div>
+                        <div className={`text-[10px] font-black ${p.isAvailable ? 'text-orange-600' : 'text-gray-400'}`}>Rp {Number(p.price).toLocaleString('id-ID')} <span className="text-gray-400 font-bold">(Dasar)</span></div>
                         {p.variants && p.variants.length > 0 && (
                             <div className="flex flex-wrap gap-1">
                                 {p.variants.map((v, idx) => (
@@ -328,7 +357,21 @@ const ProductManagement = () => {
                     </div>
                 </td>
                 <td className="p-6 text-center">
-                  <div className="flex justify-center gap-2">
+                  <div className="flex justify-center gap-2 items-center">
+                    
+                    {/* TOMBOL TOGGLE STATUS */}
+                    <button 
+                        onClick={() => handleToggleStatus(p)} 
+                        className={`p-3 rounded-xl transition-all shadow-sm ${
+                            p.isAvailable 
+                            ? 'bg-green-100 text-green-600 hover:bg-green-600 hover:text-white' 
+                            : 'bg-gray-200 text-gray-500 hover:bg-gray-500 hover:text-white'
+                        }`}
+                        title={p.isAvailable ? "Non-aktifkan Menu" : "Aktifkan Menu"}
+                    >
+                        {p.isAvailable ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                    </button>
+
                     <button onClick={() => startEdit(p)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"><Edit3 size={18} /></button>
                     <button onClick={async () => { if(window.confirm('Hapus menu ini?')) { await deleteDoc(doc(db, "products", p.id)); fetchProducts(); } }} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
                   </div>
