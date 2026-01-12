@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../firebase';
 import { 
   collection, addDoc, getDocs, doc, 
   updateDoc, deleteDoc, serverTimestamp 
 } from 'firebase/firestore';
-import { Calendar, Package, Tag, Layers, Trash2, Edit3, Plus, Image, Box, Search } from 'lucide-react';
+import { Calendar, Tag, Layers, Trash2, Edit3, Image, Box, Search, ChevronDown } from 'lucide-react';
 // IMPORT COMPONENT SETTINGS JADWAL
 import StoreScheduleSettings from './StoreScheduleSettings';
 
@@ -19,6 +19,7 @@ const ProductManagement = () => {
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Default category diset kosong agar user ter-trigger untuk memilih/mengetik
   const [formData, setFormData] = useState({
     name: '', price: '', stock: '', category: 'Ayam', imageUrl: '', availableDays: [] 
   });
@@ -34,6 +35,21 @@ const ProductManagement = () => {
   }, []);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  // --- LOGIKA BARU: KATEGORI DINAMIS ---
+  // Mengambil kategori dari produk yang sudah ada di database + kategori default
+  const uniqueCategories = useMemo(() => {
+    const defaultCats = [
+        "Ayam", "Ikan", "Sayur", "Nasi", "Minuman", 
+        "Tumisan/Osengan", "Telur", "Gorengan", "Menu Tambahan"
+    ];
+    // Ambil kategori dari database
+    const dbCats = products.map(p => p.category).filter(Boolean);
+    
+    // Gabungkan dan hapus duplikat
+    return [...new Set([...defaultCats, ...dbCats])].sort();
+  }, [products]);
+  // -------------------------------------
 
   // LOGIKA RINGKASAN MENU PER HARI
   const getDailyStats = () => {
@@ -145,11 +161,32 @@ const ProductManagement = () => {
           </div>
           <div className="md:col-span-2 space-y-6">
             <input type="text" required placeholder="Nama Masakan" className="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none uppercase" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+            
             <div className="grid grid-cols-2 gap-4">
                <input type="number" required placeholder="Harga Dasar" className="w-full p-4 bg-orange-50 rounded-2xl font-black text-orange-600 text-xl" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
-               <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}>
-                  <option value="Ayam">Ayam</option><option value="Ikan">Ikan</option><option value="Sayur">Sayur</option><option value="Nasi">Nasi</option><option value="Minuman">Minuman</option>
-               </select>
+               
+               {/* --- INPUT KATEGORI DINAMIS --- */}
+               <div className="relative group">
+                   <input 
+                     required
+                     list="category-options" 
+                     type="text" 
+                     placeholder="Pilih/Ketik Kategori" 
+                     className="w-full p-4 bg-gray-50 rounded-2xl font-bold outline-none focus:bg-white focus:ring-2 focus:ring-orange-200 transition-all placeholder:text-gray-400" 
+                     value={formData.category} 
+                     onChange={(e) => setFormData({...formData, category: e.target.value})}
+                   />
+                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-orange-500">
+                     <ChevronDown size={20} />
+                   </div>
+                   <datalist id="category-options">
+                     {uniqueCategories.map((cat, idx) => (
+                       <option key={idx} value={cat} />
+                     ))}
+                   </datalist>
+               </div>
+               {/* ----------------------------- */}
+
             </div>
           </div>
         </div>
