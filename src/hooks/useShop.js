@@ -28,11 +28,7 @@ export const useShop = (currentUser) => {
       }));
       setOrders(ordersList);
     }, (err) => {
-      if (err.code === 'permission-denied') {
-        console.log("Akses database dihentikan karena sesi berakhir.");
-      } else {
-        console.error("Firestore error:", err);
-      }
+      console.error("Firestore error:", err);
     });
 
     return () => {
@@ -41,50 +37,45 @@ export const useShop = (currentUser) => {
     };
   }, [currentUser]);
 
-  // --- TAMBAH KE KERANJANG ---
-  const addToCart = (product, variantName, note) => {
+  // --- 1. TAMBAH KE KERANJANG (DIPERBAIKI) ---
+  // Sekarang menerima 1 parameter objek dari ItemSelectionModal
+  const addToCart = (newItem) => {
     setCart(prevCart => {
-      // Mencari apakah item dengan ID, Varian, dan CATATAN yang sama sudah ada
-      const existingIndex = prevCart.findIndex(item => 
-        item.id === product.id && 
-        item.variant === variantName &&
-        item.notes === note // Memisahkan baris jika catatan berbeda
-      );
+      // Cek apakah item dengan ID unik ini (ID-Varian) sudah ada di keranjang
+      const existingItemIndex = prevCart.findIndex(item => item.id === newItem.id);
 
-      // VALIDASI STOK
-      if (existingIndex > -1) {
-        const item = prevCart[existingIndex];
-        if (item.stock !== -1 && item.quantity >= item.stock) {
-          alert(`Maaf, stok ${item.name} sudah mencapai batas maksimal (${item.stock}).`);
+      if (existingItemIndex > -1) {
+        // Jika sudah ada, update quantity
+        const existingItem = prevCart[existingItemIndex];
+        const newQuantity = existingItem.quantity + newItem.quantity;
+
+        // Validasi Stok
+        if (existingItem.stock !== -1 && newQuantity > existingItem.stock) {
+          alert(`Maaf, stok ${existingItem.name} maksimal ${existingItem.stock}.`);
           return prevCart;
         }
+
         const newCart = [...prevCart];
-        newCart[existingIndex].quantity += 1;
+        newCart[existingItemIndex] = {
+          ...existingItem,
+          quantity: newQuantity
+        };
         return newCart;
+      } else {
+        // Jika belum ada, masukkan item baru
+        // Normalisasi data agar konsisten (notes vs note)
+        return [...prevCart, {
+          ...newItem,
+          // Pastikan properti ini ada untuk CartView
+          notes: newItem.note || newItem.notes || "", 
+          variant: newItem.selectedVariant?.name || newItem.variant || 'Tanpa Varian',
+          selectedVariant: newItem.selectedVariant || null // Simpan objek varian
+        }];
       }
-
-      // AMBIL HARGA BERDASARKAN VARIAN
-      const variantObj = Array.isArray(product.variants) 
-        ? product.variants.find(v => (v.name || v) === variantName)
-        : null;
-
-      const finalPrice = variantObj?.price ? Number(variantObj.price) : Number(product.price);
-
-      // MASUKKAN KE KERANJANG DENGAN KEY 'notes'
-      return [...prevCart, {
-        ...product,
-        basePrice: product.price, 
-        price: finalPrice,
-        variant: variantName || 'Tanpa Varian',
-        notes: note || "", // Konsisten menggunakan 'notes' sesuai UI Keranjang
-        quantity: 1,
-        variants: product.variants || [],
-        stock: product.stock 
-      }];
     });
   };
 
-  // --- UPDATE JUMLAH ITEM ---
+  // --- 2. UPDATE JUMLAH ITEM ---
   const updateQuantity = (index, delta) => {
     setCart(prev => {
       if (!prev[index]) return prev;
@@ -101,12 +92,15 @@ export const useShop = (currentUser) => {
       if (newQty > 0) {
         newCart[index] = { ...newCart[index], quantity: newQty };
         return newCart;
+      } else {
+        // Jika 0, hapus item (opsional, atau bisa dihandle UI)
+        newCart.splice(index, 1);
+        return newCart;
       }
-      return prev;
     });
   };
 
-  // --- UPDATE DETAIL (Notes & Varian di Keranjang) ---
+  // --- 3. UPDATE DETAIL (Notes & Varian di Keranjang) ---
   const updateCartItemDetails = (index, details) => {
     setCart(prev => {
       if (!prev[index]) return prev;
@@ -116,35 +110,47 @@ export const useShop = (currentUser) => {
     });
   };
 
-  // --- HAPUS DARI KERANJANG ---
+  // --- 4. HAPUS DARI KERANJANG ---
   const removeFromCart = (index) => {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- PROSES CHECKOUT KE DATABASE ---
-  const checkout = async (customerName) => {
+  // --- 5. PROSES CHECKOUT KE DATABASE (DIPERBAIKI) ---
+  const checkout = async (customerName, orderNote = '') => {
     if (cart.length === 0) return;
+    
     try {
+      const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+      // MAPPING ITEM AGAR DATA VARIAN TERSIMPAN LENGKAP
+      const orderItems = cart.map(item => ({
+        id: item.id, // ID Unik (Product+Varian)
+        productId: item.productId || item.id.split('-')[0], // ID Produk Asli
+        name: item.name,
+        price: Number(item.price),
+        quantity: Number(item.quantity),
+        
+        // --- DATA PENTING UNTUK RECEIPT ---
+        selectedVariant: item.selectedVariant || null, // Simpan Objek Lengkap
+        variant: item.variant || (item.selectedVariant?.name) || 'Tanpa Varian', // String Fallback
+        
+        notes: item.notes || item.note || "" // Catatan
+      }));
+
       const orderData = {
         customerName: customerName || "Pelanggan",
-        // Mapping item agar data yang dikirim ke Firebase bersih dan mengandung notes
-        items: cart.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: Number(item.price),
-          quantity: Number(item.quantity),
-          variant: item.variant || 'Tanpa Varian',
-          notes: item.notes || "" // Menyimpan catatan ke database
-        })),
-        total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        items: orderItems,
+        total: total,
+        note: orderNote, // Catatan global order (misal tanggal)
         status: 'Baru',
         createdAt: serverTimestamp(),
         userId: currentUser ? currentUser.uid : 'public'
       };
 
+      // Simpan ke Firestore
       const docRef = await addDoc(collection(db, "orders"), orderData);
       
-      // Buat objek untuk tampilan struk instan
+      // Buat objek lokal untuk update UI instan (tanpa reload)
       const newOrder = { 
         id: docRef.id, 
         ...orderData, 
@@ -154,6 +160,7 @@ export const useShop = (currentUser) => {
       setCurrentOrder(newOrder);
       setCart([]); // Kosongkan keranjang
       return newOrder;
+
     } catch (error) {
       console.error("Checkout error:", error);
       throw error;
