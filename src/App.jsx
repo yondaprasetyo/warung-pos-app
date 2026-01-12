@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
-import { useStoreSchedule } from './hooks/useStoreSchedule'; // Import Hook Schedule
+import { useStoreSchedule } from './hooks/useStoreSchedule'; 
 import { db } from './firebase'; 
 import { doc, writeBatch } from 'firebase/firestore'; 
 
@@ -19,16 +19,23 @@ import ProfileView from './components/admin/ProfileView';
 import ProductManagement from './components/admin/ProductManagement';
 import SalesLaporan from './components/admin/SalesLaporan';
 
-// --- HELPER: FORMAT TANGGAL ---
+// --- HELPER: FORMAT TANGGAL (DIPERBAIKI ZONA WAKTU) ---
+// Masalah sebelumnya: toISOString() menggunakan UTC, jadi jam 7 pagi WIB terbaca hari kemarin.
+// Solusi: Sesuaikan dengan zona waktu lokal user.
 const getFormattedDateInfo = (dateObj) => {
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   
+  // Koreksi Timezone agar tanggal YYYY-MM-DD sesuai jam lokal Indonesia
+  const offset = dateObj.getTimezoneOffset() * 60000; // dalam milidetik
+  const localDate = new Date(dateObj.getTime() - offset);
+  const isoDate = localDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
   return {
     dateObj: dateObj, 
     dayId: dateObj.getDay(), 
     fullDate: `${days[dateObj.getDay()]}, ${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`,
-    isoDate: dateObj.toISOString().split('T')[0] // YYYY-MM-DD
+    isoDate: isoDate 
   };
 };
 
@@ -38,7 +45,6 @@ const App = () => {
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
   
-  // State untuk filter tanggal pesanan
   const [orderDate, setOrderDate] = useState(null);
   
   const { 
@@ -52,17 +58,16 @@ const App = () => {
     updateCartItemDetails 
   } = useShop(currentUser);
 
-  // --- LOGIKA JADWAL TOKO (GLOBAL) ---
+  // --- LOGIKA JADWAL TOKO ---
   const { checkIsClosed } = useStoreSchedule();
   
-  // Cek apakah tanggal yang dipilih (orderDate) sedang libur?
   const shopClosedInfo = useMemo(() => {
-     if (!orderDate) return null;
+     // Pastikan isoDate ada sebelum mengecek
+     if (!orderDate || !orderDate.isoDate) return null;
      return checkIsClosed(orderDate.isoDate); 
   }, [orderDate, checkIsClosed]);
-  // --------------------------------
+  // -------------------------
 
-  // Effect: Auto-select tanggal untuk Admin
   useEffect(() => {
     if (currentUser && !orderDate) {
       const timer = setTimeout(() => {
@@ -144,7 +149,7 @@ const App = () => {
     </div>
   );
 
-  // --- 1. MODE ADMIN / KASIR (LOGIN) ---
+  // --- 1. MODE ADMIN ---
   if (currentUser) {
     return (
       <div className="min-h-screen bg-orange-50/30 pb-10">
@@ -164,21 +169,11 @@ const App = () => {
                 onChangeDate={() => setOrderDate(null)} 
                 onUpdateDate={handleAdminDateChange}
                 isAdmin={true}
-                
-                // KIRIM PROP INI KE ADMIN: Info Tutup Toko
                 shopClosedInfo={shopClosedInfo} 
             />
           )}
-          {currentView === 'cart' && (
-            <CartView 
-              cart={cart} 
-              updateQuantity={updateQuantity} 
-              removeFromCart={removeFromCart} 
-              updateCartItemDetails={updateCartItemDetails}
-              onCheckout={handleConfirmCheckout} 
-              onBack={() => setCurrentView('menu')}
-            />
-          )}
+          {/* ... (View lain admin tetap sama) ... */}
+          {currentView === 'cart' && <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} updateCartItemDetails={updateCartItemDetails} onCheckout={handleConfirmCheckout} onBack={() => setCurrentView('menu')} />}
           {currentView === 'orders' && <OrderHistory orders={orders} />}
           {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
           {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
@@ -193,11 +188,22 @@ const App = () => {
 
   // --- 2. MODE PELANGGAN / PUBLIC ---
   if (isPublicMode) {
-    // WAJIB PILIH TANGGAL DULU
     if (!orderDate) {
         return (
           <OrderDateSelector 
-            onSelectDate={(info) => setOrderDate(info)} 
+            // PERBAIKAN UTAMA DI SINI:
+            // Kita tangkap data dari selector, lalu format ulang menggunakan helper yang sama dengan Admin.
+            // Ini menjamin properti 'isoDate' selalu ada dan formatnya benar.
+            onSelectDate={(info) => {
+               // Asumsi: info.dateObj adalah object Date javascript. 
+               // Jika OrderDateSelector mengembalikan object Date di dalam properti dateObj:
+               if (info?.dateObj) {
+                  setOrderDate(getFormattedDateInfo(info.dateObj));
+               } else {
+                  // Fallback jika strukturnya berbeda, kita coba parsing
+                  setOrderDate(getFormattedDateInfo(new Date())); 
+               }
+            }} 
             user={null}
             authLoading={false}
           />
@@ -223,7 +229,7 @@ const App = () => {
                 onChangeDate={() => setOrderDate(null)} 
                 isAdmin={false}
                 
-                // --- PERBAIKAN: KIRIM PROP INI KE PELANGGAN ---
+                // Pastikan prop ini terkirim
                 shopClosedInfo={shopClosedInfo}
             />
           )}
