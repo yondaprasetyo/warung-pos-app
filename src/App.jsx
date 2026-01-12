@@ -114,8 +114,8 @@ const App = () => {
         return (
           <OrderDateSelector 
             onSelectDate={(info) => setOrderDate(info)} 
-            user={currentUser}        // Kirim data user (agar tahu role admin)
-            authLoading={loading}     // Kirim status loading
+            user={null}             // <<-- KITA UBAH JADI NULL
+            authLoading={loading} 
           />
         );
     }
