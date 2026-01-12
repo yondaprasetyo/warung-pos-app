@@ -89,7 +89,9 @@ const MenuView = ({
                             </div>
                             <input 
                               type="date" 
-                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20"
+                              // TAMBAHAN: appearance-none m-0 p-0 bg-transparent
+                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20 appearance-none m-0 p-0 bg-transparent"
+                              style={{ WebkitAppearance: 'none' }} // Paksa reset khusus Safari
                               value={orderDateInfo?.isoDate || new Date().toISOString().split('T')[0]}
                               onChange={(e) => onUpdateDate && onUpdateDate(e.target.value)}
                             />
