@@ -129,7 +129,8 @@ const ProductManagement = () => {
 
       if (editingId) {
         // Hapus isAvailable dari payload edit agar tidak mereset status yang sedang diset user
-        const { isAvailable, ...editPayload } = payload; 
+        const editPayload = { ...payload };
+        delete editPayload.isAvailable;
         await updateDoc(doc(db, "products", editingId), editPayload);
         alert("✅ Berhasil Update!");
       } else {
