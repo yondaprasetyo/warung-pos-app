@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, CheckCircle2, ArrowLeft, MessageSquare, StickyNote } from 'lucide-react';
+import { Printer, ArrowLeft, StickyNote } from 'lucide-react';
 import { formatRupiah } from '../../utils/format';
 
 const ReceiptView = ({ order, onBack }) => {
@@ -78,39 +78,49 @@ const ReceiptView = ({ order, onBack }) => {
 
         {/* Daftar Item */}
         <div className="space-y-6 mb-8">
-            {order.items?.map((item, idx) => (
-              <div key={idx} className="relative">
-                <div className="flex justify-between items-start">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-black text-gray-800 uppercase tracking-tight italic">
-                        {item.name} <span className="text-orange-600 ml-1">x{item.quantity}</span>
-                    </span>
-                    
-                    {item.variant && (
-                        <span className="text-[9px] font-black text-gray-400 italic uppercase tracking-tighter">
-                           Varian: {item.variant}
-                        </span>
-                    )}
-                  </div>
-                  <span className="text-sm font-black text-gray-800 italic">
-                    {formatRupiah(item.price * item.quantity)}
-                  </span>
-                </div>
+            {order.items?.map((item, idx) => {
+              // --- FIX: LOGIKA PENENTUAN VARIAN ---
+              // Cek selectedVariant.name (objek) dulu, baru cek variant (string legacy)
+              const variantLabel = item.selectedVariant?.name || item.variant;
+              
+              // Cek Notes/Catatan (Support 'notes' dan 'note')
+              const itemNote = item.notes || item.note;
 
-                {/* CATATAN (NOTES) - Dioptimalkan untuk Print */}
-                {item.notes && (
-                    <div className="mt-2 flex items-start gap-2 bg-gray-50 p-3 rounded-xl border-l-4 border-orange-500 print:bg-white print:border-gray-300">
-                        <StickyNote size={12} className="text-orange-500 mt-0.5 print:text-black" />
-                        <div className="flex flex-col">
-                          <span className="text-[8px] font-black text-orange-600 uppercase italic print:text-black">Catatan Khusus:</span>
-                          <p className="text-[11px] text-gray-700 font-black italic leading-tight uppercase tracking-tight">
-                              "{item.notes}"
-                          </p>
-                        </div>
+              return (
+                <div key={idx} className="relative">
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-black text-gray-800 uppercase tracking-tight italic">
+                          {item.name} <span className="text-orange-600 ml-1">x{item.quantity}</span>
+                      </span>
+                      
+                      {/* Tampilkan Varian hanya jika ada dan bukan "Tanpa Varian" */}
+                      {variantLabel && variantLabel !== 'Tanpa Varian' && (
+                          <span className="text-[9px] font-black text-gray-400 italic uppercase tracking-tighter">
+                             Varian: {variantLabel}
+                          </span>
+                      )}
                     </div>
-                )}
-              </div>
-            ))}
+                    <span className="text-sm font-black text-gray-800 italic">
+                      {formatRupiah(item.price * item.quantity)}
+                    </span>
+                  </div>
+
+                  {/* CATATAN (NOTES) - Dioptimalkan untuk Print */}
+                  {itemNote && (
+                      <div className="mt-2 flex items-start gap-2 bg-gray-50 p-3 rounded-xl border-l-4 border-orange-500 print:bg-white print:border-gray-300">
+                          <StickyNote size={12} className="text-orange-500 mt-0.5 print:text-black" />
+                          <div className="flex flex-col">
+                            <span className="text-[8px] font-black text-orange-600 uppercase italic print:text-black">Catatan Khusus:</span>
+                            <p className="text-[11px] text-gray-700 font-black italic leading-tight uppercase tracking-tight">
+                                "{itemNote}"
+                            </p>
+                          </div>
+                      </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
 
         {/* Total Bayar */}
