@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Receipt, CheckCircle, Clock, StickyNote, ChefHat, Flame } from 'lucide-react';
+import { Receipt, CheckCircle, Clock, StickyNote, ChefHat, Flame, CalendarDays } from 'lucide-react';
 import { formatRupiah } from '../../utils/format';
 import { useShop } from '../../hooks/useShop';
 
@@ -13,10 +13,13 @@ const OrderHistory = ({ orders }) => {
 
     activeOrders.forEach(order => {
       order.items.forEach(item => {
-        // Buat kunci unik berdasarkan Nama + Varian
-        const variantText = item.variant && item.variant.toUpperCase() !== "TANPA VARIAN" 
-          ? ` (${item.variant})` 
+        // FIX: Cek variant dari object baru (selectedVariant) atau string lama (variant)
+        const currentVariant = item.selectedVariant?.name || item.variant;
+        
+        const variantText = currentVariant && currentVariant.toUpperCase() !== "TANPA VARIAN" 
+          ? ` (${currentVariant})` 
           : '';
+          
         const key = `${item.name}${variantText}`;
 
         if (!summary[key]) {
@@ -27,8 +30,11 @@ const OrderHistory = ({ orders }) => {
         }
 
         summary[key].quantity += item.quantity;
-        if (item.notes) {
-          summary[key].notes.add(item.notes);
+        
+        // Cek notes atau note
+        const itemNote = item.notes || item.note;
+        if (itemNote) {
+          summary[key].notes.add(itemNote);
         }
       });
     });
@@ -103,9 +109,9 @@ const OrderHistory = ({ orders }) => {
                 : 'bg-white border-gray-100 opacity-80'
             }`}
           >
-            <div className="flex justify-between items-start mb-4 border-b border-dashed border-gray-200 pb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 border-b border-dashed border-gray-200 pb-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
                   <h3 className="font-black text-gray-800 text-lg uppercase tracking-tighter italic">{order.customerName}</h3>
                   {order.userId === 'public' && (
                     <span className="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded-md font-black border border-blue-700 uppercase tracking-tighter">
@@ -113,13 +119,32 @@ const OrderHistory = ({ orders }) => {
                     </span>
                   )}
                 </div>
+
+                {/* TAMPILKAN TANGGAL PILIHAN PELANGGAN (ORDER NOTE) */}
+                {order.note && (
+                   <div className="mb-2 inline-flex items-center gap-1.5 bg-blue-50 border border-blue-100 text-blue-700 px-3 py-1 rounded-lg">
+                      <CalendarDays size={12} />
+                      <p className="text-[10px] font-black uppercase tracking-widest">
+                         {order.note}
+                      </p>
+                   </div>
+                )}
+
+                {/* TAMPILKAN WAKTU TRANSAKSI (DIPERBAIKI) */}
                 <p className="text-[10px] text-gray-500 font-bold flex items-center gap-1 uppercase tracking-widest">
                   <Clock size={12} className="text-gray-400" /> 
-                  {new Date(order.createdAt?.toDate ? order.createdAt.toDate() : order.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                  Dibuat: {new Date(order.createdAt?.toDate ? order.createdAt.toDate() : order.createdAt)
+                    .toLocaleString('id-ID', { 
+                      day: 'numeric', 
+                      month: 'short', 
+                      year: 'numeric',
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })} WIB
                 </p>
               </div>
 
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-col items-end gap-2 shrink-0">
                 <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                   order.status === 'Baru' 
                     ? 'bg-orange-500 text-white animate-pulse' 
@@ -140,31 +165,37 @@ const OrderHistory = ({ orders }) => {
             </div>
             
             <div className="space-y-3 mb-4 bg-white/50 p-3 rounded-xl border border-gray-100">
-              {order.items.map((item, idx) => (
-                <div key={idx} className="flex flex-col border-b border-gray-50 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-black text-gray-700 uppercase italic">
-                      {item.name} <span className="text-orange-500 not-italic">x{item.quantity}</span>
-                    </span>
-                    <span className="font-bold text-gray-600">{formatRupiah(item.price * item.quantity)}</span>
-                  </div>
+              {order.items.map((item, idx) => {
+                 // FIX: Ambil varian dengan prioritas selectedVariant
+                 const displayVariant = item.selectedVariant?.name || item.variant;
+                 const displayNote = item.notes || item.note;
 
-                  {item.variant && item.variant.toUpperCase() !== "TANPA VARIAN" && (
-                    <span className="text-[10px] text-orange-500 font-black italic uppercase">
-                      Varian: {item.variant}
-                    </span>
-                  )}
-
-                  {item.notes && (
-                    <div className="mt-1.5 flex items-start gap-1.5 bg-orange-50 px-2 py-1.5 rounded-lg border border-orange-100 w-fit">
-                      <StickyNote size={10} className="text-orange-600 mt-0.5" />
-                      <p className="text-[10px] font-bold text-orange-800 italic">
-                        "{item.notes}"
-                      </p>
+                 return (
+                  <div key={idx} className="flex flex-col border-b border-gray-50 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-black text-gray-700 uppercase italic">
+                        {item.name} <span className="text-orange-500 not-italic">x{item.quantity}</span>
+                      </span>
+                      <span className="font-bold text-gray-600">{formatRupiah(item.price * item.quantity)}</span>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {displayVariant && displayVariant.toUpperCase() !== "TANPA VARIAN" && (
+                      <span className="text-[10px] text-orange-500 font-black italic uppercase">
+                        Varian: {displayVariant}
+                      </span>
+                    )}
+
+                    {displayNote && (
+                      <div className="mt-1.5 flex items-start gap-1.5 bg-orange-50 px-2 py-1.5 rounded-lg border border-orange-100 w-fit">
+                        <StickyNote size={10} className="text-orange-600 mt-0.5" />
+                        <p className="text-[10px] font-bold text-orange-800 italic">
+                          "{displayNote}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                 );
+              })}
             </div>
 
             <div className="pt-2 flex justify-between items-center">
