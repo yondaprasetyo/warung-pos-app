@@ -45,6 +45,7 @@ const App = () => {
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
   
+  // State untuk filter tanggal pesanan
   const [orderDate, setOrderDate] = useState(null);
   
   const { 
@@ -58,16 +59,18 @@ const App = () => {
     updateCartItemDetails 
   } = useShop(currentUser);
 
-  // --- LOGIKA JADWAL TOKO ---
+  // --- LOGIKA JADWAL TOKO (GLOBAL) ---
   const { checkIsClosed } = useStoreSchedule();
   
+  // Cek apakah tanggal yang dipilih (orderDate) sedang libur?
   const shopClosedInfo = useMemo(() => {
      // Pastikan isoDate ada sebelum mengecek
      if (!orderDate || !orderDate.isoDate) return null;
      return checkIsClosed(orderDate.isoDate); 
   }, [orderDate, checkIsClosed]);
-  // -------------------------
+  // --------------------------------
 
+  // Effect: Auto-select tanggal untuk Admin
   useEffect(() => {
     if (currentUser && !orderDate) {
       const timer = setTimeout(() => {
@@ -149,7 +152,7 @@ const App = () => {
     </div>
   );
 
-  // --- 1. MODE ADMIN ---
+  // --- 1. MODE ADMIN / KASIR (LOGIN) ---
   if (currentUser) {
     return (
       <div className="min-h-screen bg-orange-50/30 pb-10">
@@ -169,11 +172,21 @@ const App = () => {
                 onChangeDate={() => setOrderDate(null)} 
                 onUpdateDate={handleAdminDateChange}
                 isAdmin={true}
+                
+                // KIRIM PROP INI KE ADMIN: Info Tutup Toko
                 shopClosedInfo={shopClosedInfo} 
             />
           )}
-          {/* ... (View lain admin tetap sama) ... */}
-          {currentView === 'cart' && <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} updateCartItemDetails={updateCartItemDetails} onCheckout={handleConfirmCheckout} onBack={() => setCurrentView('menu')} />}
+          {currentView === 'cart' && (
+            <CartView 
+              cart={cart} 
+              updateQuantity={updateQuantity} 
+              removeFromCart={removeFromCart} 
+              updateCartItemDetails={updateCartItemDetails}
+              onCheckout={handleConfirmCheckout} 
+              onBack={() => setCurrentView('menu')}
+            />
+          )}
           {currentView === 'orders' && <OrderHistory orders={orders} />}
           {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
           {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
@@ -188,6 +201,7 @@ const App = () => {
 
   // --- 2. MODE PELANGGAN / PUBLIC ---
   if (isPublicMode) {
+    // WAJIB PILIH TANGGAL DULU
     if (!orderDate) {
         return (
           <OrderDateSelector 
@@ -229,7 +243,7 @@ const App = () => {
                 onChangeDate={() => setOrderDate(null)} 
                 isAdmin={false}
                 
-                // Pastikan prop ini terkirim
+                // --- PERBAIKAN: KIRIM PROP INI KE PELANGGAN ---
                 shopClosedInfo={shopClosedInfo}
             />
           )}
