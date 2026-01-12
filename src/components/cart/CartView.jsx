@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, Plus, Minus, ChevronDown, ArrowLeft, ShoppingBag, AlertCircle, StickyNote } from 'lucide-react';
+import { Trash2, Plus, Minus, ChevronDown, ArrowLeft, ShoppingBag, StickyNote } from 'lucide-react';
 import { formatRupiah } from '../../utils/format';
 
 const CartView = ({ 
@@ -10,12 +10,17 @@ const CartView = ({
   onCheckout, 
   onBack 
 }) => {
-  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // --- PERBAIKAN UTAMA DI SINI ---
+  // Pastikan safeCart selalu berupa array, meskipun props 'cart' error/undefined
+  const safeCart = Array.isArray(cart) ? cart : [];
+
+  // Hitung total menggunakan safeCart, bukan cart
+  const total = safeCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   return (
     <div className="bg-white rounded-[2.5rem] shadow-2xl h-[calc(100vh-140px)] flex flex-col overflow-hidden border border-gray-100">
       
-      {/* HEADER: Solid & Clean */}
+      {/* HEADER */}
       <div className="p-6 bg-white border-b border-gray-50 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <button 
@@ -29,7 +34,7 @@ const CartView = ({
               Keranjang
             </h2>
             <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mt-1">
-              {cart.length} Menu Terpilih
+              {safeCart.length} Menu Terpilih
             </p>
           </div>
         </div>
@@ -37,7 +42,7 @@ const CartView = ({
 
       {/* BODY / LIST ITEM */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-hide bg-gray-50/30">
-        {cart.length === 0 ? (
+        {safeCart.length === 0 ? (
           <div className="text-center py-20 flex flex-col items-center">
             <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm">
               <ShoppingBag size={40} className="text-gray-100" />
@@ -51,7 +56,7 @@ const CartView = ({
             </button>
           </div>
         ) : (
-          cart.map((item, index) => {
+          safeCart.map((item, index) => {
             const isMaxStockReached = item.stock !== -1 && item.quantity >= item.stock;
 
             return (
@@ -83,24 +88,28 @@ const CartView = ({
                       </button>
                     </div>
 
-                    {/* DROPDOWN VARIAN (Tampil jika ada varian) */}
+                    {/* DROPDOWN VARIAN */}
                     {Array.isArray(item.variants) && item.variants.length > 0 && (
                       <div className="mt-2 relative">
                         <select 
-                          value={item.variant}
+                          value={item.variant || ""} 
                           onChange={(e) => {
                             const selectedName = e.target.value;
                             const variantObj = item.variants.find(v => (v.name || v) === selectedName);
-                            const newPrice = variantObj?.price ? Number(variantObj.price) : Number(item.basePrice);
+                            const newPrice = variantObj && variantObj.price ? parseInt(variantObj.price) : item.price;
+                            
                             updateCartItemDetails(index, { 
                               variant: selectedName,
+                              selectedVariant: variantObj,
                               price: newPrice 
                             });
                           }}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-1.5 text-[9px] font-black text-blue-600 outline-none appearance-none pr-8 uppercase italic"
+                          className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-1.5 text-[9px] font-black text-blue-600 outline-none appearance-none pr-8 uppercase italic cursor-pointer"
                         >
                           {item.variants.map((v, i) => (
-                            <option key={i} value={v.name || v}>{v.name || v}</option>
+                            <option key={i} value={v.name || v}>
+                              {v.name || v}
+                            </option>
                           ))}
                         </select>
                         <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
@@ -110,18 +119,18 @@ const CartView = ({
                 </div>
 
                 {/* 3. INPUT CATATAN */}
-                <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border ${item.notes ? 'bg-orange-50/50 border-orange-200' : 'bg-gray-50 border-gray-50'}`}>
-                  <StickyNote size={12} className={item.notes ? 'text-orange-500' : 'text-gray-300'} />
+                <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border ${item.note ? 'bg-orange-50/50 border-orange-200' : 'bg-gray-50 border-gray-50'}`}>
+                  <StickyNote size={12} className={item.note ? 'text-orange-500' : 'text-gray-300'} />
                   <input 
                     type="text"
                     placeholder="Catatan tambahan..."
-                    value={item.notes || ""}
-                    onChange={(e) => updateCartItemDetails(index, { notes: e.target.value })}
+                    value={item.note || ""}
+                    onChange={(e) => updateCartItemDetails(index, { note: e.target.value })}
                     className="flex-1 bg-transparent text-[10px] font-bold text-gray-700 outline-none placeholder:text-gray-300 placeholder:italic"
                   />
                 </div>
 
-                {/* 4. TOTAL PER ITEM & QUANTITY CONTROL */}
+                {/* 4. QUANTITY CONTROL */}
                 <div className="flex justify-between items-center pt-2 border-t border-gray-50">
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black text-gray-800 tracking-tighter">
@@ -129,7 +138,7 @@ const CartView = ({
                     </span>
                     {item.stock !== -1 && (
                       <span className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${isMaxStockReached ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}>
-                        {isMaxStockReached ? 'Stok Terbatas' : `Sisa: ${item.stock - item.quantity}`}
+                        {isMaxStockReached ? 'Stok Penuh' : `Stok: ${item.stock}`}
                       </span>
                     )}
                   </div>
@@ -157,7 +166,7 @@ const CartView = ({
         )}
       </div>
 
-      {/* FOOTER: Total & Checkout */}
+      {/* FOOTER */}
       <div className="p-6 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.04)]">
         <div className="flex justify-between items-end mb-6">
           <div className="space-y-1">
@@ -170,7 +179,7 @@ const CartView = ({
         
         <button 
           onClick={onCheckout}
-          disabled={cart.length === 0}
+          disabled={safeCart.length === 0}
           className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-[1.8rem] font-black text-sm uppercase italic tracking-widest shadow-xl shadow-orange-100 transition-all active:scale-95 disabled:bg-gray-200 disabled:shadow-none disabled:text-gray-400"
         >
           Konfirmasi Pesanan
