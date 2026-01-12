@@ -4,7 +4,7 @@ import {
   collection, addDoc, getDocs, doc, 
   updateDoc, deleteDoc, serverTimestamp 
 } from 'firebase/firestore';
-import { Calendar, Tag, Layers, Trash2, Edit3, Image, Box, Search, ChevronDown } from 'lucide-react';
+import { Calendar, Tag, Layers, Trash2, Edit3, Image, Box, Search } from 'lucide-react';
 // IMPORT COMPONENT SETTINGS JADWAL
 import StoreScheduleSettings from './StoreScheduleSettings';
 
@@ -21,7 +21,7 @@ const ProductManagement = () => {
   
   // Default category diset kosong agar user ter-trigger untuk memilih/mengetik
   const [formData, setFormData] = useState({
-    name: '', price: '', stock: '', category: 'Ayam', imageUrl: '', availableDays: [] 
+    name: '', price: '', stock: '', category: '', imageUrl: '', availableDays: [] 
   });
 
   const [variants, setVariants] = useState([{ name: '', useSpecialPrice: false, price: '' }]);
@@ -108,7 +108,7 @@ const ProductManagement = () => {
         alert("🚀 Berhasil Tambah!");
       }
       setEditingId(null);
-      setFormData({ name: '', price: '', stock: '', category: 'Ayam', imageUrl: '', availableDays: [] });
+      setFormData({ name: '', price: '', stock: '', category: '', imageUrl: '', availableDays: [] });
       setVariants([{ name: '', useSpecialPrice: false, price: '' }]);
       fetchProducts();
     } catch (error) { alert(error.message); }
@@ -165,20 +165,18 @@ const ProductManagement = () => {
             <div className="grid grid-cols-2 gap-4">
                <input type="number" required placeholder="Harga Dasar" className="w-full p-4 bg-orange-50 rounded-2xl font-black text-orange-600 text-xl" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
                
-               {/* --- INPUT KATEGORI DINAMIS --- */}
-               <div className="relative group">
+               {/* --- INPUT KATEGORI (DIPERBAIKI: HAPUS IKON DOBEL) --- */}
+               <div className="relative">
                    <input 
                      required
                      list="category-options" 
                      type="text" 
-                     placeholder="Pilih/Ketik Kategori" 
+                     placeholder="Pilih / Ketik Kategori" 
                      className="w-full p-4 bg-gray-50 rounded-2xl font-bold outline-none focus:bg-white focus:ring-2 focus:ring-orange-200 transition-all placeholder:text-gray-400" 
                      value={formData.category} 
                      onChange={(e) => setFormData({...formData, category: e.target.value})}
                    />
-                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-orange-500">
-                     <ChevronDown size={20} />
-                   </div>
+                   
                    <datalist id="category-options">
                      {uniqueCategories.map((cat, idx) => (
                        <option key={idx} value={cat} />
