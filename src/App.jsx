@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
 import { db } from './firebase'; 
@@ -18,13 +18,26 @@ import ProfileView from './components/admin/ProfileView';
 import ProductManagement from './components/admin/ProductManagement';
 import SalesLaporan from './components/admin/SalesLaporan';
 
+// --- HELPER: FORMAT TANGGAL (Di luar component) ---
+const getFormattedDateInfo = (dateObj) => {
+  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  
+  return {
+    dateObj: dateObj, 
+    dayId: dateObj.getDay(), // 0-6
+    fullDate: `${days[dateObj.getDay()]}, ${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`,
+    isoDate: dateObj.toISOString().split('T')[0] // YYYY-MM-DD
+  };
+};
+
 const App = () => {
   const [currentView, setCurrentView] = useState('menu');
   const [isPublicMode, setIsPublicMode] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
   
-  // State baru untuk filter tanggal pesanan
+  // State untuk filter tanggal pesanan
   const [orderDate, setOrderDate] = useState(null);
   
   const { 
@@ -37,6 +50,25 @@ const App = () => {
     addToCart, updateQuantity, removeFromCart, checkout,
     updateCartItemDetails 
   } = useShop(currentUser);
+
+  // --- EFFECT: AUTO-SELECT TANGGAL UNTUK ADMIN (PERBAIKAN ERROR) ---
+  useEffect(() => {
+    // Gunakan setTimeout agar update state tidak dianggap "synchronous cascading render"
+    // Ini memindahkan update ke antrian eksekusi berikutnya (next tick)
+    if (currentUser && !orderDate) {
+      const timer = setTimeout(() => {
+        setOrderDate(getFormattedDateInfo(new Date()));
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser, orderDate]); 
+
+  // --- FUNGSI UPDATE TANGGAL ADMIN ---
+  const handleAdminDateChange = (newDateString) => {
+    if (!newDateString) return;
+    const newDate = new Date(newDateString);
+    setOrderDate(getFormattedDateInfo(newDate));
+  };
 
   const navigateTo = (view) => {
     setAuthError('');
@@ -51,7 +83,6 @@ const App = () => {
   const executeCheckout = async () => {
     if (customerNameInput.trim()) {
       try {
-        // Gabungkan info tanggal ke dalam catatan order jika perlu
         const orderNote = `Order untuk tanggal: ${orderDate?.fullDate}`;
         const order = await checkout(customerNameInput, orderNote);
         
@@ -109,17 +140,6 @@ const App = () => {
 
   // 1. PRIORITAS UTAMA: JIKA USER LOGIN (ADMIN/STAFF)
   if (currentUser) {
-    // Admin tetap harus pilih tanggal jika ingin melihat filter menu
-    if (!orderDate && currentView === 'menu') {
-        return (
-          <OrderDateSelector 
-            onSelectDate={(info) => setOrderDate(info)} 
-            user={null}             // <<-- KITA UBAH JADI NULL
-            authLoading={loading} 
-          />
-        );
-    }
-
     return (
       <div className="min-h-screen bg-orange-50/30 pb-10">
         <Header 
@@ -131,15 +151,16 @@ const App = () => {
         />
         
         {/* --- FIXED AREA START --- */}
-        {/* pt-[88px] digunakan karena Header fixed tingginya 72px + 16px gap */}
         <main className="pt-[88px] px-4 max-w-7xl mx-auto">
         {/* --- FIXED AREA END --- */}
         
           {currentView === 'menu' && (
             <MenuView 
                 onAddToCart={addToCart} 
-                orderDateInfo={orderDate} 
+                orderDateInfo={orderDate || getFormattedDateInfo(new Date())} 
                 onChangeDate={() => setOrderDate(null)} 
+                onUpdateDate={handleAdminDateChange}
+                isAdmin={true} 
             />
           )}
           {currentView === 'cart' && (
@@ -168,7 +189,6 @@ const App = () => {
   if (isPublicMode) {
     // WAJIB PILIH TANGGAL DULU
     if (!orderDate) {
-        // Mode publik tidak punya user logged in, jadi user={null}
         return (
           <OrderDateSelector 
             onSelectDate={(info) => setOrderDate(info)} 
@@ -180,7 +200,6 @@ const App = () => {
 
     return (
       <div className="min-h-screen bg-gray-50">
-        {/* Note: Header publik menggunakan sticky, bukan fixed, jadi aman tanpa padding khusus */}
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
           <h1 className="font-black text-orange-500 text-xl italic leading-none">Warung Makan<br/><span className="text-gray-800">Mamah Yonda</span></h1>
           <div className="flex gap-2">
@@ -196,6 +215,7 @@ const App = () => {
                 onAddToCart={addToCart} 
                 orderDateInfo={orderDate} 
                 onChangeDate={() => setOrderDate(null)} 
+                isAdmin={false}
             />
           )}
           {currentView === 'cart' && (

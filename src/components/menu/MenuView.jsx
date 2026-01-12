@@ -3,9 +3,9 @@ import { db } from '../../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { formatRupiah } from '../../utils/format';
 import ItemSelectionModal from './ItemSelectionModal';
-import { Search, Calendar, Plus } from 'lucide-react';
+import { Search, Calendar, Plus, ChevronDown } from 'lucide-react'; // Tambah ChevronDown
 
-const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
+const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate, onUpdateDate, isAdmin }) => {
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -75,19 +75,58 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate }) => {
       
       {/* HEADER MENU - Sticky di Top 72px (di bawah Header Utama) */}
       <header className="fixed top-[72px] left-0 right-0 z-[999] bg-white shadow-xl border-b border-gray-100">
-        <div className="bg-orange-600 px-4 py-3 flex justify-between items-center text-white">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <Calendar size={14} className="shrink-0" />
-            <span className="text-[10px] font-black uppercase italic tracking-tighter truncate">
-              Menu: {orderDateInfo?.fullDate}
-            </span>
+        <div className="bg-orange-600 px-4 py-3 flex justify-between items-center text-white transition-all">
+          
+          {/* BAGIAN KIRI: TANGGAL & PICKER */}
+          <div className="flex items-center gap-2 overflow-hidden flex-1 relative">
+            <Calendar size={16} className="shrink-0 text-orange-200" />
+            
+            {isAdmin ? (
+              // JIKA ADMIN: Tampilkan Input Date Native (Tersembunyi tapi bisa diklik)
+              <div className="relative flex items-center cursor-pointer group">
+                {/* Teks Tampilan yang Bagus */}
+                <div className="flex flex-col leading-none z-10 pointer-events-none">
+                   <span className="text-[8px] text-orange-200 font-bold uppercase tracking-widest mb-0.5">
+                      Menu Tanggal:
+                   </span>
+                   <span className="text-xs font-black uppercase italic tracking-tight truncate flex items-center gap-1 group-hover:text-orange-100 transition-colors">
+                      {orderDateInfo?.fullDate || "Pilih Tanggal"} 
+                      <ChevronDown size={12} className="opacity-70"/>
+                   </span>
+                </div>
+
+                {/* Input Date Transparan (Overlay) */}
+                <input 
+                  type="date" 
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20"
+                  // Gunakan ISO date (YYYY-MM-DD) untuk value input
+                  value={orderDateInfo?.isoDate || new Date().toISOString().split('T')[0]}
+                  onChange={(e) => onUpdateDate && onUpdateDate(e.target.value)}
+                />
+              </div>
+            ) : (
+              // JIKA CUSTOMER: Tampilan Biasa (Teks Saja)
+              <div className="flex flex-col leading-none">
+                 <span className="text-[8px] text-orange-200 font-bold uppercase tracking-widest mb-0.5">
+                    Menu Tanggal:
+                 </span>
+                 <span className="text-xs font-black uppercase italic tracking-tight truncate">
+                    {orderDateInfo?.fullDate}
+                 </span>
+              </div>
+            )}
           </div>
-          <button 
-            onClick={onChangeDate}
-            className="text-[9px] font-black bg-white text-orange-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm transition-transform"
-          >
-            Ubah
-          </button>
+
+          {/* BAGIAN KANAN: TOMBOL UBAH (HANYA UNTUK CUSTOMER) */}
+          {/* Admin tidak butuh tombol ini karena bisa klik tanggal langsung */}
+          {!isAdmin && (
+            <button 
+              onClick={onChangeDate}
+              className="text-[9px] font-black bg-white text-orange-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm transition-transform"
+            >
+              Ubah
+            </button>
+          )}
         </div>
 
         <div className="p-4 max-w-2xl mx-auto space-y-4">
