@@ -59,9 +59,13 @@ const App = () => {
           const batch = writeBatch(db);
           let hasStockUpdate = false;
 
-          cart.forEach((item) => {
+          // Gunakan (cart || []) untuk keamanan
+          (cart || []).forEach((item) => {
             if (item.stock !== -1) {
-              const productRef = doc(db, "products", item.id);
+              // Pastikan menggunakan productId jika item.id sudah dimodifikasi unik (id-varian)
+              // Fallback ke item.id jika productId tidak ada
+              const prodId = item.productId || item.id;
+              const productRef = doc(db, "products", prodId);
               const newStock = Math.max(0, item.stock - item.quantity);
               batch.update(productRef, { stock: newStock });
               hasStockUpdate = true;
@@ -124,7 +128,8 @@ const App = () => {
       <div className="min-h-screen bg-orange-50/30 pb-10">
         <Header 
             user={currentUser} 
-            cartCount={cart.reduce((a, b) => a + b.quantity, 0)} 
+            // FIX: Tambahkan (cart || []) untuk mencegah error reduce of undefined
+            cartCount={(cart || []).reduce((a, b) => a + b.quantity, 0)} 
             onNavigate={navigateTo} 
             onLogout={logout} 
             currentView={currentView} 
@@ -144,7 +149,7 @@ const App = () => {
           )}
           {currentView === 'cart' && (
             <CartView 
-              cart={cart} 
+              cart={cart || []} // FIX: Pastikan mengirim array kosong jika undefined
               updateQuantity={updateQuantity} 
               removeFromCart={removeFromCart} 
               updateCartItemDetails={updateCartItemDetails}
@@ -185,7 +190,8 @@ const App = () => {
           <h1 className="font-black text-orange-500 text-xl italic leading-none">Warung Makan<br/><span className="text-gray-800">Mamah Yonda</span></h1>
           <div className="flex gap-2">
             <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold">
-              🛒 {cart.reduce((a, b) => a + b.quantity, 0)}
+              {/* FIX: Tambahkan (cart || []) untuk mencegah error reduce of undefined */}
+              🛒 {(cart || []).reduce((a, b) => a + b.quantity, 0)}
             </button>
             <button onClick={() => { setIsPublicMode(false); setOrderDate(null); }} className="bg-gray-100 text-gray-400 px-4 py-2 rounded-xl text-sm font-bold">Login</button>
           </div>
@@ -200,7 +206,7 @@ const App = () => {
           )}
           {currentView === 'cart' && (
             <CartView 
-              cart={cart} 
+              cart={cart || []} // FIX: Pastikan mengirim array kosong jika undefined
               updateQuantity={updateQuantity} 
               removeFromCart={removeFromCart} 
               updateCartItemDetails={updateCartItemDetails}
