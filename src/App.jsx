@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
+import { useStoreSchedule } from './hooks/useStoreSchedule'; // <<-- IMPORT HOOK INI
 import { db } from './firebase'; 
 import { doc, writeBatch } from 'firebase/firestore'; 
 
@@ -18,14 +19,14 @@ import ProfileView from './components/admin/ProfileView';
 import ProductManagement from './components/admin/ProductManagement';
 import SalesLaporan from './components/admin/SalesLaporan';
 
-// --- HELPER: FORMAT TANGGAL (Di luar component) ---
+// --- HELPER: FORMAT TANGGAL ---
 const getFormattedDateInfo = (dateObj) => {
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   
   return {
     dateObj: dateObj, 
-    dayId: dateObj.getDay(), // 0-6
+    dayId: dateObj.getDay(), 
     fullDate: `${days[dateObj.getDay()]}, ${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`,
     isoDate: dateObj.toISOString().split('T')[0] // YYYY-MM-DD
   };
@@ -36,8 +37,6 @@ const App = () => {
   const [isPublicMode, setIsPublicMode] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
-  
-  // State untuk filter tanggal pesanan
   const [orderDate, setOrderDate] = useState(null);
   
   const { 
@@ -51,10 +50,17 @@ const App = () => {
     updateCartItemDetails 
   } = useShop(currentUser);
 
-  // --- EFFECT: AUTO-SELECT TANGGAL UNTUK ADMIN (PERBAIKAN ERROR) ---
+  // --- LOGIKA JADWAL TOKO (BARU) ---
+  const { checkIsClosed } = useStoreSchedule();
+  
+  // Cek apakah tanggal yang dipilih (orderDate) sedang libur?
+  const shopClosedInfo = React.useMemo(() => {
+     if (!orderDate) return null;
+     return checkIsClosed(orderDate.isoDate); // isoDate format YYYY-MM-DD
+  }, [orderDate, checkIsClosed]);
+  // --------------------------------
+
   useEffect(() => {
-    // Gunakan setTimeout agar update state tidak dianggap "synchronous cascading render"
-    // Ini memindahkan update ke antrian eksekusi berikutnya (next tick)
     if (currentUser && !orderDate) {
       const timer = setTimeout(() => {
         setOrderDate(getFormattedDateInfo(new Date()));
@@ -63,7 +69,6 @@ const App = () => {
     }
   }, [currentUser, orderDate]); 
 
-  // --- FUNGSI UPDATE TANGGAL ADMIN ---
   const handleAdminDateChange = (newDateString) => {
     if (!newDateString) return;
     const newDate = new Date(newDateString);
@@ -136,9 +141,7 @@ const App = () => {
     </div>
   );
 
-  // --- LOGIKA URUTAN TAMPILAN ---
-
-  // 1. PRIORITAS UTAMA: JIKA USER LOGIN (ADMIN/STAFF)
+  // 1. ADMIN MODE
   if (currentUser) {
     return (
       <div className="min-h-screen bg-orange-50/30 pb-10">
@@ -150,17 +153,17 @@ const App = () => {
             currentView={currentView} 
         />
         
-        {/* --- FIXED AREA START --- */}
         <main className="pt-[88px] px-4 max-w-7xl mx-auto">
-        {/* --- FIXED AREA END --- */}
-        
           {currentView === 'menu' && (
             <MenuView 
                 onAddToCart={addToCart} 
                 orderDateInfo={orderDate || getFormattedDateInfo(new Date())} 
                 onChangeDate={() => setOrderDate(null)} 
                 onUpdateDate={handleAdminDateChange}
-                isAdmin={true} 
+                isAdmin={true}
+                
+                // KIRIM PROP INI: Info Tutup Toko
+                shopClosedInfo={shopClosedInfo} 
             />
           )}
           {currentView === 'cart' && (
@@ -185,9 +188,8 @@ const App = () => {
     );
   }
 
-  // 2. JIKA DALAM MODE PELANGGAN
+  // 2. PUBLIC MODE
   if (isPublicMode) {
-    // WAJIB PILIH TANGGAL DULU
     if (!orderDate) {
         return (
           <OrderDateSelector 
@@ -216,6 +218,9 @@ const App = () => {
                 orderDateInfo={orderDate} 
                 onChangeDate={() => setOrderDate(null)} 
                 isAdmin={false}
+                
+                // KIRIM PROP INI: Info Tutup Toko
+                shopClosedInfo={shopClosedInfo}
             />
           )}
           {currentView === 'cart' && (
@@ -235,7 +240,6 @@ const App = () => {
     );
   }
 
-  // 3. JIKA TIDAK LOGIN DAN TIDAK MODE PELANGGAN
   if (currentView === 'register') return <RegisterView onRegister={(d) => register(d) && navigateTo('login')} onBack={() => navigateTo('login')} error={authError} />;
   
   return (

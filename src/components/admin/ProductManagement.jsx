@@ -5,6 +5,8 @@ import {
   updateDoc, deleteDoc, serverTimestamp 
 } from 'firebase/firestore';
 import { Calendar, Package, Tag, Layers, Trash2, Edit3, Plus, Image, Box, Search } from 'lucide-react';
+// IMPORT COMPONENT SETTINGS JADWAL
+import StoreScheduleSettings from './StoreScheduleSettings';
 
 const DAYS = [
   { id: 1, label: 'Sen' }, { id: 2, label: 'Sel' }, { id: 3, label: 'Rab' },
@@ -42,7 +44,6 @@ const ProductManagement = () => {
           if (Object.prototype.hasOwnProperty.call(stats, dayId)) stats[dayId]++;
         });
       } else {
-        // Jika tidak ada hari dipilih, asumsikan tersedia setiap hari
         Object.keys(stats).forEach(key => stats[key]++);
       }
     });
@@ -51,7 +52,6 @@ const ProductManagement = () => {
 
   const dailyStats = getDailyStats();
 
-  // LOGIKA FILTER PENCARIAN
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
@@ -112,8 +112,13 @@ const ProductManagement = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 pb-24 font-sans text-gray-800">
+      
+      {/* --- BAGIAN SETTING JADWAL LIBUR --- */}
+      <StoreScheduleSettings />
+      {/* ----------------------------------- */}
+
       <h2 className="text-3xl font-black mb-8 uppercase italic tracking-tighter flex items-center gap-3">
-        {editingId ? '📝 Edit Menu' : '🍽️ Tambah Menu'}
+        {editingId ? '📝 Edit Menu' : '🍽️ Kelola & Tambah Menu'}
       </h2>
 
       {/* 1. SECTION RINGKASAN (STATS) */}

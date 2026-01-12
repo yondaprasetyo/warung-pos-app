@@ -3,9 +3,16 @@ import { db } from '../../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { formatRupiah } from '../../utils/format';
 import ItemSelectionModal from './ItemSelectionModal';
-import { Search, Calendar, Plus, ChevronDown } from 'lucide-react'; // Tambah ChevronDown
+import { Search, Calendar, Plus, ChevronDown, Lock } from 'lucide-react'; // Tambah icon Lock
 
-const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate, onUpdateDate, isAdmin }) => {
+const MenuView = ({ 
+  onAddToCart, 
+  orderDateInfo, 
+  onChangeDate, 
+  onUpdateDate, 
+  isAdmin, 
+  shopClosedInfo // <--- TERIMA PROP INI
+}) => {
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,15 +59,89 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate, onUpdateDate, isAd
 
     const element = sectionRefs.current[category];
     if (element) {
-      // 72px (Header Utama) + 248px (Header Menu) = 320px
       const headerHeight = 320; 
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
       const offsetPosition = elementPosition - headerHeight;
-
       window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
     }
     if (window.navigator?.vibrate) window.navigator.vibrate(10);
   };
+
+  // --- LOGIKA BLOKIR JIKA TOKO TUTUP ---
+  if (shopClosedInfo) {
+    return (
+        <div className="relative min-h-screen bg-gray-50">
+             {/* HEADER TETAP MUNCUL AGAR ADMIN BISA GANTI TANGGAL */}
+             <header className="fixed top-[72px] left-0 right-0 z-[999] bg-white shadow-xl border-b border-gray-100">
+                 <div className="bg-red-600 px-4 py-3 flex justify-between items-center text-white transition-all">
+                     <div className="flex items-center gap-2 overflow-hidden flex-1 relative">
+                        <Calendar size={16} className="shrink-0 text-red-200" />
+                        
+                        {isAdmin ? (
+                          <div className="relative flex items-center cursor-pointer group">
+                            <div className="flex flex-col leading-none z-10 pointer-events-none">
+                               <span className="text-[8px] text-red-200 font-bold uppercase tracking-widest mb-0.5">
+                                  Lihat Tanggal Lain:
+                               </span>
+                               <span className="text-xs font-black uppercase italic tracking-tight truncate flex items-center gap-1 group-hover:text-red-100 transition-colors">
+                                  {orderDateInfo?.fullDate} <ChevronDown size={12} className="opacity-70"/>
+                               </span>
+                            </div>
+                            <input 
+                              type="date" 
+                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20"
+                              value={orderDateInfo?.isoDate || new Date().toISOString().split('T')[0]}
+                              onChange={(e) => onUpdateDate && onUpdateDate(e.target.value)}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex flex-col leading-none">
+                             <span className="text-[8px] text-red-200 font-bold uppercase tracking-widest mb-0.5">
+                                Tanggal:
+                             </span>
+                             <span className="text-xs font-black uppercase italic tracking-tight truncate">
+                                {orderDateInfo?.fullDate}
+                             </span>
+                          </div>
+                        )}
+                     </div>
+
+                     {!isAdmin && (
+                        <button onClick={onChangeDate} className="text-[9px] font-black bg-white text-red-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm transition-transform">
+                          Ubah
+                        </button>
+                     )}
+                 </div>
+             </header>
+
+             {/* TAMPILAN LOCK SCREEN */}
+             <div className="flex flex-col items-center justify-center min-h-screen pt-[120px] px-6 text-center">
+                <div className="bg-red-100 p-6 rounded-full mb-6 text-red-600 animate-bounce">
+                    <Lock size={64} />
+                </div>
+                <h2 className="text-3xl font-black text-gray-800 uppercase italic tracking-tighter mb-2">
+                    Warung Tutup
+                </h2>
+                <div className="bg-white border-2 border-dashed border-red-200 p-6 rounded-2xl max-w-sm w-full shadow-sm">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Keterangan:</p>
+                    <p className="text-xl font-black text-red-600 uppercase italic mb-4">
+                        "{shopClosedInfo.reason}"
+                    </p>
+                    <p className="text-xs text-gray-500 font-bold">
+                        Kami tidak menerima pesanan untuk tanggal <br/>
+                        <span className="text-gray-800 underline">{orderDateInfo?.fullDate}</span>
+                    </p>
+                </div>
+                
+                {isAdmin && (
+                    <p className="mt-8 text-gray-400 text-[10px] font-bold uppercase tracking-widest">
+                        (Anda dalam Mode Admin)
+                    </p>
+                )}
+             </div>
+        </div>
+    );
+  }
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 pt-[72px]">
@@ -72,19 +153,13 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate, onUpdateDate, isAd
 
   return (
     <div className="relative min-h-screen bg-gray-50">
-      
-      {/* HEADER MENU - Sticky di Top 72px (di bawah Header Utama) */}
       <header className="fixed top-[72px] left-0 right-0 z-[999] bg-white shadow-xl border-b border-gray-100">
         <div className="bg-orange-600 px-4 py-3 flex justify-between items-center text-white transition-all">
-          
-          {/* BAGIAN KIRI: TANGGAL & PICKER */}
           <div className="flex items-center gap-2 overflow-hidden flex-1 relative">
             <Calendar size={16} className="shrink-0 text-orange-200" />
             
             {isAdmin ? (
-              // JIKA ADMIN: Tampilkan Input Date Native (Tersembunyi tapi bisa diklik)
               <div className="relative flex items-center cursor-pointer group">
-                {/* Teks Tampilan yang Bagus */}
                 <div className="flex flex-col leading-none z-10 pointer-events-none">
                    <span className="text-[8px] text-orange-200 font-bold uppercase tracking-widest mb-0.5">
                       Menu Tanggal:
@@ -94,18 +169,14 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate, onUpdateDate, isAd
                       <ChevronDown size={12} className="opacity-70"/>
                    </span>
                 </div>
-
-                {/* Input Date Transparan (Overlay) */}
                 <input 
                   type="date" 
                   className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20"
-                  // Gunakan ISO date (YYYY-MM-DD) untuk value input
                   value={orderDateInfo?.isoDate || new Date().toISOString().split('T')[0]}
                   onChange={(e) => onUpdateDate && onUpdateDate(e.target.value)}
                 />
               </div>
             ) : (
-              // JIKA CUSTOMER: Tampilan Biasa (Teks Saja)
               <div className="flex flex-col leading-none">
                  <span className="text-[8px] text-orange-200 font-bold uppercase tracking-widest mb-0.5">
                     Menu Tanggal:
@@ -117,8 +188,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate, onUpdateDate, isAd
             )}
           </div>
 
-          {/* BAGIAN KANAN: TOMBOL UBAH (HANYA UNTUK CUSTOMER) */}
-          {/* Admin tidak butuh tombol ini karena bisa klik tanggal langsung */}
           {!isAdmin && (
             <button 
               onClick={onChangeDate}
@@ -159,7 +228,6 @@ const MenuView = ({ onAddToCart, orderDateInfo, onChangeDate, onUpdateDate, isAd
         </div>
       </header>
 
-      {/* KONTEN UTAMA - Padding Top 320px (72 + Tinggi Header Menu) */}
       <main className="pt-[320px] p-4 space-y-12 max-w-2xl mx-auto pb-40">
         {categories.length > 0 ? (
           categories.map(category => (
