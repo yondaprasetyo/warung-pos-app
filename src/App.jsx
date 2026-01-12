@@ -38,6 +38,12 @@ const App = () => {
     updateCartItemDetails 
   } = useShop(currentUser);
 
+  // --- PERBAIKAN VITAL (ANTI-CRASH) ---
+  // Kita buat variabel 'safeCart' yang DIJAMIN selalu berupa Array.
+  // Jika 'cart' masih loading/undefined, dia akan pakai [] (array kosong).
+  const safeCart = Array.isArray(cart) ? cart : [];
+  // ------------------------------------
+
   const navigateTo = (view) => {
     setAuthError('');
     setCurrentView(view);
@@ -51,7 +57,6 @@ const App = () => {
   const executeCheckout = async () => {
     if (customerNameInput.trim()) {
       try {
-        // Gabungkan info tanggal ke dalam catatan order jika perlu
         const orderNote = `Order untuk tanggal: ${orderDate?.fullDate}`;
         const order = await checkout(customerNameInput, orderNote);
         
@@ -59,11 +64,9 @@ const App = () => {
           const batch = writeBatch(db);
           let hasStockUpdate = false;
 
-          // Gunakan (cart || []) untuk keamanan
-          (cart || []).forEach((item) => {
+          // Gunakan safeCart untuk checkout
+          safeCart.forEach((item) => {
             if (item.stock !== -1) {
-              // Pastikan menggunakan productId jika item.id sudah dimodifikasi unik (id-varian)
-              // Fallback ke item.id jika productId tidak ada
               const prodId = item.productId || item.id;
               const productRef = doc(db, "products", prodId);
               const newStock = Math.max(0, item.stock - item.quantity);
@@ -113,13 +116,12 @@ const App = () => {
 
   // 1. PRIORITAS UTAMA: JIKA USER LOGIN (ADMIN/STAFF)
   if (currentUser) {
-    // Admin tetap harus pilih tanggal jika ingin melihat filter menu
     if (!orderDate && currentView === 'menu') {
         return (
           <OrderDateSelector 
             onSelectDate={(info) => setOrderDate(info)} 
-            user={currentUser}        // Kirim data user (agar tahu role admin)
-            authLoading={loading}     // Kirim status loading
+            user={currentUser}
+            authLoading={loading}
           />
         );
     }
@@ -128,18 +130,14 @@ const App = () => {
       <div className="min-h-screen bg-orange-50/30 pb-10">
         <Header 
             user={currentUser} 
-            // FIX: Tambahkan (cart || []) untuk mencegah error reduce of undefined
-            cartCount={(cart || []).reduce((a, b) => a + b.quantity, 0)} 
+            // FIX: Gunakan safeCart disini
+            cartCount={safeCart.reduce((a, b) => a + b.quantity, 0)} 
             onNavigate={navigateTo} 
             onLogout={logout} 
             currentView={currentView} 
         />
         
-        {/* --- FIXED AREA START --- */}
-        {/* pt-[88px] digunakan karena Header fixed tingginya 72px + 16px gap */}
         <main className="pt-[88px] px-4 max-w-7xl mx-auto">
-        {/* --- FIXED AREA END --- */}
-        
           {currentView === 'menu' && (
             <MenuView 
                 onAddToCart={addToCart} 
@@ -149,7 +147,7 @@ const App = () => {
           )}
           {currentView === 'cart' && (
             <CartView 
-              cart={cart || []} // FIX: Pastikan mengirim array kosong jika undefined
+              cart={safeCart} // FIX: Kirim safeCart
               updateQuantity={updateQuantity} 
               removeFromCart={removeFromCart} 
               updateCartItemDetails={updateCartItemDetails}
@@ -171,9 +169,7 @@ const App = () => {
 
   // 2. JIKA DALAM MODE PELANGGAN
   if (isPublicMode) {
-    // WAJIB PILIH TANGGAL DULU
     if (!orderDate) {
-        // Mode publik tidak punya user logged in, jadi user={null}
         return (
           <OrderDateSelector 
             onSelectDate={(info) => setOrderDate(info)} 
@@ -185,13 +181,12 @@ const App = () => {
 
     return (
       <div className="min-h-screen bg-gray-50">
-        {/* Note: Header publik menggunakan sticky, bukan fixed, jadi aman tanpa padding khusus */}
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
           <h1 className="font-black text-orange-500 text-xl italic leading-none">Warung Makan<br/><span className="text-gray-800">Mamah Yonda</span></h1>
           <div className="flex gap-2">
             <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold">
-              {/* FIX: Tambahkan (cart || []) untuk mencegah error reduce of undefined */}
-              🛒 {(cart || []).reduce((a, b) => a + b.quantity, 0)}
+              {/* FIX: Gunakan safeCart disini (INILAH PENYEBAB ERROR SEBELUMNYA) */}
+              🛒 {safeCart.reduce((a, b) => a + b.quantity, 0)}
             </button>
             <button onClick={() => { setIsPublicMode(false); setOrderDate(null); }} className="bg-gray-100 text-gray-400 px-4 py-2 rounded-xl text-sm font-bold">Login</button>
           </div>
@@ -206,7 +201,7 @@ const App = () => {
           )}
           {currentView === 'cart' && (
             <CartView 
-              cart={cart || []} // FIX: Pastikan mengirim array kosong jika undefined
+              cart={safeCart} // FIX: Kirim safeCart
               updateQuantity={updateQuantity} 
               removeFromCart={removeFromCart} 
               updateCartItemDetails={updateCartItemDetails}
