@@ -1,41 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, ChevronRight, Clock } from 'lucide-react';
 
-// TAMBAHKAN 'authLoading' di props
 const OrderDateSelector = ({ onSelectDate, user, authLoading }) => {
   const [selectedDate, setSelectedDate] = useState('');
 
-  // 1. Logika Otomatis untuk Admin/Kasir
+  // 1. Logika Otomatis untuk Admin/Kasir (Bypass tampilan ini)
   useEffect(() => {
-    // Jalankan HANYA jika loading selesai (authLoading === false)
-    // DAN user terdeteksi sebagai admin/cashier
+    // Jalankan HANYA jika loading selesai
     if (!authLoading && user && (user.role === 'admin' || user.role === 'cashier')) {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const formattedDate = `${year}-${month}-${day}`;
-
-      // Auto-select date
+      // Kirim object Date hari ini agar App.jsx bisa memformatnya dengan benar
       onSelectDate({
-        fullDate: formattedDate,
-        dayId: today.getDay()
+        dateObj: new Date() 
       });
     }
   }, [user, authLoading, onSelectDate]);
 
-  // 2. SAFETY CHECK:
-  // Jika auth masih loading, JANGAN tampilkan apa-apa (return null)
-  // Atau jika user adalah admin (tapi useEffect belum sempat redirect), jangan render form
+  // 2. Safety Check: 
+  // Jika sedang loading auth atau user adalah admin/kasir, jangan render form (tunggu redirect)
   if (authLoading || (user && (user.role === 'admin' || user.role === 'cashier'))) {
     return null; 
-    // Opsional: Bisa ganti 'return null' dengan spinner loading jika mau
-    // return <div className="fixed inset-0 bg-white flex items-center justify-center">Loading...</div>;
   }
 
   // --- LOGIKA UNTUK CUSTOMER (TAMPILAN POPUP) ---
 
   const getDayName = (dateString) => {
+    if (!dateString) return '';
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const d = new Date(dateString);
     return days[d.getDay()];
@@ -44,14 +33,17 @@ const OrderDateSelector = ({ onSelectDate, user, authLoading }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (selectedDate) {
-      const dateObj = new Date(selectedDate);
+      // PERBAIKAN UTAMA:
+      // Kita kirim object Date asli, bukan string yang diformat manual.
+      // Biarkan App.jsx yang melakukan formatting (isoDate, fullDate, dll)
+      // agar konsisten dengan zona waktu dan logika Libur Toko.
       onSelectDate({
-        fullDate: selectedDate,
-        dayId: dateObj.getDay()
+        dateObj: new Date(selectedDate)
       });
     }
   };
 
+  // Setup batas tanggal (Min = Hari ini, Max = 7 hari ke depan)
   const todayDate = new Date();
   const year = todayDate.getFullYear();
   const month = String(todayDate.getMonth() + 1).padStart(2, '0');
@@ -85,7 +77,7 @@ const OrderDateSelector = ({ onSelectDate, user, authLoading }) => {
               max={maxDate}
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl font-black text-center outline-none focus:border-orange-500 transition-all cursor-pointer"
+              className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl font-black text-center outline-none focus:border-orange-500 transition-all cursor-pointer text-gray-800 uppercase"
             />
           </div>
 
