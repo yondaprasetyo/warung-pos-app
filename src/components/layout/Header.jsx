@@ -65,8 +65,7 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
       <div className="max-w-6xl mx-auto px-4 h-full flex justify-between items-center relative">
         
         {/* --- BAGIAN KIRI: LOGO & JUDUL (DIPERBAIKI) --- */}
-        {/* 'min-w-0 flex-1' PENTING: Agar judul mau memendek (truncate) saat layar sempit */}
-        <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
           {currentView !== 'menu' && currentView !== 'public-order' && (
             <button 
               onClick={() => onNavigate('menu')} 
@@ -76,11 +75,12 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
             </button>
           )}
           
+          {/* PERBAIKAN DI SINI: Menghapus 'hidden sm:inline' dan menyesuaikan ukuran font */}
           <h1 
             onClick={() => onNavigate('menu')}
-            className="text-lg md:text-2xl font-bold truncate tracking-tight cursor-pointer leading-tight"
+            className="font-bold truncate tracking-tight cursor-pointer leading-tight text-sm xs:text-base sm:text-xl md:text-2xl"
           >
-            🍽️ <span className="hidden sm:inline">Warung Makan</span> Mamah Yonda
+            🍽️ Warung Makan Mamah Yonda
           </h1>
         </div>
         
@@ -127,9 +127,7 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
         </div>
 
         {/* --- BAGIAN KANAN (MOBILE) --- */}
-        {/* 'flex-shrink-0' PENTING: Agar tombol tidak gepeng terdorong judul */}
         <div className="md:hidden flex items-center gap-1 flex-shrink-0">
-          {/* Cart Icon Mobile */}
           <button 
             onClick={() => handleNavClick('cart')} 
             className={`p-2 rounded-lg transition relative ${
@@ -144,7 +142,6 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
              )}
           </button>
 
-          {/* Tombol Hamburger */}
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="p-2 rounded-lg hover:bg-white/20 transition"
