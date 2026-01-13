@@ -4,6 +4,7 @@ import { useShop } from './hooks/useShop';
 import { useStoreSchedule } from './hooks/useStoreSchedule'; 
 import { db } from './firebase'; 
 import { doc, writeBatch } from 'firebase/firestore'; 
+import { ShoppingBag, LogIn, UtensilsCrossed, ChevronRight } from 'lucide-react'; // Pastikan install lucide-react atau ganti icon
 
 // Components
 import Header from './components/layout/Header';
@@ -19,17 +20,14 @@ import ProfileView from './components/admin/ProfileView';
 import ProductManagement from './components/admin/ProductManagement';
 import SalesLaporan from './components/admin/SalesLaporan';
 
-// --- HELPER: FORMAT TANGGAL (DIPERBAIKI ZONA WAKTU) ---
-// Masalah sebelumnya: toISOString() menggunakan UTC, jadi jam 7 pagi WIB terbaca hari kemarin.
-// Solusi: Sesuaikan dengan zona waktu lokal user.
+// --- HELPER: FORMAT TANGGAL ---
 const getFormattedDateInfo = (dateObj) => {
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   
-  // Koreksi Timezone agar tanggal YYYY-MM-DD sesuai jam lokal Indonesia
-  const offset = dateObj.getTimezoneOffset() * 60000; // dalam milidetik
+  const offset = dateObj.getTimezoneOffset() * 60000; 
   const localDate = new Date(dateObj.getTime() - offset);
-  const isoDate = localDate.toISOString().split('T')[0]; // YYYY-MM-DD
+  const isoDate = localDate.toISOString().split('T')[0]; 
 
   return {
     dateObj: dateObj, 
@@ -40,12 +38,12 @@ const getFormattedDateInfo = (dateObj) => {
 };
 
 const App = () => {
-  const [currentView, setCurrentView] = useState('menu');
+  // Ubah default view state jika perlu, tapi logika render di bawah yang menentukan
+  const [currentView, setCurrentView] = useState('menu'); 
   const [isPublicMode, setIsPublicMode] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
   
-  // State untuk filter tanggal pesanan
   const [orderDate, setOrderDate] = useState(null);
   
   const { 
@@ -59,16 +57,12 @@ const App = () => {
     updateCartItemDetails 
   } = useShop(currentUser);
 
-  // --- LOGIKA JADWAL TOKO (GLOBAL) ---
   const { checkIsClosed } = useStoreSchedule();
   
-  // Cek apakah tanggal yang dipilih (orderDate) sedang libur?
   const shopClosedInfo = useMemo(() => {
-     // Pastikan isoDate ada sebelum mengecek
      if (!orderDate || !orderDate.isoDate) return null;
      return checkIsClosed(orderDate.isoDate); 
   }, [orderDate, checkIsClosed]);
-  // --------------------------------
 
   // Effect: Auto-select tanggal untuk Admin
   useEffect(() => {
@@ -152,7 +146,9 @@ const App = () => {
     </div>
   );
 
-  // --- 1. MODE ADMIN / KASIR (LOGIN) ---
+  // =================================================================
+  // 1. MODE ADMIN (Sudah Login)
+  // =================================================================
   if (currentUser) {
     return (
       <div className="min-h-screen bg-orange-50/30 pb-10">
@@ -172,19 +168,13 @@ const App = () => {
                 onChangeDate={() => setOrderDate(null)} 
                 onUpdateDate={handleAdminDateChange}
                 isAdmin={true}
-                
-                // KIRIM PROP INI KE ADMIN: Info Tutup Toko
                 shopClosedInfo={shopClosedInfo} 
             />
           )}
           {currentView === 'cart' && (
             <CartView 
-              cart={cart} 
-              updateQuantity={updateQuantity} 
-              removeFromCart={removeFromCart} 
-              updateCartItemDetails={updateCartItemDetails}
-              onCheckout={handleConfirmCheckout} 
-              onBack={() => setCurrentView('menu')}
+              cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} updateCartItemDetails={updateCartItemDetails}
+              onCheckout={handleConfirmCheckout} onBack={() => setCurrentView('menu')}
             />
           )}
           {currentView === 'orders' && <OrderHistory orders={orders} />}
@@ -199,22 +189,18 @@ const App = () => {
     );
   }
 
-  // --- 2. MODE PELANGGAN / PUBLIC ---
+  // =================================================================
+  // 2. MODE PELANGGAN (Public Mode = TRUE)
+  // =================================================================
   if (isPublicMode) {
-    // WAJIB PILIH TANGGAL DULU
+    // A. Pilih Tanggal Dulu
     if (!orderDate) {
         return (
           <OrderDateSelector 
-            // PERBAIKAN UTAMA DI SINI:
-            // Kita tangkap data dari selector, lalu format ulang menggunakan helper yang sama dengan Admin.
-            // Ini menjamin properti 'isoDate' selalu ada dan formatnya benar.
             onSelectDate={(info) => {
-               // Asumsi: info.dateObj adalah object Date javascript. 
-               // Jika OrderDateSelector mengembalikan object Date di dalam properti dateObj:
                if (info?.dateObj) {
                   setOrderDate(getFormattedDateInfo(info.dateObj));
                } else {
-                  // Fallback jika strukturnya berbeda, kita coba parsing
                   setOrderDate(getFormattedDateInfo(new Date())); 
                }
             }} 
@@ -224,15 +210,17 @@ const App = () => {
         );
     }
 
+    // B. Menu View Pelanggan
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
-          <h1 className="font-black text-orange-500 text-xl italic leading-none">Warung Makan<br/><span className="text-gray-800">Mamah Yonda</span></h1>
+          <h1 className="font-black text-orange-500 text-xl italic leading-none cursor-pointer" onClick={() => { setIsPublicMode(false); setOrderDate(null); }}>
+             Warung Makan<br/><span className="text-gray-800">Mamah Yonda</span>
+          </h1>
           <div className="flex gap-2">
-            <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold">
-              🛒 {cart.reduce((a, b) => a + b.quantity, 0)}
+            <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2">
+              <ShoppingBag size={18} /> {cart.reduce((a, b) => a + b.quantity, 0)}
             </button>
-            <button onClick={() => { setIsPublicMode(false); setOrderDate(null); }} className="bg-gray-100 text-gray-400 px-4 py-2 rounded-xl text-sm font-bold">Login</button>
           </div>
         </header>
         <main className="p-0 max-w-7xl mx-auto">
@@ -242,19 +230,13 @@ const App = () => {
                 orderDateInfo={orderDate} 
                 onChangeDate={() => setOrderDate(null)} 
                 isAdmin={false}
-                
-                // --- PERBAIKAN: KIRIM PROP INI KE PELANGGAN ---
                 shopClosedInfo={shopClosedInfo}
             />
           )}
           {currentView === 'cart' && (
             <CartView 
-              cart={cart} 
-              updateQuantity={updateQuantity} 
-              removeFromCart={removeFromCart} 
-              updateCartItemDetails={updateCartItemDetails}
-              onCheckout={handleConfirmCheckout} 
-              onBack={() => setCurrentView('menu')}
+              cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} updateCartItemDetails={updateCartItemDetails}
+              onCheckout={handleConfirmCheckout} onBack={() => setCurrentView('menu')}
             />
           )}
           {currentView === 'receipt' && <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />}
@@ -264,18 +246,66 @@ const App = () => {
     );
   }
 
-  // --- 3. LANDING PAGE ---
-  if (currentView === 'register') return <RegisterView onRegister={(d) => register(d) && navigateTo('login')} onBack={() => navigateTo('login')} error={authError} />;
-  
+  // =================================================================
+  // 3. AUTHENTICATION (Login / Register)
+  // =================================================================
+  if (currentView === 'login') {
+      return <LoginView onLogin={login} onRegisterClick={() => navigateTo('register')} error={authError} onBack={() => setCurrentView('menu')} />;
+  }
+  if (currentView === 'register') {
+      return <RegisterView onRegister={(d) => register(d) && navigateTo('login')} onBack={() => navigateTo('login')} error={authError} />;
+  }
+
+  // =================================================================
+  // 4. LANDING PAGE UTAMA (DEFAULT)
+  // Inilah tampilan awal saat user membuka web
+  // =================================================================
   return (
-    <div className="relative">
-      <LoginView onLogin={login} onRegisterClick={() => navigateTo('register')} error={authError} />
-      <button 
-        onClick={() => setIsPublicMode(true)} 
-        className="absolute top-4 right-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all active:scale-95"
-      >
-        🛒 Pesan Sekarang
-      </button>
+    <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+      
+      {/* Background Decor (Opsional) */}
+      <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-yellow-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+
+      <div className="z-10 flex flex-col items-center max-w-md w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+        {/* Icon / Logo Besar */}
+        <div className="bg-white p-6 rounded-3xl shadow-xl shadow-orange-100 mb-8 transform rotate-3 hover:rotate-0 transition-transform duration-300">
+           <UtensilsCrossed size={64} className="text-orange-500" />
+        </div>
+
+        <h1 className="text-4xl font-black text-gray-800 mb-2 tracking-tight">
+          Warung Makan <span className="text-orange-600 italic block">Mamah Yonda</span>
+        </h1>
+        <p className="text-gray-500 mb-10 text-lg leading-relaxed">
+          Masakan rumahan yang hangat,<br/>siap dinikmati kapan saja.
+        </p>
+
+        {/* TOMBOL UTAMA: PESAN SEKARANG */}
+        <button 
+          onClick={() => setIsPublicMode(true)}
+          className="group relative w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-5 rounded-2xl shadow-lg shadow-orange-200 hover:shadow-orange-300 transform transition-all active:scale-95 hover:-translate-y-1"
+        >
+          <div className="flex items-center justify-center gap-3">
+             <span className="text-xl font-bold tracking-wide">PESAN SEKARANG</span>
+             <ChevronRight className="group-hover:translate-x-1 transition-transform" />
+          </div>
+        </button>
+
+        {/* TOMBOL KECIL: ADMIN LOGIN */}
+        <div className="mt-12">
+            <button 
+                onClick={() => setCurrentView('login')}
+                className="text-sm font-medium text-gray-400 hover:text-orange-500 transition-colors flex items-center gap-2 px-4 py-2 rounded-full hover:bg-orange-100/50"
+            >
+                <LogIn size={14} />
+                <span>Masuk sebagai Admin</span>
+            </button>
+        </div>
+      </div>
+      
+      <footer className="absolute bottom-6 text-xs text-gray-300 font-medium">
+        &copy; {new Date().getFullYear()} Warung POS System
+      </footer>
     </div>
   );
 };
