@@ -106,39 +106,47 @@ const App = () => {
   };
 
   const executeCheckout = async () => {
-    if (!customerNameInput.trim()) return;
-    setIsProcessingCheckout(true); 
+      if (!customerNameInput.trim()) return;
+      setIsProcessingCheckout(true); 
 
-    try {
-      const orderNote = `Order untuk tanggal: ${orderDate?.fullDate}`;
-      const order = await checkout(customerNameInput, orderNote);
-      
-      if (order) {
-        const batch = writeBatch(db);
-        let hasStockUpdate = false;
+      try {
+        const orderNote = `Order untuk tanggal: ${orderDate?.fullDate}`;
+        const order = await checkout(customerNameInput, orderNote);
+        
+        if (order) {
+          const batch = writeBatch(db);
+          let hasStockUpdate = false;
 
-        cart.forEach((item) => {
-          if (item.stock !== undefined && item.stock !== -1) {
-            const productRef = doc(db, "products", item.id);
-            const newStock = Math.max(0, item.stock - item.quantity);
-            batch.update(productRef, { stock: newStock });
-            hasStockUpdate = true;
+          cart.forEach((item) => {
+            if (item.stock !== undefined && item.stock !== -1) {
+              // --- PERBAIKAN DI SINI ---
+              // 1. Coba ambil productId asli (jika ada)
+              // 2. Jika tidak ada, ambil ID dan buang suffix "-default" atau varian
+              // Firestore Auto-ID tidak pernah pakai tanda strip (-), jadi aman di-split.
+              const realProductId = item.productId || item.id.split('-')[0];
+
+              const productRef = doc(db, "products", realProductId); // Gunakan realProductId
+              // -------------------------
+
+              const newStock = Math.max(0, item.stock - item.quantity);
+              batch.update(productRef, { stock: newStock });
+              hasStockUpdate = true;
+            }
+          });
+
+          if (hasStockUpdate) {
+            await batch.commit();
           }
-        });
 
-        if (hasStockUpdate) {
-          await batch.commit();
+          setShowNameModal(false);
+          navigateTo('receipt');
         }
-
-        setShowNameModal(false);
-        navigateTo('receipt');
+      } catch (err) {
+        console.error("Checkout Error:", err);
+        alert("Gagal memproses pesanan: " + err.message);
+      } finally {
+        setIsProcessingCheckout(false); 
       }
-    } catch (err) {
-      console.error("Checkout Error:", err);
-      alert("Gagal memproses pesanan: " + err.message);
-    } finally {
-      setIsProcessingCheckout(false); 
-    }
   };
 
   // --- LOADING UTAMA APLIKASI ---
