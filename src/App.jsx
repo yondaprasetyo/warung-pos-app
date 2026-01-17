@@ -3,11 +3,11 @@ import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
 import { useStoreSchedule } from './hooks/useStoreSchedule'; 
 import { db } from './firebase'; 
+import { logActivity } from './utils/logger'; // <--- IMPORT LOGGER
 import { doc, writeBatch } from 'firebase/firestore'; 
 import { ShoppingBag, LogIn, UtensilsCrossed, ChevronRight, ArrowLeft } from 'lucide-react';
 
 // Components
-// ... (Import components tetap sama)
 import Header from './components/layout/Header';
 import LoginView from './components/auth/LoginView';
 import RegisterView from './components/auth/RegisterView';
@@ -22,7 +22,6 @@ import ProductManagement from './components/admin/ProductManagement';
 import SalesLaporan from './components/admin/SalesLaporan';
 import StoreScheduleSettings from './components/admin/StoreScheduleSettings';
 
-// ... (Helper getFormattedDateInfo tetap sama)
 const getFormattedDateInfo = (dateObj) => {
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -58,8 +57,8 @@ const App = () => {
     cart, orders, currentOrder, setCurrentOrder,
     addToCart, updateQuantity, removeFromCart, checkout,
     updateCartItemDetails,
-    loadingOrder, // <-- Ambil state loading session
-    resetCurrentOrder // <-- Ambil fungsi reset
+    loadingOrder, 
+    resetCurrentOrder
   } = useShop(currentUser);
 
   const { checkIsClosed } = useStoreSchedule();
@@ -69,19 +68,15 @@ const App = () => {
      return checkIsClosed(orderDate.isoDate); 
   }, [orderDate, checkIsClosed]);
 
-  // --- LOGIKA BARU: AUTO-REDIRECT KE RECEIPT SAAT REFRESH ---
   useEffect(() => {
-    // Jika ada currentOrder (hasil restore session), langsung masuk mode public & receipt
     if (currentOrder && !currentUser) {
       setIsPublicMode(true);
       setCurrentView('receipt');
-      // Set tanggal pesanan agar data konsisten (opsional)
       if (currentOrder.createdAt) {
          setOrderDate(getFormattedDateInfo(new Date(currentOrder.createdAt)));
       }
     }
   }, [currentOrder, currentUser]);
-  // -----------------------------------------------------------
 
   useEffect(() => {
     if (currentUser && !orderDate) {
@@ -119,15 +114,10 @@ const App = () => {
 
           cart.forEach((item) => {
             if (item.stock !== undefined && item.stock !== -1) {
-              // --- PERBAIKAN DI SINI ---
-              // 1. Coba ambil productId asli (jika ada)
-              // 2. Jika tidak ada, ambil ID dan buang suffix "-default" atau varian
-              // Firestore Auto-ID tidak pernah pakai tanda strip (-), jadi aman di-split.
+              // --- UPDATE STOK DENGAN ID YANG BENAR ---
               const realProductId = (item.productId || item.id).split('-')[0];
-
-              const productRef = doc(db, "products", realProductId); // Gunakan realProductId
-              // -------------------------
-
+              const productRef = doc(db, "products", realProductId); 
+              
               const newStock = Math.max(0, item.stock - item.quantity);
               batch.update(productRef, { stock: newStock });
               hasStockUpdate = true;
@@ -137,6 +127,18 @@ const App = () => {
           if (hasStockUpdate) {
             await batch.commit();
           }
+
+          // --- LOGGING TRANSAKSI ---
+          // Mencatat siapa yang memproses dan detail singkat
+          if (currentUser) {
+            logActivity(
+              currentUser.uid, 
+              currentUser.name, 
+              "TRANSAKSI", 
+              `Pesanan a.n ${customerNameInput} (Total: Rp ${currentOrder?.total?.toLocaleString('id-ID')})`
+            );
+          }
+          // -------------------------
 
           setShowNameModal(false);
           navigateTo('receipt');
@@ -149,8 +151,6 @@ const App = () => {
       }
     };
 
-  // --- LOADING UTAMA APLIKASI ---
-  // Kita tambahkan loadingOrder agar tidak flash landing page saat restore session
   if (loading || loadingOrder) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-orange-50">
@@ -198,9 +198,7 @@ const App = () => {
     </div>
   );
 
-  // =================================================================
-  // 1. MODE ADMIN (Sudah Login)
-  // =================================================================
+  // 1. MODE ADMIN
   if (currentUser) {
     return (
       <div className="min-h-screen bg-orange-50/30 pb-10">
@@ -239,7 +237,6 @@ const App = () => {
           {currentView === 'receipt' && (
             <ReceiptView 
                 order={currentOrder} 
-                // Admin hanya "lihat" struk, tidak perlu reset session
                 onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} 
             />
           )}
@@ -250,26 +247,20 @@ const App = () => {
     );
   }
 
-  // =================================================================
-  // 2. MODE PELANGGAN (Public Mode = TRUE)
-  // =================================================================
+  // 2. MODE PELANGGAN
   if (isPublicMode) {
-    // KHUSUS VIEW RECEIPT: Tidak butuh pilih tanggal, karena data dari history
     if (currentView === 'receipt' && currentOrder) {
          return (
             <ReceiptView 
                 order={currentOrder} 
-                // PENTING: Gunakan resetCurrentOrder saat Pelanggan klik "Kembali ke Menu"
                 onBack={() => { 
                     resetCurrentOrder(); 
                     setCurrentView('menu'); 
-                    // Opsional: setOrderDate(null) jika ingin mereka pilih tanggal ulang
                 }} 
             />
          );
     }
 
-    // A. Pilih Tanggal Dulu (Kecuali sedang lihat struk)
     if (!orderDate) {
         return (
           <OrderDateSelector 
@@ -287,7 +278,6 @@ const App = () => {
         );
     }
 
-    // B. Menu View Pelanggan
     return (
       <div className="min-h-screen bg-gray-50 pb-20"> 
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
@@ -333,9 +323,7 @@ const App = () => {
     );
   }
 
-  // =================================================================
-  // 3. AUTH & LANDING PAGE (Tetap sama)
-  // =================================================================
+  // 3. LANDING PAGE
   if (currentView === 'login') {
       return <LoginView onLogin={login} onRegisterClick={() => navigateTo('register')} error={authError} onBack={() => setCurrentView('menu')} />;
   }
@@ -360,8 +348,8 @@ const App = () => {
         </p>
         <button 
           onClick={() => {
-             setCurrentView('menu'); 
-             setIsPublicMode(true);
+              setCurrentView('menu'); 
+              setIsPublicMode(true);
           }}
           className="group relative w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-5 rounded-2xl shadow-lg shadow-orange-200 hover:shadow-orange-300 transform transition-all active:scale-95 hover:-translate-y-1"
         >

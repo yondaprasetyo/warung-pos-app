@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../firebase';
+import { useAuth } from '../../hooks/useAuth'; // <--- Import User Auth
+import { logActivity } from '../../utils/logger'; // <--- Import Logger
 import { 
   collection, addDoc, getDocs, doc, 
   updateDoc, deleteDoc, serverTimestamp 
@@ -12,12 +14,12 @@ const DAYS = [
 ];
 
 const ProductManagement = () => {
+  const { currentUser } = useAuth(); // <--- Ambil user yang sedang login
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Default category diset kosong agar user ter-trigger untuk memilih/mengetik
   const [formData, setFormData] = useState({
     name: '', price: '', stock: '', category: '', imageUrl: '', availableDays: [] 
   });
@@ -28,13 +30,12 @@ const ProductManagement = () => {
     try {
       setLoading(true);
       const querySnapshot = await getDocs(collection(db, "products"));
-      // Map data dan pastikan isAvailable defaultnya true jika belum ada fieldnya
       setProducts(querySnapshot.docs.map(doc => {
         const data = doc.data();
         return { 
           id: doc.id, 
           ...data,
-          isAvailable: data.isAvailable !== false // Default true jika undefined
+          isAvailable: data.isAvailable !== false 
         };
       }));
     } catch (error) { console.error(error); } finally { setLoading(false); }
@@ -42,7 +43,6 @@ const ProductManagement = () => {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-  // --- LOGIKA BARU: KATEGORI DINAMIS ---
   const uniqueCategories = useMemo(() => {
     const defaultCats = [
         "Ayam", "Ikan", "Sayur", "Nasi", "Minuman", 
@@ -51,12 +51,10 @@ const ProductManagement = () => {
     const dbCats = products.map(p => p.category).filter(Boolean);
     return [...new Set([...defaultCats, ...dbCats])].sort();
   }, [products]);
-  // -------------------------------------
 
   const getDailyStats = () => {
     const stats = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 };
     products.forEach(p => {
-      // Hanya hitung jika produk aktif
       if (p.isAvailable) {
         if (p.availableDays && p.availableDays.length > 0) {
           p.availableDays.forEach(dayId => {
@@ -89,26 +87,34 @@ const ProductManagement = () => {
     setVariants(newVariants);
   };
 
-  // --- LOGIKA BARU: TOGGLE STATUS AKTIF/TIDAK ---
+  // --- LOGIKA TOGGLE STATUS AKTIF/TIDAK + LOGGING ---
   const handleToggleStatus = async (product) => {
     try {
       const newStatus = !product.isAvailable;
       const productRef = doc(db, "products", product.id);
       
-      // Update tampilan lokal dulu biar cepat (optimistic update)
       setProducts(products.map(p => 
         p.id === product.id ? { ...p, isAvailable: newStatus } : p
       ));
 
-      // Update ke database
       await updateDoc(productRef, { isAvailable: newStatus });
+
+      // LOGGING
+      if (currentUser) {
+        logActivity(
+            currentUser.uid, 
+            currentUser.name, 
+            "UPDATE STATUS", 
+            `Mengubah ${product.name} menjadi ${newStatus ? 'AKTIF' : 'NON-AKTIF'}`
+        );
+      }
     } catch (error) {
       alert("Gagal mengubah status: " + error.message);
-      fetchProducts(); // Rollback jika gagal
+      fetchProducts(); 
     }
   };
-  // ----------------------------------------------
 
+  // --- LOGIKA ADD/EDIT + LOGGING ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -121,18 +127,27 @@ const ProductManagement = () => {
           price: v.useSpecialPrice ? Number(v.price) : Number(formData.price),
           useSpecialPrice: v.useSpecialPrice
         })),
-        isAvailable: true, // Default menu baru selalu aktif
+        isAvailable: true, 
         updatedAt: serverTimestamp()
       };
 
       if (editingId) {
-        // Hapus isAvailable dari payload edit agar tidak mereset status yang sedang diset user
         const editPayload = { ...payload };
         delete editPayload.isAvailable;
         await updateDoc(doc(db, "products", editingId), editPayload);
+        
+        // LOGGING EDIT
+        if (currentUser) {
+            logActivity(currentUser.uid, currentUser.name, "EDIT MENU", `Mengupdate data menu: ${formData.name}`);
+        }
         alert("✅ Berhasil Update!");
       } else {
         await addDoc(collection(db, "products"), { ...payload, createdAt: serverTimestamp() });
+        
+        // LOGGING ADD
+        if (currentUser) {
+            logActivity(currentUser.uid, currentUser.name, "TAMBAH MENU", `Menambah menu baru: ${formData.name}`);
+        }
         alert("🚀 Berhasil Tambah!");
       }
       setEditingId(null);
@@ -140,6 +155,22 @@ const ProductManagement = () => {
       setVariants([{ name: '', useSpecialPrice: false, price: '' }]);
       fetchProducts();
     } catch (error) { alert(error.message); }
+  };
+
+  // --- LOGIKA DELETE + LOGGING ---
+  const handleDelete = async (p) => {
+      if(window.confirm(`Yakin ingin menghapus ${p.name}?`)) {
+          try {
+            await deleteDoc(doc(db, "products", p.id));
+            // LOGGING DELETE
+            if (currentUser) {
+                logActivity(currentUser.uid, currentUser.name, "HAPUS MENU", `Menghapus menu: ${p.name}`);
+            }
+            fetchProducts();
+          } catch (err) {
+              alert("Gagal hapus: " + err.message);
+          }
+      }
   };
 
   const startEdit = (p) => {
@@ -189,7 +220,6 @@ const ProductManagement = () => {
             <div className="grid grid-cols-2 gap-4">
                <input type="number" required placeholder="Harga Dasar" className="w-full p-4 bg-orange-50 rounded-2xl font-black text-orange-600 text-xl" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
                
-               {/* --- INPUT KATEGORI DINAMIS --- */}
                <div className="relative">
                    <input 
                      required
@@ -206,13 +236,11 @@ const ProductManagement = () => {
                      ))}
                    </datalist>
                </div>
-               {/* ----------------------------- */}
-
             </div>
           </div>
         </div>
 
-        {/* JADWAL HARI DENGAN TOMBOL AKSI CEPAT */}
+        {/* JADWAL HARI */}
         <div className="mb-10 p-6 bg-yellow-50 rounded-[2rem] border-2 border-yellow-100">
           <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 text-orange-600">
@@ -368,7 +396,8 @@ const ProductManagement = () => {
                     </button>
 
                     <button onClick={() => startEdit(p)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"><Edit3 size={18} /></button>
-                    <button onClick={async () => { if(window.confirm('Hapus menu ini?')) { await deleteDoc(doc(db, "products", p.id)); fetchProducts(); } }} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
+                    {/* Menggunakan handleDelete custom di sini */}
+                    <button onClick={() => handleDelete(p)} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
                   </div>
                 </td>
               </tr>

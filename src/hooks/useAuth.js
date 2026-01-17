@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
+import { logActivity } from '../utils/logger'; // <--- IMPORT LOGGER
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -62,7 +63,7 @@ export const useAuth = () => {
         }));
         setUsers(usersList);
       } catch { 
-        console.error("Gagal menghapus user");
+        console.error("Gagal mengambil daftar user");
       }
     };
     
@@ -72,7 +73,15 @@ export const useAuth = () => {
   const login = async (email, password) => {
     setAuthError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // --- LOGIKA LOGGING LOGIN ---
+      // Kita pakai userCredential.user karena state currentUser mungkin belum update
+      const u = userCredential.user;
+      // Coba ambil nama dari Firestore (optional) atau pakai email sementara
+      logActivity(u.uid, u.email, "LOGIN", "Berhasil masuk ke sistem");
+      // ----------------------------
+
       return true;
     } catch (error) {
       console.error("Login Error:", error.code);
