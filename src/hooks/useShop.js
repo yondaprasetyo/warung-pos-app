@@ -8,7 +8,8 @@ import {
   orderBy, 
   serverTimestamp, 
   doc, 
-  updateDoc 
+  updateDoc,
+  deleteDoc // <--- 1. IMPORT deleteDoc
 } from 'firebase/firestore';
 
 export const useShop = (currentUser) => {
@@ -18,8 +19,7 @@ export const useShop = (currentUser) => {
 
   // --- AMBIL DATA PESANAN DARI FIRESTORE (REAL-TIME) ---
   useEffect(() => {
-    // Jika Admin, ambil semua order. Jika User biasa, mungkin hanya order dia (opsional)
-    // Di sini kita ambil semua order untuk keperluan Admin Dashboard
+    // Ambil semua order urut dari yang terbaru
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -37,33 +37,26 @@ export const useShop = (currentUser) => {
     return () => {
       unsubscribe();
     };
-  }, []); // Dependensi kosong agar listener tetap hidup selama aplikasi jalan
+  }, []);
 
   // --- 1. TAMBAH KE KERANJANG ---
   const addToCart = (newItem) => {
     setCart(prevCart => {
-      // Cek apakah item dengan ID unik ini (ID-Varian) sudah ada
       const existingItemIndex = prevCart.findIndex(item => item.id === newItem.id);
 
       if (existingItemIndex > -1) {
-        // Update quantity jika sudah ada
         const existingItem = prevCart[existingItemIndex];
         const newQuantity = existingItem.quantity + newItem.quantity;
 
-        // Validasi Stok
         if (existingItem.stock !== -1 && newQuantity > existingItem.stock) {
           alert(`Maaf, stok ${existingItem.name} maksimal ${existingItem.stock}.`);
           return prevCart;
         }
 
         const newCart = [...prevCart];
-        newCart[existingItemIndex] = {
-          ...existingItem,
-          quantity: newQuantity
-        };
+        newCart[existingItemIndex] = { ...existingItem, quantity: newQuantity };
         return newCart;
       } else {
-        // Masukkan item baru
         return [...prevCart, {
           ...newItem,
           notes: newItem.note || newItem.notes || "", 
@@ -82,7 +75,6 @@ export const useShop = (currentUser) => {
       const item = newCart[index];
       const newQty = item.quantity + delta;
       
-      // Cek Stok
       if (delta > 0 && item.stock !== -1 && newQty > item.stock) {
         alert(`Maaf, sisa stok ${item.name} hanya ada ${item.stock}.`);
         return prev;
@@ -113,7 +105,7 @@ export const useShop = (currentUser) => {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- 5. PROSES CHECKOUT (DIPERBAIKI DENGAN STATUS AWAL 'pending') ---
+  // --- 5. PROSES CHECKOUT ---
   const checkout = async (customerName, orderNote = '') => {
     if (cart.length === 0) return;
     
@@ -136,7 +128,6 @@ export const useShop = (currentUser) => {
         items: orderItems,
         total: total,
         note: orderNote,
-        // STATUS AWAL: 'pending' (Menunggu Konfirmasi Admin)
         status: 'pending', 
         createdAt: serverTimestamp(),
         userId: currentUser ? currentUser.uid : 'public'
@@ -147,7 +138,7 @@ export const useShop = (currentUser) => {
       const newOrder = { 
         id: docRef.id, 
         ...orderData, 
-        createdAt: new Date() // Fallback tanggal lokal sebelum serverTimestamp balik
+        createdAt: new Date()
       };
       
       setCurrentOrder(newOrder);
@@ -160,7 +151,7 @@ export const useShop = (currentUser) => {
     }
   };
 
-  // --- UPDATE STATUS ORDER (ADMIN) ---
+  // --- 6. UPDATE STATUS ORDER ---
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
@@ -168,6 +159,17 @@ export const useShop = (currentUser) => {
     } catch (error) {
       console.error("Update status error:", error);
       alert("Gagal memperbarui status pesanan.");
+    }
+  };
+
+  // --- 7. HAPUS ORDER PERMANEN (BARU) ---
+  const removeOrder = async (orderId) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await deleteDoc(orderRef);
+    } catch (error) {
+      console.error("Gagal menghapus pesanan:", error);
+      alert("Gagal menghapus data.");
     }
   };
 
@@ -180,7 +182,8 @@ export const useShop = (currentUser) => {
     updateQuantity, 
     removeFromCart, 
     checkout,
-    updateOrderStatus, // Ganti nama markOrderDone jadi lebih umum
-    updateCartItemDetails 
+    updateOrderStatus,
+    updateCartItemDetails,
+    removeOrder // <--- EXPORT FUNGSI HAPUS
   };
 };

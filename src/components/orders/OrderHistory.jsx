@@ -1,14 +1,14 @@
 import React, { useMemo } from 'react';
-import { Receipt, CheckCircle, Clock, StickyNote, ChefHat, Flame, CalendarDays, X, Check } from 'lucide-react';
+import { Receipt, CheckCircle, Clock, StickyNote, ChefHat, Flame, CalendarDays, X, Check, Trash2 } from 'lucide-react'; // <--- Import Trash2
 import { formatRupiah } from '../../utils/format';
 import { useShop } from '../../hooks/useShop';
 
 const OrderHistory = ({ orders }) => {
-  const { updateOrderStatus } = useShop();
+  // Ambil fungsi removeOrder dari hook
+  const { updateOrderStatus, removeOrder } = useShop();
 
-  // --- LOGIKA RINGKASAN DAPUR (Hanya hitung yg 'pending' atau 'processing') ---
+  // --- LOGIKA RINGKASAN DAPUR ---
   const kitchenSummary = useMemo(() => {
-    // Filter hanya pesanan yg aktif (Pending atau Processing)
     const activeOrders = orders.filter(o => {
         const s = (o.status || 'pending').toLowerCase();
         return s === 'pending' || s === 'processing' || s === 'baru' || s === 'proses';
@@ -26,10 +26,7 @@ const OrderHistory = ({ orders }) => {
         const key = `${item.name}${variantText}`;
 
         if (!summary[key]) {
-          summary[key] = {
-            quantity: 0,
-            notes: new Set()
-          };
+          summary[key] = { quantity: 0, notes: new Set() };
         }
 
         summary[key].quantity += item.quantity;
@@ -44,7 +41,7 @@ const OrderHistory = ({ orders }) => {
     return Object.entries(summary);
   }, [orders]);
 
-  // Urutkan Pesanan: Pending -> Processing -> Completed -> Cancelled
+  // Urutkan Pesanan: Pending -> Processing -> Completed -> Cancelled, lalu Waktu Descending
   const sortedOrders = [...orders].sort((a, b) => {
       const statusScore = (status) => {
           const s = (status || 'pending').toLowerCase();
@@ -58,9 +55,15 @@ const OrderHistory = ({ orders }) => {
       const scoreB = statusScore(b.status);
       
       if (scoreA !== scoreB) return scoreA - scoreB;
-      // Jika status sama, urutkan tanggal descending (terbaru diatas)
       return b.createdAt - a.createdAt;
   });
+
+  // --- FUNGSI KLIK HAPUS ---
+  const handleConfirmDelete = (orderId, customerName) => {
+      if (window.confirm(`⚠️ PERINGATAN:\n\nApakah Anda yakin ingin menghapus permanen pesanan atas nama "${customerName}"?\nData yang dihapus tidak bisa dikembalikan.`)) {
+          removeOrder(orderId);
+      }
+  };
 
   if (orders.length === 0) {
     return (
@@ -176,7 +179,7 @@ const OrderHistory = ({ orders }) => {
                     </span>
 
                     {/* TOMBOL AKSI ADMIN */}
-                    <div className="flex gap-2 w-full sm:w-auto mt-2">
+                    <div className="flex gap-2 w-full sm:w-auto mt-2 justify-end">
                         {isPending && (
                             <>
                                 <button 
@@ -199,9 +202,18 @@ const OrderHistory = ({ orders }) => {
                                 onClick={() => updateOrderStatus(order.id, 'completed')}
                                 className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] font-black px-4 py-2 rounded-xl flex justify-center items-center gap-2 shadow-md transition-all active:scale-95"
                             >
-                                <Check size={14} /> SELESAI / ANTAR
+                                <Check size={14} /> SELESAI
                             </button>
                         )}
+
+                        {/* TOMBOL HAPUS PERMANEN (SELALU MUNCUL) */}
+                        <button 
+                            onClick={() => handleConfirmDelete(order.id, order.customerName)} 
+                            className="bg-gray-100 hover:bg-red-600 hover:text-white text-gray-400 px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1 transition-all"
+                            title="Hapus Permanen Data Ini"
+                        >
+                            <Trash2 size={16} /> <span className="hidden sm:inline">HAPUS</span>
+                        </button>
                     </div>
                 </div>
               </div>
