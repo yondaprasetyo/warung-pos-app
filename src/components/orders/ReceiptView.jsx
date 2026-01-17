@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../../firebase';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore'; // Tambah getDoc
-import { Printer, ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle, RefreshCw } from 'lucide-react'; // Tambah RefreshCw
+import { doc, onSnapshot, getDoc } from 'firebase/firestore'; 
+import { ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle, RefreshCw, Download, Loader2 } from 'lucide-react'; // Ganti Printer jadi Download & Loader2
 import { formatRupiah } from '../../utils/format';
+import html2canvas from 'html2canvas'; // <--- 1. IMPORT HTML2CANVAS
 
 const ReceiptView = ({ order, onBack }) => {
   const [liveOrder, setLiveOrder] = useState(order);
-  const [isRefreshing, setIsRefreshing] = useState(false); // State untuk animasi loading tombol refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // <--- State untuk loading saat simpan gambar
 
   // --- 1. LISTENER REAL-TIME (OTOMATIS) ---
   useEffect(() => {
@@ -53,11 +55,39 @@ const ReceiptView = ({ order, onBack }) => {
     }
   };
 
-  if (!liveOrder) return null;
+  // --- 3. FUNGSI SIMPAN GAMBAR (PENGGANTI CETAK) ---
+  const handleSaveImage = async () => {
+    setIsSaving(true);
+    try {
+      // Ambil elemen struk berdasarkan ID
+      const element = document.getElementById('receipt-content');
+      
+      if (!element) return;
 
-  const handlePrint = () => {
-    window.print();
+      // Konversi HTML ke Canvas (Gambar)
+      const canvas = await html2canvas(element, {
+        scale: 2, // Resolusi 2x lipat biar tajam di HP Retina/HD
+        backgroundColor: '#ffffff', // Pastikan background putih
+        useCORS: true // Agar gambar eksternal (jika ada) ikut ter-render
+      });
+
+      // Buat link download palsu
+      const image = canvas.toDataURL("image/png");
+      const link = document.createElement('a');
+      link.href = image;
+      // Nama file saat didownload
+      link.download = `Struk-${liveOrder.customerName}-${liveOrder.id.substring(0,5)}.png`;
+      link.click();
+
+    } catch (error) {
+      console.error("Gagal menyimpan gambar:", error);
+      alert("Maaf, gagal menyimpan struk. Coba screenshot manual saja.");
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (!liveOrder) return null;
 
   const formatOrderDate = (dateObj) => {
     if (!dateObj) return '-';
@@ -143,7 +173,11 @@ const ReceiptView = ({ order, onBack }) => {
           </div>
       </div>
 
-      <div className="bg-white rounded-[2rem] shadow-2xl p-8 border-t-[12px] border-orange-500 print:border-0 print:shadow-none relative overflow-hidden receipt-card">
+      {/* --- KONTEN STRUK (DIBERI ID UNTUK DIFOTO) --- */}
+      <div 
+        id="receipt-content" 
+        className="bg-white rounded-[2rem] shadow-2xl p-8 border-t-[12px] border-orange-500 relative overflow-hidden receipt-card"
+      >
         
         {/* Header Toko */}
         <div className="text-center mb-8 relative z-10">
@@ -229,18 +263,32 @@ const ReceiptView = ({ order, onBack }) => {
               {[1,2,3,4,5].map(i => <div key={i} className="h-1 w-1 bg-gray-200 rounded-full"></div>)}
             </div>
         </div>
-
-        {/* Tombol Cetak */}
-        <div className="mt-10 print:hidden">
-          <button 
-            onClick={handlePrint} 
-            className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-[2rem] font-black transition-all flex justify-center items-center gap-3 shadow-xl shadow-orange-100 active:scale-95 italic uppercase tracking-wider"
-          >
-            <Printer size={20} /> Cetak Struk
-          </button>
-        </div>
       </div>
       
+      {/* --- 4. TOMBOL SIMPAN KE GALERI --- */}
+      <div className="mt-6">
+          <button 
+            onClick={handleSaveImage} 
+            disabled={isSaving}
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-[2rem] font-black transition-all flex justify-center items-center gap-3 shadow-xl shadow-orange-100 active:scale-95 italic uppercase tracking-wider disabled:opacity-70"
+          >
+            {isSaving ? (
+                <>
+                    <Loader2 size={20} className="animate-spin" />
+                    Memproses Gambar...
+                </>
+            ) : (
+                <>
+                    <Download size={20} />
+                    Simpan Struk (Galeri)
+                </>
+            )}
+          </button>
+          <p className="text-center text-[10px] text-gray-400 font-bold mt-4 uppercase tracking-widest">
+              Gambar akan tersimpan otomatis di Folder Download / Galeri HP Anda.
+          </p>
+      </div>
+
       <style>{`
         @media print {
           @page { margin: 0; }
