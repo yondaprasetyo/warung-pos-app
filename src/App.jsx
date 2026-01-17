@@ -4,7 +4,7 @@ import { useShop } from './hooks/useShop';
 import { useStoreSchedule } from './hooks/useStoreSchedule'; 
 import { db } from './firebase'; 
 import { doc, writeBatch } from 'firebase/firestore'; 
-import { ShoppingBag, LogIn, UtensilsCrossed, ChevronRight } from 'lucide-react'; // Pastikan install lucide-react atau ganti icon
+import { ShoppingBag, LogIn, UtensilsCrossed, ChevronRight, ArrowLeft } from 'lucide-react';
 
 // Components
 import Header from './components/layout/Header';
@@ -25,6 +25,7 @@ const getFormattedDateInfo = (dateObj) => {
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   
+  // Mengatasi masalah timezone offset agar tanggal tidak mundur
   const offset = dateObj.getTimezoneOffset() * 60000; 
   const localDate = new Date(dateObj.getTime() - offset);
   const isoDate = localDate.toISOString().split('T')[0]; 
@@ -38,11 +39,13 @@ const getFormattedDateInfo = (dateObj) => {
 };
 
 const App = () => {
-  // Ubah default view state jika perlu, tapi logika render di bawah yang menentukan
   const [currentView, setCurrentView] = useState('menu'); 
   const [isPublicMode, setIsPublicMode] = useState(false);
+  
+  // State untuk Modal Checkout
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false); // New: Prevent double click
   
   const [orderDate, setOrderDate] = useState(null);
   
@@ -59,18 +62,16 @@ const App = () => {
 
   const { checkIsClosed } = useStoreSchedule();
   
+  // Memoize status tutup toko
   const shopClosedInfo = useMemo(() => {
      if (!orderDate || !orderDate.isoDate) return null;
      return checkIsClosed(orderDate.isoDate); 
   }, [orderDate, checkIsClosed]);
 
-  // Effect: Auto-select tanggal untuk Admin
+  // Effect: Auto-select tanggal hari ini untuk Admin
   useEffect(() => {
     if (currentUser && !orderDate) {
-      const timer = setTimeout(() => {
-        setOrderDate(getFormattedDateInfo(new Date()));
-      }, 0);
-      return () => clearTimeout(timer);
+      setOrderDate(getFormattedDateInfo(new Date()));
     }
   }, [currentUser, orderDate]); 
 
@@ -85,61 +86,96 @@ const App = () => {
     setCurrentView(view);
   };
 
+  // Triggered saat user klik checkout di CartView
   const handleConfirmCheckout = () => {
     setCustomerNameInput('');
     setShowNameModal(true);
   };
 
+  // Logika Utama Checkout (Database Transaction)
   const executeCheckout = async () => {
-    if (customerNameInput.trim()) {
-      try {
-        const orderNote = `Order untuk tanggal: ${orderDate?.fullDate}`;
-        const order = await checkout(customerNameInput, orderNote);
-        
-        if (order) {
-          const batch = writeBatch(db);
-          let hasStockUpdate = false;
+    if (!customerNameInput.trim()) return;
+    
+    setIsProcessingCheckout(true); // Mulai loading
 
-          cart.forEach((item) => {
-            if (item.stock !== -1) {
-              const productRef = doc(db, "products", item.id);
-              const newStock = Math.max(0, item.stock - item.quantity);
-              batch.update(productRef, { stock: newStock });
-              hasStockUpdate = true;
-            }
-          });
+    try {
+      const orderNote = `Order untuk tanggal: ${orderDate?.fullDate}`;
+      
+      // 1. Buat Order di Firestore (via hook useShop)
+      const order = await checkout(customerNameInput, orderNote);
+      
+      if (order) {
+        // 2. Update Stok Produk (Batch Write)
+        const batch = writeBatch(db);
+        let hasStockUpdate = false;
 
-          if (hasStockUpdate) {
-            await batch.commit();
+        cart.forEach((item) => {
+          // Hanya kurangi stok jika bukan stok infinite (-1)
+          if (item.stock !== undefined && item.stock !== -1) {
+            const productRef = doc(db, "products", item.id);
+            const newStock = Math.max(0, item.stock - item.quantity);
+            batch.update(productRef, { stock: newStock });
+            hasStockUpdate = true;
           }
+        });
 
-          setShowNameModal(false);
-          navigateTo('receipt');
+        if (hasStockUpdate) {
+          await batch.commit();
         }
-      } catch (err) {
-        alert("Gagal memproses pesanan: " + err.message);
+
+        setShowNameModal(false);
+        navigateTo('receipt');
       }
+    } catch (err) {
+      console.error("Checkout Error:", err);
+      alert("Gagal memproses pesanan: " + err.message);
+    } finally {
+      setIsProcessingCheckout(false); // Selesai loading
     }
   };
 
-  if (loading) return <div className="p-10 text-center font-bold text-orange-500 italic">Memuat...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-orange-50">
+        <div className="animate-pulse text-orange-500 font-bold text-xl">Memuat Warung Mamah Yonda...</div>
+      </div>
+    );
+  }
 
+  // --- MODAL KONFIRMASI NAMA ---
   const renderNameModal = () => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="bg-orange-500 p-6 text-white text-center">
           <h3 className="text-xl font-bold italic">Konfirmasi Pesanan</h3>
-          <p className="text-orange-100 text-sm">Masukkan nama pelanggan</p>
+          <p className="text-orange-100 text-sm">Siapa nama pemesannya?</p>
         </div>
         <div className="p-8">
           <input 
-            type="text" autoFocus className="w-full p-4 bg-gray-50 border-2 rounded-2xl outline-none focus:border-orange-500 text-lg font-bold"
-            placeholder="Contoh: Kak Budi" value={customerNameInput} onChange={(e) => setCustomerNameInput(e.target.value)}
+            type="text" 
+            autoFocus 
+            className="w-full p-4 bg-gray-50 border-2 rounded-2xl outline-none focus:border-orange-500 text-lg font-bold text-center"
+            placeholder="Contoh: Kak Budi" 
+            value={customerNameInput} 
+            onChange={(e) => setCustomerNameInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && executeCheckout()}
+            disabled={isProcessingCheckout}
           />
           <div className="flex flex-col gap-3 mt-8">
-            <button onClick={executeCheckout} className="w-full py-4 rounded-2xl font-black text-white bg-orange-500 shadow-xl hover:bg-orange-600 active:scale-95 transition-all">SIMPAN & CETAK STRUK</button>
-            <button onClick={() => setShowNameModal(false)} className="w-full py-3 text-gray-400 font-bold">Nanti Saja</button>
+            <button 
+              onClick={executeCheckout} 
+              disabled={isProcessingCheckout || !customerNameInput.trim()}
+              className="w-full py-4 rounded-2xl font-black text-white bg-orange-500 shadow-xl hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
+            >
+              {isProcessingCheckout ? 'Memproses...' : 'SIMPAN & CETAK STRUK'}
+            </button>
+            <button 
+              onClick={() => setShowNameModal(false)} 
+              disabled={isProcessingCheckout}
+              className="w-full py-3 text-gray-400 font-bold hover:text-gray-600"
+            >
+              Batal
+            </button>
           </div>
         </div>
       </div>
@@ -180,8 +216,12 @@ const App = () => {
           {currentView === 'orders' && <OrderHistory orders={orders} />}
           {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
           {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
-          {currentView === 'users' && currentUser.role === 'admin' && <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => { logout(); navigateTo('register'); }} />}
-          {currentView === 'receipt' && <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />}
+          {currentView === 'users' && currentUser.role === 'admin' && (
+            <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => { logout(); navigateTo('register'); }} />
+          )}
+          {currentView === 'receipt' && (
+            <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />
+          )}
           {currentView === 'profile' && <ProfileView user={currentUser} onUpdate={() => alert('Fitur segera hadir')} />}
         </main>
         {showNameModal && renderNameModal()}
@@ -206,24 +246,37 @@ const App = () => {
             }} 
             user={null}
             authLoading={false}
+            // Tambahkan tombol kembali ke landing page jika diinginkan
+            onBack={() => setIsPublicMode(false)}
           />
         );
     }
 
     // B. Menu View Pelanggan
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 pb-20"> {/* pb-20 agar konten bawah tidak tertutup */}
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
-          <h1 className="font-black text-orange-500 text-xl italic leading-none cursor-pointer" onClick={() => { setIsPublicMode(false); setOrderDate(null); }}>
-             Warung Makan<br/><span className="text-gray-800">Mamah Yonda</span>
-          </h1>
+           <div className="flex items-center gap-2">
+              <button onClick={() => { setIsPublicMode(false); setOrderDate(null); }} className="p-2 hover:bg-gray-100 rounded-full">
+                  <ArrowLeft className="text-gray-600" size={20} />
+              </button>
+              <div>
+                <h1 className="font-black text-orange-500 text-lg italic leading-none">
+                    Mamah Yonda
+                </h1>
+                <p className="text-xs text-gray-500">{orderDate.fullDate}</p>
+              </div>
+           </div>
+
           <div className="flex gap-2">
-            <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2">
-              <ShoppingBag size={18} /> {cart.reduce((a, b) => a + b.quantity, 0)}
+            <button onClick={() => navigateTo('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2 relative">
+              <ShoppingBag size={18} /> 
+              <span>{cart.reduce((a, b) => a + b.quantity, 0)}</span>
             </button>
           </div>
         </header>
-        <main className="p-0 max-w-7xl mx-auto">
+
+        <main className="max-w-7xl mx-auto">
           {currentView === 'menu' && (
             <MenuView 
                 onAddToCart={addToCart} 
@@ -239,7 +292,9 @@ const App = () => {
               onCheckout={handleConfirmCheckout} onBack={() => setCurrentView('menu')}
             />
           )}
-          {currentView === 'receipt' && <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />}
+          {currentView === 'receipt' && (
+            <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />
+          )}
         </main>
         {showNameModal && renderNameModal()}
       </div>
@@ -258,17 +313,16 @@ const App = () => {
 
   // =================================================================
   // 4. LANDING PAGE UTAMA (DEFAULT)
-  // Inilah tampilan awal saat user membuka web
   // =================================================================
   return (
     <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
       
-      {/* Background Decor (Opsional) */}
+      {/* Background Decor */}
       <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-yellow-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
 
       <div className="z-10 flex flex-col items-center max-w-md w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-        {/* Icon / Logo Besar */}
+        
         <div className="bg-white p-6 rounded-3xl shadow-xl shadow-orange-100 mb-8 transform rotate-3 hover:rotate-0 transition-transform duration-300">
            <UtensilsCrossed size={64} className="text-orange-500" />
         </div>
@@ -280,9 +334,12 @@ const App = () => {
           Masakan rumahan yang hangat,<br/>siap dinikmati kapan saja.
         </p>
 
-        {/* TOMBOL UTAMA: PESAN SEKARANG */}
+        {/* TOMBOL UTAMA */}
         <button 
-          onClick={() => setIsPublicMode(true)}
+          onClick={() => {
+             setCurrentView('menu'); // Reset view ke menu
+             setIsPublicMode(true);
+          }}
           className="group relative w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-5 rounded-2xl shadow-lg shadow-orange-200 hover:shadow-orange-300 transform transition-all active:scale-95 hover:-translate-y-1"
         >
           <div className="flex items-center justify-center gap-3">
@@ -291,7 +348,7 @@ const App = () => {
           </div>
         </button>
 
-        {/* TOMBOL KECIL: ADMIN LOGIN */}
+        {/* TOMBOL LOGIN ADMIN */}
         <div className="mt-12">
             <button 
                 onClick={() => setCurrentView('login')}
@@ -304,7 +361,7 @@ const App = () => {
       </div>
       
       <footer className="absolute bottom-6 text-xs text-gray-300 font-medium">
-        &copy; {new Date().getFullYear()} Warung POS System
+        &copy; {new Date().getFullYear()} Mamah Yonda POS
       </footer>
     </div>
   );
