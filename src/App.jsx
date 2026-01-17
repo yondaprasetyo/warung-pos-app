@@ -123,7 +123,7 @@ const App = () => {
               // 1. Coba ambil productId asli (jika ada)
               // 2. Jika tidak ada, ambil ID dan buang suffix "-default" atau varian
               // Firestore Auto-ID tidak pernah pakai tanda strip (-), jadi aman di-split.
-              const realProductId = item.productId || item.id.split('-')[0];
+              const realProductId = (item.productId || item.id).split('-')[0];
 
               const productRef = doc(db, "products", realProductId); // Gunakan realProductId
               // -------------------------
