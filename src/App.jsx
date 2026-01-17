@@ -19,6 +19,7 @@ import UserManagement from './components/admin/UserManagement';
 import ProfileView from './components/admin/ProfileView';
 import ProductManagement from './components/admin/ProductManagement';
 import SalesLaporan from './components/admin/SalesLaporan';
+import StoreScheduleSettings from './components/admin/StoreScheduleSettings';
 
 // --- HELPER: FORMAT TANGGAL ---
 const getFormattedDateInfo = (dateObj) => {
@@ -216,6 +217,9 @@ const App = () => {
           {currentView === 'orders' && <OrderHistory orders={orders} />}
           {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
           {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
+          {currentView === 'schedule' && currentUser.role === 'admin' && (
+            <StoreScheduleSettings />
+          )}
           {currentView === 'users' && currentUser.role === 'admin' && (
             <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => { logout(); navigateTo('register'); }} />
           )}

@@ -5,8 +5,6 @@ import {
   updateDoc, deleteDoc, serverTimestamp 
 } from 'firebase/firestore';
 import { Calendar, Tag, Layers, Trash2, Edit3, Image, Box, Search, ToggleLeft, ToggleRight } from 'lucide-react';
-// IMPORT COMPONENT SETTINGS JADWAL
-import StoreScheduleSettings from './StoreScheduleSettings';
 
 const DAYS = [
   { id: 1, label: 'Sen' }, { id: 2, label: 'Sel' }, { id: 3, label: 'Rab' },
@@ -159,10 +157,6 @@ const ProductManagement = () => {
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 pb-24 font-sans text-gray-800">
       
-      {/* --- BAGIAN SETTING JADWAL LIBUR --- */}
-      <StoreScheduleSettings />
-      {/* ----------------------------------- */}
-
       <h2 className="text-3xl font-black mb-8 uppercase italic tracking-tighter flex items-center gap-3">
         {editingId ? '📝 Edit Menu' : '🍽️ Kelola & Tambah Menu'}
       </h2>

@@ -9,12 +9,14 @@ import {
   Utensils, 
   BarChart3, 
   Menu, 
-  X 
+  X,
+  CalendarClock // <--- 1. IMPORT ICON BARU
 } from 'lucide-react';
 
 const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // --- DAFTAR MENU ---
   const navItems = [
     { 
       id: 'laporan', 
@@ -26,6 +28,13 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
       id: 'manage-menu', 
       label: 'Kelola Menu', 
       icon: <Utensils size={20} />, 
+      show: user?.role === 'admin' 
+    },
+    // --- 2. TAMBAHAN MENU JADWAL ---
+    { 
+      id: 'schedule', 
+      label: 'Atur Jadwal', 
+      icon: <CalendarClock size={20} />, 
       show: user?.role === 'admin' 
     },
     { 
@@ -64,7 +73,7 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
     <div className="fixed top-0 left-0 right-0 w-full bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg z-[1000] h-[72px]">
       <div className="max-w-6xl mx-auto px-4 h-full flex justify-between items-center relative">
         
-        {/* --- BAGIAN KIRI: LOGO & JUDUL (DIPERBAIKI) --- */}
+        {/* --- BAGIAN KIRI: LOGO & JUDUL --- */}
         <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
           {currentView !== 'menu' && currentView !== 'public-order' && (
             <button 
@@ -75,7 +84,6 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
             </button>
           )}
           
-          {/* PERBAIKAN DI SINI: Menghapus 'hidden sm:inline' dan menyesuaikan ukuran font */}
           <h1 
             onClick={() => onNavigate('menu')}
             className="font-bold truncate tracking-tight cursor-pointer leading-tight text-sm xs:text-base sm:text-xl md:text-2xl"
@@ -182,9 +190,9 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
                     {item.icon}
                     <span className="text-xs font-bold uppercase">{item.label}</span>
                     {item.badge > 0 && currentView !== item.id && (
-                       <span className="bg-red-500 text-white text-[10px] px-2 rounded-full font-bold">
-                         {item.badge} Item
-                       </span>
+                        <span className="bg-red-500 text-white text-[10px] px-2 rounded-full font-bold">
+                          {item.badge} Item
+                        </span>
                     )}
                   </button>
                 )

@@ -9,18 +9,24 @@ const StoreScheduleSettings = () => {
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
 
+  // --- BAGIAN INI SUDAH DIPERBAIKI ---
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!startDate || !endDate || !reason) return alert("Mohon lengkapi data");
     
-    if (endDate < startDate) return alert("Tanggal selesai tidak boleh sebelum tanggal mulai");
+    // Konversi ke object Date agar perbandingannya akurat
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (end < start) return alert("Tanggal selesai tidak boleh sebelum tanggal mulai");
 
     try {
       await addSchedule(startDate, endDate, reason);
       setStartDate('');
       setEndDate('');
       setReason('');
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("Gagal menyimpan jadwal");
     }
   };
