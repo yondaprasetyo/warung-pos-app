@@ -175,7 +175,7 @@ const App = () => {
               disabled={isProcessingCheckout || !customerNameInput.trim()}
               className="w-full py-4 rounded-2xl font-black text-white bg-orange-500 shadow-xl hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
             >
-              {isProcessingCheckout ? 'Memproses...' : 'SIMPAN & CETAK STRUK'}
+              {isProcessingCheckout ? 'Memproses...' : 'KIRIM PESANAN'}
             </button>
             <button 
               onClick={() => setShowNameModal(false)} 
