@@ -1,34 +1,57 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../../firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { Printer, ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle } from 'lucide-react';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore'; // Tambah getDoc
+import { Printer, ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle, RefreshCw } from 'lucide-react'; // Tambah RefreshCw
 import { formatRupiah } from '../../utils/format';
 
 const ReceiptView = ({ order, onBack }) => {
-  // State ini akan selalu update otomatis mengikuti database
   const [liveOrder, setLiveOrder] = useState(order);
+  const [isRefreshing, setIsRefreshing] = useState(false); // State untuk animasi loading tombol refresh
 
-  // --- 1. LISTENER REAL-TIME (JANTUNGNYA FITUR LIVE) ---
+  // --- 1. LISTENER REAL-TIME (OTOMATIS) ---
   useEffect(() => {
     if (!order?.id) return;
 
-    // Fungsi ini "berlangganan" ke dokumen order di database
-    // Setiap kali Admin klik tombol, fungsi ini jalan otomatis!
     const unsubscribe = onSnapshot(doc(db, "orders", order.id), (docSnapshot) => {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();
         setLiveOrder({ 
             id: docSnapshot.id, 
             ...data,
-            // Konversi timestamp Firestore ke Date object JS agar tidak error
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date() 
         });
       }
     });
 
-    // Matikan listener saat keluar halaman agar tidak berat
     return () => unsubscribe();
   }, [order?.id]);
+
+  // --- 2. FUNGSI REFRESH MANUAL (TOMBOL) ---
+  const handleManualRefresh = async () => {
+    if (!order?.id) return;
+    
+    setIsRefreshing(true); // Mulai animasi muter
+    
+    try {
+      // Tarik data paksa dari database (sekalipun onSnapshot sudah jalan)
+      const docRef = doc(db, "orders", order.id);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setLiveOrder({ 
+            id: docSnap.id, 
+            ...data,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date() 
+        });
+      }
+    } catch (error) {
+      console.error("Gagal refresh:", error);
+    } finally {
+      // Beri jeda sedikit biar user sadar tombolnya bekerja
+      setTimeout(() => setIsRefreshing(false), 800); 
+    }
+  };
 
   if (!liveOrder) return null;
 
@@ -44,49 +67,47 @@ const ReceiptView = ({ order, onBack }) => {
     });
   };
 
-  // --- 2. LOGIKA TAMPILAN STATUS (UI BERUBAH WARNA) ---
+  // --- HELPER STATUS UI ---
   const getStatusUI = (status) => {
-    // Normalisasi string (biar aman kalau huruf besar/kecil)
     const s = (status || 'pending').toLowerCase();
     
-    // KONDISI 1: MENUNGGU (Kuning)
     if (s === 'pending' || s === 'baru') {
         return { 
             style: 'bg-yellow-50 border-yellow-200 text-yellow-700', 
             icon: <Clock size={48} className="animate-pulse text-yellow-500" />, 
             title: 'MENUNGGU KONFIRMASI', 
-            desc: 'Mohon tunggu, Admin sedang mengecek pesananmu...' 
+            desc: 'Mohon tunggu, Admin sedang mengecek pesananmu...',
+            canRefresh: true // Hanya muncul tombol refresh di status ini (opsional)
         };
     }
-    // KONDISI 2: DIPROSES/DIMASAK (Biru)
     if (s === 'processing' || s === 'proses') {
         return { 
             style: 'bg-blue-50 border-blue-200 text-blue-700', 
             icon: <ChefHat size={48} className="animate-bounce text-blue-500" />, 
             title: 'PESANAN DITERIMA', 
-            desc: 'Hore! Makananmu sedang disiapkan di dapur.' 
+            desc: 'Hore! Makananmu sedang disiapkan di dapur.',
+            canRefresh: true
         };
     }
-    // KONDISI 3: SELESAI (Hijau)
     if (s === 'completed' || s === 'selesai') {
         return { 
             style: 'bg-green-50 border-green-200 text-green-700', 
             icon: <CheckCircle size={48} className="text-green-500" />, 
             title: 'PESANAN SELESAI', 
-            desc: 'Pesanan sudah selesai/diantar. Terima kasih!' 
+            desc: 'Pesanan sudah selesai/diantar. Terima kasih!',
+            canRefresh: false
         };
     }
-    // KONDISI 4: BATAL (Merah)
     if (s === 'cancelled' || s === 'batal') {
         return { 
             style: 'bg-red-50 border-red-200 text-red-700', 
             icon: <XCircle size={48} className="text-red-500" />, 
             title: 'PESANAN DIBATALKAN', 
-            desc: 'Maaf, pesanan ini tidak dapat diproses.' 
+            desc: 'Maaf, pesanan ini tidak dapat diproses.',
+            canRefresh: false
         };
     }
-    // Default
-    return { style: 'bg-gray-50', icon: null, title: s, desc: '' };
+    return { style: 'bg-gray-50', icon: null, title: s, desc: '', canRefresh: true };
   };
 
   const statusUI = getStatusUI(liveOrder.status);
@@ -94,7 +115,6 @@ const ReceiptView = ({ order, onBack }) => {
   return (
     <div className="max-w-md mx-auto p-4 mt-6 mb-20 animate-in fade-in zoom-in duration-300">
       
-      {/* Tombol Kembali (Disembunyikan saat Print) */}
       <button 
         onClick={onBack}
         className="mb-4 flex items-center gap-2 text-gray-500 hover:text-orange-500 font-bold text-xs transition-all print:hidden"
@@ -102,12 +122,24 @@ const ReceiptView = ({ order, onBack }) => {
         <ArrowLeft size={16} /> KEMBALI KE MENU
       </button>
 
-      {/* --- BANNER STATUS LIVE (PENTING: Ini yang dilihat pelanggan) --- */}
+      {/* --- BANNER STATUS LIVE --- */}
       <div className={`print:hidden mb-6 p-8 rounded-[2rem] text-center border-4 border-double shadow-lg transition-all duration-500 flex flex-col items-center gap-3 ${statusUI.style}`}>
           <div>{statusUI.icon}</div>
           <div>
             <h2 className="text-2xl font-black italic tracking-tighter leading-none mb-1">{statusUI.title}</h2>
-            <p className="text-xs font-bold opacity-80">{statusUI.desc}</p>
+            <p className="text-xs font-bold opacity-80 mb-4">{statusUI.desc}</p>
+            
+            {/* --- TOMBOL REFRESH MANUAL --- */}
+            {statusUI.canRefresh && (
+                <button 
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  className="mx-auto flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-white text-[10px] font-black uppercase tracking-widest rounded-full transition-all active:scale-95 shadow-sm border border-black/5 disabled:opacity-50"
+                >
+                  <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+                  {isRefreshing ? 'Mengecek...' : 'Refresh Status'}
+                </button>
+            )}
           </div>
       </div>
 
@@ -128,7 +160,6 @@ const ReceiptView = ({ order, onBack }) => {
                 <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic">Pelanggan:</span>
                 <span className="font-black text-gray-800 uppercase text-sm italic">{liveOrder.customerName}</span>
             </div>
-            {/* Status Text Kecil di Struk */}
             <div className="flex justify-between items-end">
                 <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic">Status:</span>
                 <span className={`font-black uppercase text-[10px] italic px-2 py-0.5 rounded ${statusUI.style}`}>
@@ -210,7 +241,6 @@ const ReceiptView = ({ order, onBack }) => {
         </div>
       </div>
       
-      {/* Styles khusus Print */}
       <style>{`
         @media print {
           @page { margin: 0; }
