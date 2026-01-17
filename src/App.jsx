@@ -7,6 +7,7 @@ import { doc, writeBatch } from 'firebase/firestore';
 import { ShoppingBag, LogIn, UtensilsCrossed, ChevronRight, ArrowLeft } from 'lucide-react';
 
 // Components
+// ... (Import components tetap sama)
 import Header from './components/layout/Header';
 import LoginView from './components/auth/LoginView';
 import RegisterView from './components/auth/RegisterView';
@@ -21,12 +22,11 @@ import ProductManagement from './components/admin/ProductManagement';
 import SalesLaporan from './components/admin/SalesLaporan';
 import StoreScheduleSettings from './components/admin/StoreScheduleSettings';
 
-// --- HELPER: FORMAT TANGGAL ---
+// ... (Helper getFormattedDateInfo tetap sama)
 const getFormattedDateInfo = (dateObj) => {
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   
-  // Mengatasi masalah timezone offset agar tanggal tidak mundur
   const offset = dateObj.getTimezoneOffset() * 60000; 
   const localDate = new Date(dateObj.getTime() - offset);
   const isoDate = localDate.toISOString().split('T')[0]; 
@@ -43,10 +43,9 @@ const App = () => {
   const [currentView, setCurrentView] = useState('menu'); 
   const [isPublicMode, setIsPublicMode] = useState(false);
   
-  // State untuk Modal Checkout
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
-  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false); // New: Prevent double click
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false); 
   
   const [orderDate, setOrderDate] = useState(null);
   
@@ -58,18 +57,32 @@ const App = () => {
   const { 
     cart, orders, currentOrder, setCurrentOrder,
     addToCart, updateQuantity, removeFromCart, checkout,
-    updateCartItemDetails 
+    updateCartItemDetails,
+    loadingOrder, // <-- Ambil state loading session
+    resetCurrentOrder // <-- Ambil fungsi reset
   } = useShop(currentUser);
 
   const { checkIsClosed } = useStoreSchedule();
   
-  // Memoize status tutup toko
   const shopClosedInfo = useMemo(() => {
      if (!orderDate || !orderDate.isoDate) return null;
      return checkIsClosed(orderDate.isoDate); 
   }, [orderDate, checkIsClosed]);
 
-  // Effect: Auto-select tanggal hari ini untuk Admin
+  // --- LOGIKA BARU: AUTO-REDIRECT KE RECEIPT SAAT REFRESH ---
+  useEffect(() => {
+    // Jika ada currentOrder (hasil restore session), langsung masuk mode public & receipt
+    if (currentOrder && !currentUser) {
+      setIsPublicMode(true);
+      setCurrentView('receipt');
+      // Set tanggal pesanan agar data konsisten (opsional)
+      if (currentOrder.createdAt) {
+         setOrderDate(getFormattedDateInfo(new Date(currentOrder.createdAt)));
+      }
+    }
+  }, [currentOrder, currentUser]);
+  // -----------------------------------------------------------
+
   useEffect(() => {
     if (currentUser && !orderDate) {
       setOrderDate(getFormattedDateInfo(new Date()));
@@ -87,31 +100,24 @@ const App = () => {
     setCurrentView(view);
   };
 
-  // Triggered saat user klik checkout di CartView
   const handleConfirmCheckout = () => {
     setCustomerNameInput('');
     setShowNameModal(true);
   };
 
-  // Logika Utama Checkout (Database Transaction)
   const executeCheckout = async () => {
     if (!customerNameInput.trim()) return;
-    
-    setIsProcessingCheckout(true); // Mulai loading
+    setIsProcessingCheckout(true); 
 
     try {
       const orderNote = `Order untuk tanggal: ${orderDate?.fullDate}`;
-      
-      // 1. Buat Order di Firestore (via hook useShop)
       const order = await checkout(customerNameInput, orderNote);
       
       if (order) {
-        // 2. Update Stok Produk (Batch Write)
         const batch = writeBatch(db);
         let hasStockUpdate = false;
 
         cart.forEach((item) => {
-          // Hanya kurangi stok jika bukan stok infinite (-1)
           if (item.stock !== undefined && item.stock !== -1) {
             const productRef = doc(db, "products", item.id);
             const newStock = Math.max(0, item.stock - item.quantity);
@@ -131,11 +137,13 @@ const App = () => {
       console.error("Checkout Error:", err);
       alert("Gagal memproses pesanan: " + err.message);
     } finally {
-      setIsProcessingCheckout(false); // Selesai loading
+      setIsProcessingCheckout(false); 
     }
   };
 
-  if (loading) {
+  // --- LOADING UTAMA APLIKASI ---
+  // Kita tambahkan loadingOrder agar tidak flash landing page saat restore session
+  if (loading || loadingOrder) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-orange-50">
         <div className="animate-pulse text-orange-500 font-bold text-xl">Memuat Warung Mamah Yonda...</div>
@@ -143,7 +151,6 @@ const App = () => {
     );
   }
 
-  // --- MODAL KONFIRMASI NAMA ---
   const renderNameModal = () => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -168,7 +175,7 @@ const App = () => {
               disabled={isProcessingCheckout || !customerNameInput.trim()}
               className="w-full py-4 rounded-2xl font-black text-white bg-orange-500 shadow-xl hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
             >
-              {isProcessingCheckout ? 'Memproses...' : 'KIRIM PESANAN'}
+              {isProcessingCheckout ? 'Memproses...' : 'SIMPAN & CETAK STRUK'}
             </button>
             <button 
               onClick={() => setShowNameModal(false)} 
@@ -217,14 +224,16 @@ const App = () => {
           {currentView === 'orders' && <OrderHistory orders={orders} />}
           {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
           {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
-          {currentView === 'schedule' && currentUser.role === 'admin' && (
-            <StoreScheduleSettings />
-          )}
+          {currentView === 'schedule' && currentUser.role === 'admin' && <StoreScheduleSettings />}
           {currentView === 'users' && currentUser.role === 'admin' && (
             <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => { logout(); navigateTo('register'); }} />
           )}
           {currentView === 'receipt' && (
-            <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />
+            <ReceiptView 
+                order={currentOrder} 
+                // Admin hanya "lihat" struk, tidak perlu reset session
+                onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} 
+            />
           )}
           {currentView === 'profile' && <ProfileView user={currentUser} onUpdate={() => alert('Fitur segera hadir')} />}
         </main>
@@ -237,7 +246,22 @@ const App = () => {
   // 2. MODE PELANGGAN (Public Mode = TRUE)
   // =================================================================
   if (isPublicMode) {
-    // A. Pilih Tanggal Dulu
+    // KHUSUS VIEW RECEIPT: Tidak butuh pilih tanggal, karena data dari history
+    if (currentView === 'receipt' && currentOrder) {
+         return (
+            <ReceiptView 
+                order={currentOrder} 
+                // PENTING: Gunakan resetCurrentOrder saat Pelanggan klik "Kembali ke Menu"
+                onBack={() => { 
+                    resetCurrentOrder(); 
+                    setCurrentView('menu'); 
+                    // Opsional: setOrderDate(null) jika ingin mereka pilih tanggal ulang
+                }} 
+            />
+         );
+    }
+
+    // A. Pilih Tanggal Dulu (Kecuali sedang lihat struk)
     if (!orderDate) {
         return (
           <OrderDateSelector 
@@ -250,7 +274,6 @@ const App = () => {
             }} 
             user={null}
             authLoading={false}
-            // Tambahkan tombol kembali ke landing page jika diinginkan
             onBack={() => setIsPublicMode(false)}
           />
         );
@@ -258,7 +281,7 @@ const App = () => {
 
     // B. Menu View Pelanggan
     return (
-      <div className="min-h-screen bg-gray-50 pb-20"> {/* pb-20 agar konten bawah tidak tertutup */}
+      <div className="min-h-screen bg-gray-50 pb-20"> 
         <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
            <div className="flex items-center gap-2">
               <button onClick={() => { setIsPublicMode(false); setOrderDate(null); }} className="p-2 hover:bg-gray-100 rounded-full">
@@ -296,9 +319,6 @@ const App = () => {
               onCheckout={handleConfirmCheckout} onBack={() => setCurrentView('menu')}
             />
           )}
-          {currentView === 'receipt' && (
-            <ReceiptView order={currentOrder} onBack={() => { setCurrentOrder(null); navigateTo('menu'); }} />
-          )}
         </main>
         {showNameModal && renderNameModal()}
       </div>
@@ -306,7 +326,7 @@ const App = () => {
   }
 
   // =================================================================
-  // 3. AUTHENTICATION (Login / Register)
+  // 3. AUTH & LANDING PAGE (Tetap sama)
   // =================================================================
   if (currentView === 'login') {
       return <LoginView onLogin={login} onRegisterClick={() => navigateTo('register')} error={authError} onBack={() => setCurrentView('menu')} />;
@@ -315,33 +335,24 @@ const App = () => {
       return <RegisterView onRegister={(d) => register(d) && navigateTo('login')} onBack={() => navigateTo('login')} error={authError} />;
   }
 
-  // =================================================================
-  // 4. LANDING PAGE UTAMA (DEFAULT)
-  // =================================================================
   return (
     <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
-      
-      {/* Background Decor */}
       <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-yellow-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
 
       <div className="z-10 flex flex-col items-center max-w-md w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-        
         <div className="bg-white p-6 rounded-3xl shadow-xl shadow-orange-100 mb-8 transform rotate-3 hover:rotate-0 transition-transform duration-300">
            <UtensilsCrossed size={64} className="text-orange-500" />
         </div>
-
         <h1 className="text-4xl font-black text-gray-800 mb-2 tracking-tight">
           Warung Makan <span className="text-orange-600 italic block">Mamah Yonda</span>
         </h1>
         <p className="text-gray-500 mb-10 text-lg leading-relaxed">
           Masakan rumahan yang hangat,<br/>siap dinikmati kapan saja.
         </p>
-
-        {/* TOMBOL UTAMA */}
         <button 
           onClick={() => {
-             setCurrentView('menu'); // Reset view ke menu
+             setCurrentView('menu'); 
              setIsPublicMode(true);
           }}
           className="group relative w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-5 rounded-2xl shadow-lg shadow-orange-200 hover:shadow-orange-300 transform transition-all active:scale-95 hover:-translate-y-1"
@@ -351,8 +362,6 @@ const App = () => {
              <ChevronRight className="group-hover:translate-x-1 transition-transform" />
           </div>
         </button>
-
-        {/* TOMBOL LOGIN ADMIN */}
         <div className="mt-12">
             <button 
                 onClick={() => setCurrentView('login')}
@@ -363,7 +372,6 @@ const App = () => {
             </button>
         </div>
       </div>
-      
       <footer className="absolute bottom-6 text-xs text-gray-300 font-medium">
         &copy; {new Date().getFullYear()} Mamah Yonda POS
       </footer>

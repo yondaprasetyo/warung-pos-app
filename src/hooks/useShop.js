@@ -8,51 +8,74 @@ import {
   orderBy, 
   serverTimestamp, 
   doc, 
-  updateDoc,
-  deleteDoc // <--- 1. IMPORT deleteDoc
+  updateDoc, 
+  deleteDoc, 
+  getDoc // <--- Import getDoc
 } from 'firebase/firestore';
 
 export const useShop = (currentUser) => {
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
   const [currentOrder, setCurrentOrder] = useState(null);
+  const [loadingOrder, setLoadingOrder] = useState(true); // State baru untuk loading cek session
 
-  // --- AMBIL DATA PESANAN DARI FIRESTORE (REAL-TIME) ---
+  // --- AMBIL DATA PESANAN (Admin) ---
   useEffect(() => {
-    // Ambil semua order urut dari yang terbaru
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ordersList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        // Normalisasi timestamp menjadi Date object JS
         createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
       }));
       setOrders(ordersList);
-    }, (err) => {
-      console.error("Firestore error:", err);
-    });
-
-    return () => {
-      unsubscribe();
-    };
+    }, (err) => { console.error("Firestore error:", err); });
+    return () => unsubscribe();
   }, []);
 
-  // --- 1. TAMBAH KE KERANJANG ---
+  // --- FITUR BARU: CEK SESSION (Restore Order saat Refresh) ---
+  useEffect(() => {
+    const restoreSession = async () => {
+      const savedOrderId = localStorage.getItem('activeOrderId');
+      
+      if (savedOrderId) {
+        try {
+          const docRef = doc(db, "orders", savedOrderId);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            // Kembalikan ke state currentOrder
+            setCurrentOrder({
+              id: docSnap.id,
+              ...data,
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
+            });
+          } else {
+            // Jika data di DB sudah dihapus admin, bersihkan localstorage
+            localStorage.removeItem('activeOrderId');
+          }
+        } catch (error) {
+          console.error("Gagal restore session:", error);
+        }
+      }
+      setLoadingOrder(false); // Selesai loading
+    };
+
+    restoreSession();
+  }, []);
+
+  // --- LOGIKA CART (Sama seperti sebelumnya) ---
   const addToCart = (newItem) => {
     setCart(prevCart => {
       const existingItemIndex = prevCart.findIndex(item => item.id === newItem.id);
-
       if (existingItemIndex > -1) {
         const existingItem = prevCart[existingItemIndex];
         const newQuantity = existingItem.quantity + newItem.quantity;
-
         if (existingItem.stock !== -1 && newQuantity > existingItem.stock) {
           alert(`Maaf, stok ${existingItem.name} maksimal ${existingItem.stock}.`);
           return prevCart;
         }
-
         const newCart = [...prevCart];
         newCart[existingItemIndex] = { ...existingItem, quantity: newQuantity };
         return newCart;
@@ -67,7 +90,6 @@ export const useShop = (currentUser) => {
     });
   };
 
-  // --- 2. UPDATE JUMLAH ITEM ---
   const updateQuantity = (index, delta) => {
     setCart(prev => {
       if (!prev[index]) return prev;
@@ -79,7 +101,6 @@ export const useShop = (currentUser) => {
         alert(`Maaf, sisa stok ${item.name} hanya ada ${item.stock}.`);
         return prev;
       }
-
       if (newQty > 0) {
         newCart[index] = { ...newCart[index], quantity: newQty };
         return newCart;
@@ -90,7 +111,6 @@ export const useShop = (currentUser) => {
     });
   };
 
-  // --- 3. UPDATE DETAIL ---
   const updateCartItemDetails = (index, details) => {
     setCart(prev => {
       if (!prev[index]) return prev;
@@ -100,18 +120,15 @@ export const useShop = (currentUser) => {
     });
   };
 
-  // --- 4. HAPUS DARI KERANJANG ---
   const removeFromCart = (index) => {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- 5. PROSES CHECKOUT ---
+  // --- CHECKOUT (Update: Simpan ID ke LocalStorage) ---
   const checkout = async (customerName, orderNote = '') => {
     if (cart.length === 0) return;
-    
     try {
       const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
       const orderItems = cart.map(item => ({
         id: item.id,
         productId: item.productId || item.id.split('-')[0],
@@ -141,36 +158,36 @@ export const useShop = (currentUser) => {
         createdAt: new Date()
       };
       
+      // SIMPAN ID KE BROWSER
+      localStorage.setItem('activeOrderId', docRef.id);
+      
       setCurrentOrder(newOrder);
       setCart([]); 
       return newOrder;
-
     } catch (error) {
       console.error("Checkout error:", error);
       throw error;
     }
   };
 
-  // --- 6. UPDATE STATUS ORDER ---
+  // --- FUNGSI BARU: RESET ORDER (Keluar dari Receipt) ---
+  const resetCurrentOrder = () => {
+    setCurrentOrder(null);
+    localStorage.removeItem('activeOrderId'); // Hapus session
+  };
+
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, { status: newStatus });
-    } catch (error) {
-      console.error("Update status error:", error);
-      alert("Gagal memperbarui status pesanan.");
-    }
+    } catch (error) { console.error("Update error:", error); alert("Gagal update status."); }
   };
 
-  // --- 7. HAPUS ORDER PERMANEN (BARU) ---
   const removeOrder = async (orderId) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
       await deleteDoc(orderRef);
-    } catch (error) {
-      console.error("Gagal menghapus pesanan:", error);
-      alert("Gagal menghapus data.");
-    }
+    } catch (error) { console.error("Delete error:", error); alert("Gagal hapus data."); }
   };
 
   return {
@@ -178,12 +195,14 @@ export const useShop = (currentUser) => {
     orders, 
     currentOrder, 
     setCurrentOrder,
+    loadingOrder, // Export loading state
+    resetCurrentOrder, // Export reset function
     addToCart, 
     updateQuantity, 
     removeFromCart, 
     checkout,
     updateOrderStatus,
     updateCartItemDetails,
-    removeOrder // <--- EXPORT FUNGSI HAPUS
+    removeOrder 
   };
 };
