@@ -1,41 +1,88 @@
-import React from 'react';
-import { Printer, ArrowLeft, StickyNote } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { db } from '../../firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { Printer, ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle } from 'lucide-react';
 import { formatRupiah } from '../../utils/format';
 
 const ReceiptView = ({ order, onBack }) => {
-  if (!order) return null;
+  // State untuk data order yang LIVE (real-time updates)
+  const [liveOrder, setLiveOrder] = useState(order);
+
+  // --- LISTENER LIVE UPDATE ---
+  useEffect(() => {
+    if (!order?.id) return;
+
+    // Dengarkan perubahan pada dokumen order ini di Firestore
+    const unsub = onSnapshot(doc(db, "orders", order.id), (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        setLiveOrder({ 
+            id: docSnapshot.id, 
+            ...data,
+            // Pastikan createdAt dikonversi dengan aman
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date() 
+        });
+      }
+    });
+
+    return () => unsub(); // Cleanup listener saat unmount
+  }, [order?.id]);
+
+  if (!liveOrder) return null;
 
   const handlePrint = () => {
     window.print();
   };
 
-  const formatOrderDate = (createdAt) => {
-    if (!createdAt) return new Date().toLocaleString('id-ID');
-    
-    // Handle Firestore Timestamp
-    if (createdAt && typeof createdAt.toDate === 'function') {
-        return createdAt.toDate().toLocaleString('id-ID', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    const date = new Date(createdAt);
-    if (!isNaN(date.getTime())) {
-        return date.toLocaleString('id-ID', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    return new Date().toLocaleString('id-ID');
+  const formatOrderDate = (dateObj) => {
+    if (!dateObj) return '-';
+    return dateObj.toLocaleString('id-ID', {
+      day: '2-digit', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
   };
+
+  // --- HELPER STATUS UI ---
+  const getStatusInfo = (status) => {
+    // Normalisasi status (handle 'Baru'/'Selesai' dari versi lama)
+    const s = status?.toLowerCase() || 'pending';
+    
+    if (s === 'pending' || s === 'baru') {
+        return { 
+            color: 'bg-yellow-100 text-yellow-700 border-yellow-200', 
+            icon: <Clock size={40} className="mb-2 animate-pulse" />, 
+            title: 'MENUNGGU KONFIRMASI', 
+            desc: 'Admin sedang mengecek pesananmu...' 
+        };
+    }
+    if (s === 'processing' || s === 'proses') {
+        return { 
+            color: 'bg-blue-100 text-blue-700 border-blue-200', 
+            icon: <ChefHat size={40} className="mb-2 animate-bounce" />, 
+            title: 'PESANAN DITERIMA', 
+            desc: 'Hore! Makananmu sedang dimasak.' 
+        };
+    }
+    if (s === 'completed' || s === 'selesai') {
+        return { 
+            color: 'bg-green-100 text-green-700 border-green-200', 
+            icon: <CheckCircle size={40} className="mb-2" />, 
+            title: 'SELESAI', 
+            desc: 'Pesanan sudah selesai/diantar.' 
+        };
+    }
+    if (s === 'cancelled' || s === 'batal') {
+        return { 
+            color: 'bg-red-100 text-red-700 border-red-200', 
+            icon: <XCircle size={40} className="mb-2" />, 
+            title: 'DIBATALKAN', 
+            desc: 'Maaf, pesanan ini tidak dapat diproses.' 
+        };
+    }
+    return { color: 'bg-gray-100', icon: null, title: s, desc: '' };
+  };
+
+  const statusUI = getStatusInfo(liveOrder.status);
 
   return (
     <div className="max-w-md mx-auto p-4 mt-6 mb-20">
@@ -45,6 +92,13 @@ const ReceiptView = ({ order, onBack }) => {
       >
         <ArrowLeft size={16} /> KEMBALI KE MENU
       </button>
+
+      {/* --- LIVE STATUS BANNER (Hanya tampil di layar, tidak diprint) --- */}
+      <div className={`print:hidden mb-6 p-6 rounded-3xl text-center border-2 shadow-lg transition-all duration-500 ${statusUI.color}`}>
+          <div className="flex justify-center">{statusUI.icon}</div>
+          <h2 className="text-xl font-black italic tracking-tighter leading-none mb-1">{statusUI.title}</h2>
+          <p className="text-xs font-bold opacity-80">{statusUI.desc}</p>
+      </div>
 
       <div className="bg-white rounded-[2rem] shadow-2xl p-8 border-t-[12px] border-orange-500 print:border-0 print:shadow-none relative overflow-hidden receipt-card">
         
@@ -66,24 +120,24 @@ const ReceiptView = ({ order, onBack }) => {
         <div className="border-y-2 border-dashed border-gray-100 py-6 mb-6 space-y-2">
             <div className="flex justify-between items-end">
                 <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic">Pelanggan:</span>
-                <span className="font-black text-gray-800 uppercase text-sm italic">{order.customerName}</span>
+                <span className="font-black text-gray-800 uppercase text-sm italic">{liveOrder.customerName}</span>
+            </div>
+            <div className="flex justify-between items-end">
+                <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic">Status:</span>
+                <span className="font-black text-gray-800 uppercase text-[10px] italic bg-gray-100 px-2 rounded">{liveOrder.status || 'Pending'}</span>
             </div>
             <div className="flex justify-between items-end">
                 <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic">Waktu:</span>
                 <span className="font-black text-gray-700 text-[10px] italic">
-                    {formatOrderDate(order.createdAt)}
+                    {formatOrderDate(liveOrder.createdAt)}
                 </span>
             </div>
         </div>
 
         {/* Daftar Item */}
         <div className="space-y-6 mb-8">
-            {order.items?.map((item, idx) => {
-              // --- FIX: LOGIKA PENENTUAN VARIAN ---
-              // Cek selectedVariant.name (objek) dulu, baru cek variant (string legacy)
+            {liveOrder.items?.map((item, idx) => {
               const variantLabel = item.selectedVariant?.name || item.variant;
-              
-              // Cek Notes/Catatan (Support 'notes' dan 'note')
               const itemNote = item.notes || item.note;
 
               return (
@@ -94,7 +148,6 @@ const ReceiptView = ({ order, onBack }) => {
                           {item.name} <span className="text-orange-600 ml-1">x{item.quantity}</span>
                       </span>
                       
-                      {/* Tampilkan Varian hanya jika ada dan bukan "Tanpa Varian" */}
                       {variantLabel && variantLabel !== 'Tanpa Varian' && (
                           <span className="text-[9px] font-black text-gray-400 italic uppercase tracking-tighter">
                              Varian: {variantLabel}
@@ -106,7 +159,6 @@ const ReceiptView = ({ order, onBack }) => {
                     </span>
                   </div>
 
-                  {/* CATATAN (NOTES) - Dioptimalkan untuk Print */}
                   {itemNote && (
                       <div className="mt-2 flex items-start gap-2 bg-gray-50 p-3 rounded-xl border-l-4 border-orange-500 print:bg-white print:border-gray-300">
                           <StickyNote size={12} className="text-orange-500 mt-0.5 print:text-black" />
@@ -128,7 +180,7 @@ const ReceiptView = ({ order, onBack }) => {
           <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl print:bg-transparent print:p-0">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">Total Akhir</span>
             <span className="text-2xl font-black text-orange-600 print:text-black italic tracking-tighter">
-                {formatRupiah(order.total)}
+                {formatRupiah(liveOrder.total)}
             </span>
           </div>
         </div>
@@ -164,7 +216,6 @@ const ReceiptView = ({ order, onBack }) => {
             width: 100% !important; 
             max-width: none !important; 
           }
-          /* Memastikan teks terlihat tajam saat diprint hitam putih */
           .text-orange-600, .text-orange-500 { color: black !important; }
           .bg-orange-50, .bg-gray-50 { background-color: transparent !important; border: 1px solid #eee !important; }
         }

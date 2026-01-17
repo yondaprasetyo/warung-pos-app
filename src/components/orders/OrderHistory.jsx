@@ -1,21 +1,24 @@
 import React, { useMemo } from 'react';
-import { Receipt, CheckCircle, Clock, StickyNote, ChefHat, Flame, CalendarDays } from 'lucide-react';
+import { Receipt, CheckCircle, Clock, StickyNote, ChefHat, Flame, CalendarDays, X, Check } from 'lucide-react';
 import { formatRupiah } from '../../utils/format';
 import { useShop } from '../../hooks/useShop';
 
 const OrderHistory = ({ orders }) => {
-  const { markOrderDone } = useShop();
+  const { updateOrderStatus } = useShop();
 
-  // --- LOGIKA RINGKASAN DAPUR (AGGREGATOR) ---
+  // --- LOGIKA RINGKASAN DAPUR (Hanya hitung yg 'pending' atau 'processing') ---
   const kitchenSummary = useMemo(() => {
-    const activeOrders = orders.filter(o => o.status === 'Baru');
+    // Filter hanya pesanan yg aktif (Pending atau Processing)
+    const activeOrders = orders.filter(o => {
+        const s = (o.status || 'pending').toLowerCase();
+        return s === 'pending' || s === 'processing' || s === 'baru' || s === 'proses';
+    });
+
     const summary = {};
 
     activeOrders.forEach(order => {
       order.items.forEach(item => {
-        // FIX: Cek variant dari object baru (selectedVariant) atau string lama (variant)
         const currentVariant = item.selectedVariant?.name || item.variant;
-        
         const variantText = currentVariant && currentVariant.toUpperCase() !== "TANPA VARIAN" 
           ? ` (${currentVariant})` 
           : '';
@@ -25,13 +28,12 @@ const OrderHistory = ({ orders }) => {
         if (!summary[key]) {
           summary[key] = {
             quantity: 0,
-            notes: new Set() // Menggunakan Set agar catatan tidak duplikat
+            notes: new Set()
           };
         }
 
         summary[key].quantity += item.quantity;
         
-        // Cek notes atau note
         const itemNote = item.notes || item.note;
         if (itemNote) {
           summary[key].notes.add(itemNote);
@@ -41,6 +43,24 @@ const OrderHistory = ({ orders }) => {
 
     return Object.entries(summary);
   }, [orders]);
+
+  // Urutkan Pesanan: Pending -> Processing -> Completed -> Cancelled
+  const sortedOrders = [...orders].sort((a, b) => {
+      const statusScore = (status) => {
+          const s = (status || 'pending').toLowerCase();
+          if (s === 'pending' || s === 'baru') return 1;
+          if (s === 'processing' || s === 'proses') return 2;
+          if (s === 'completed' || s === 'selesai') return 3;
+          return 4; // Cancelled
+      };
+      
+      const scoreA = statusScore(a.status);
+      const scoreB = statusScore(b.status);
+      
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      // Jika status sama, urutkan tanggal descending (terbaru diatas)
+      return b.createdAt - a.createdAt;
+  });
 
   if (orders.length === 0) {
     return (
@@ -58,7 +78,7 @@ const OrderHistory = ({ orders }) => {
         Manajemen Pesanan
       </h2>
 
-      {/* --- PANEL RINGKASAN DAPUR (HANYA MUNCUL JIKA ADA PESANAN BARU) --- */}
+      {/* --- PANEL RINGKASAN DAPUR --- */}
       {kitchenSummary.length > 0 && (
         <div className="mb-10 bg-gray-900 rounded-[2rem] p-6 shadow-2xl border-4 border-orange-500/20">
           <div className="flex items-center gap-3 mb-6 border-b border-gray-800 pb-4">
@@ -100,112 +120,135 @@ const OrderHistory = ({ orders }) => {
       {/* --- DAFTAR PESANAN DETAIL --- */}
       <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4 italic">Riwayat Transaksi Terakhir</h3>
       <div className="space-y-4">
-        {orders.map(order => (
-          <div 
-            key={order.id} 
-            className={`border rounded-2xl p-5 shadow-sm transition-all duration-300 ${
-              order.status === 'Baru' 
-                ? 'bg-yellow-50 border-yellow-200 ring-2 ring-yellow-100' 
-                : 'bg-white border-gray-100 opacity-80'
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 border-b border-dashed border-gray-200 pb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="font-black text-gray-800 text-lg uppercase tracking-tighter italic">{order.customerName}</h3>
-                  {order.userId === 'public' && (
-                    <span className="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded-md font-black border border-blue-700 uppercase tracking-tighter">
-                      ORDER ONLINE
-                    </span>
-                  )}
-                </div>
+        {sortedOrders.map(order => {
+          const status = (order.status || 'pending').toLowerCase();
+          const isPending = status === 'pending' || status === 'baru';
+          const isProcessing = status === 'processing' || status === 'proses';
+          const isCompleted = status === 'completed' || status === 'selesai';
 
-                {/* TAMPILKAN TANGGAL PILIHAN PELANGGAN (ORDER NOTE) */}
-                {order.note && (
-                   <div className="mb-2 inline-flex items-center gap-1.5 bg-blue-50 border border-blue-100 text-blue-700 px-3 py-1 rounded-lg">
-                      <CalendarDays size={12} />
-                      <p className="text-[10px] font-black uppercase tracking-widest">
-                         {order.note}
-                      </p>
-                   </div>
-                )}
-
-                {/* TAMPILKAN WAKTU TRANSAKSI (DIPERBAIKI) */}
-                <p className="text-[10px] text-gray-500 font-bold flex items-center gap-1 uppercase tracking-widest">
-                  <Clock size={12} className="text-gray-400" /> 
-                  Dibuat: {new Date(order.createdAt?.toDate ? order.createdAt.toDate() : order.createdAt)
-                    .toLocaleString('id-ID', { 
-                      day: 'numeric', 
-                      month: 'short', 
-                      year: 'numeric',
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })} WIB
-                </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-2 shrink-0">
-                <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                  order.status === 'Baru' 
-                    ? 'bg-orange-500 text-white animate-pulse' 
-                    : 'bg-green-100 text-green-700'
-                }`}>
-                  {order.status === 'Baru' ? '⏳ Proses' : '✅ Selesai'}
-                </span>
-
-                {order.status === 'Baru' && (
-                  <button 
-                    onClick={() => markOrderDone(order.id)}
-                    className="bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 shadow-md transition-all active:scale-90"
-                  >
-                    <CheckCircle size={14} /> Selesaikan
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <div className="space-y-3 mb-4 bg-white/50 p-3 rounded-xl border border-gray-100">
-              {order.items.map((item, idx) => {
-                 // FIX: Ambil varian dengan prioritas selectedVariant
-                 const displayVariant = item.selectedVariant?.name || item.variant;
-                 const displayNote = item.notes || item.note;
-
-                 return (
-                  <div key={idx} className="flex flex-col border-b border-gray-50 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-black text-gray-700 uppercase italic">
-                        {item.name} <span className="text-orange-500 not-italic">x{item.quantity}</span>
+          return (
+            <div 
+              key={order.id} 
+              className={`border rounded-2xl p-5 shadow-sm transition-all duration-300 ${
+                isPending 
+                  ? 'bg-yellow-50 border-yellow-200 ring-2 ring-yellow-100' 
+                  : isProcessing
+                  ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100'
+                  : 'bg-white border-gray-100 opacity-80'
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 border-b border-dashed border-gray-200 pb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-black text-gray-800 text-lg uppercase tracking-tighter italic">{order.customerName}</h3>
+                    {order.userId === 'public' && (
+                      <span className="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded-md font-black border border-blue-700 uppercase tracking-tighter">
+                        ONLINE
                       </span>
-                      <span className="font-bold text-gray-600">{formatRupiah(item.price * item.quantity)}</span>
-                    </div>
-
-                    {displayVariant && displayVariant.toUpperCase() !== "TANPA VARIAN" && (
-                      <span className="text-[10px] text-orange-500 font-black italic uppercase">
-                        Varian: {displayVariant}
-                      </span>
-                    )}
-
-                    {displayNote && (
-                      <div className="mt-1.5 flex items-start gap-1.5 bg-orange-50 px-2 py-1.5 rounded-lg border border-orange-100 w-fit">
-                        <StickyNote size={10} className="text-orange-600 mt-0.5" />
-                        <p className="text-[10px] font-bold text-orange-800 italic">
-                          "{displayNote}"
-                        </p>
-                      </div>
                     )}
                   </div>
-                 );
-              })}
-            </div>
 
-            <div className="pt-2 flex justify-between items-center">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Transaksi</span>
-              <span className="text-orange-600 font-black text-2xl italic tracking-tighter">
-                {formatRupiah(order.total)}
-              </span>
+                  {order.note && (
+                      <div className="mb-2 inline-flex items-center gap-1.5 bg-blue-50 border border-blue-100 text-blue-700 px-3 py-1 rounded-lg">
+                        <CalendarDays size={12} />
+                        <p className="text-[10px] font-black uppercase tracking-widest">
+                            {order.note}
+                        </p>
+                      </div>
+                  )}
+
+                  <p className="text-[10px] text-gray-500 font-bold flex items-center gap-1 uppercase tracking-widest">
+                    <Clock size={12} className="text-gray-400" /> 
+                    {new Date(order.createdAt).toLocaleString('id-ID')}
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-end gap-2 shrink-0 w-full sm:w-auto">
+                    {/* LABEL STATUS */}
+                    <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                        isPending ? 'bg-yellow-500 text-white animate-pulse' :
+                        isProcessing ? 'bg-blue-500 text-white' :
+                        isCompleted ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                        {isPending ? '⏳ Menunggu Konfirmasi' : 
+                         isProcessing ? '🍳 Sedang Dimasak' : 
+                         isCompleted ? '✅ Selesai' : '❌ Batal'}
+                    </span>
+
+                    {/* TOMBOL AKSI ADMIN */}
+                    <div className="flex gap-2 w-full sm:w-auto mt-2">
+                        {isPending && (
+                            <>
+                                <button 
+                                    onClick={() => updateOrderStatus(order.id, 'processing')}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black px-4 py-2 rounded-xl flex justify-center items-center gap-1 shadow-md transition-all active:scale-95"
+                                >
+                                    <ChefHat size={14} /> TERIMA
+                                </button>
+                                <button 
+                                    onClick={() => { if(window.confirm('Tolak pesanan ini?')) updateOrderStatus(order.id, 'cancelled') }}
+                                    className="bg-red-100 hover:bg-red-200 text-red-600 text-[10px] font-black px-3 py-2 rounded-xl flex justify-center items-center gap-1 transition-all active:scale-95"
+                                >
+                                    <X size={14} /> TOLAK
+                                </button>
+                            </>
+                        )}
+
+                        {isProcessing && (
+                            <button 
+                                onClick={() => updateOrderStatus(order.id, 'completed')}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] font-black px-4 py-2 rounded-xl flex justify-center items-center gap-2 shadow-md transition-all active:scale-95"
+                            >
+                                <Check size={14} /> SELESAI / ANTAR
+                            </button>
+                        )}
+                    </div>
+                </div>
+              </div>
+              
+              {/* Detail Items */}
+              <div className="space-y-3 mb-4 bg-white/50 p-3 rounded-xl border border-gray-100">
+                {order.items.map((item, idx) => {
+                   const displayVariant = item.selectedVariant?.name || item.variant;
+                   const displayNote = item.notes || item.note;
+
+                   return (
+                    <div key={idx} className="flex flex-col border-b border-gray-50 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-black text-gray-700 uppercase italic">
+                          {item.name} <span className="text-orange-500 not-italic">x{item.quantity}</span>
+                        </span>
+                        <span className="font-bold text-gray-600">{formatRupiah(item.price * item.quantity)}</span>
+                      </div>
+
+                      {displayVariant && displayVariant.toUpperCase() !== "TANPA VARIAN" && (
+                        <span className="text-[10px] text-orange-500 font-black italic uppercase">
+                          Varian: {displayVariant}
+                        </span>
+                      )}
+
+                      {displayNote && (
+                        <div className="mt-1.5 flex items-start gap-1.5 bg-orange-50 px-2 py-1.5 rounded-lg border border-orange-100 w-fit">
+                          <StickyNote size={10} className="text-orange-600 mt-0.5" />
+                          <p className="text-[10px] font-bold text-orange-800 italic">
+                            "{displayNote}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                   );
+                })}
+              </div>
+
+              <div className="pt-2 flex justify-between items-center">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Transaksi</span>
+                <span className="text-orange-600 font-black text-2xl italic tracking-tighter">
+                  {formatRupiah(order.total)}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

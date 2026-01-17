@@ -16,15 +16,18 @@ export const useShop = (currentUser) => {
   const [orders, setOrders] = useState([]);
   const [currentOrder, setCurrentOrder] = useState(null);
 
-  // --- AMBIL DATA PESANAN DARI FIRESTORE ---
+  // --- AMBIL DATA PESANAN DARI FIRESTORE (REAL-TIME) ---
   useEffect(() => {
-    if (!currentUser) return;
+    // Jika Admin, ambil semua order. Jika User biasa, mungkin hanya order dia (opsional)
+    // Di sini kita ambil semua order untuk keperluan Admin Dashboard
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ordersList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date()
+        // Normalisasi timestamp menjadi Date object JS
+        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
       }));
       setOrders(ordersList);
     }, (err) => {
@@ -33,19 +36,17 @@ export const useShop = (currentUser) => {
 
     return () => {
       unsubscribe();
-      setOrders([]); 
     };
-  }, [currentUser]);
+  }, []); // Dependensi kosong agar listener tetap hidup selama aplikasi jalan
 
-  // --- 1. TAMBAH KE KERANJANG (DIPERBAIKI) ---
-  // Sekarang menerima 1 parameter objek dari ItemSelectionModal
+  // --- 1. TAMBAH KE KERANJANG ---
   const addToCart = (newItem) => {
     setCart(prevCart => {
-      // Cek apakah item dengan ID unik ini (ID-Varian) sudah ada di keranjang
+      // Cek apakah item dengan ID unik ini (ID-Varian) sudah ada
       const existingItemIndex = prevCart.findIndex(item => item.id === newItem.id);
 
       if (existingItemIndex > -1) {
-        // Jika sudah ada, update quantity
+        // Update quantity jika sudah ada
         const existingItem = prevCart[existingItemIndex];
         const newQuantity = existingItem.quantity + newItem.quantity;
 
@@ -62,14 +63,12 @@ export const useShop = (currentUser) => {
         };
         return newCart;
       } else {
-        // Jika belum ada, masukkan item baru
-        // Normalisasi data agar konsisten (notes vs note)
+        // Masukkan item baru
         return [...prevCart, {
           ...newItem,
-          // Pastikan properti ini ada untuk CartView
           notes: newItem.note || newItem.notes || "", 
           variant: newItem.selectedVariant?.name || newItem.variant || 'Tanpa Varian',
-          selectedVariant: newItem.selectedVariant || null // Simpan objek varian
+          selectedVariant: newItem.selectedVariant || null
         }];
       }
     });
@@ -83,7 +82,7 @@ export const useShop = (currentUser) => {
       const item = newCart[index];
       const newQty = item.quantity + delta;
       
-      // CEK STOK
+      // Cek Stok
       if (delta > 0 && item.stock !== -1 && newQty > item.stock) {
         alert(`Maaf, sisa stok ${item.name} hanya ada ${item.stock}.`);
         return prev;
@@ -93,14 +92,13 @@ export const useShop = (currentUser) => {
         newCart[index] = { ...newCart[index], quantity: newQty };
         return newCart;
       } else {
-        // Jika 0, hapus item (opsional, atau bisa dihandle UI)
         newCart.splice(index, 1);
         return newCart;
       }
     });
   };
 
-  // --- 3. UPDATE DETAIL (Notes & Varian di Keranjang) ---
+  // --- 3. UPDATE DETAIL ---
   const updateCartItemDetails = (index, details) => {
     setCart(prev => {
       if (!prev[index]) return prev;
@@ -115,50 +113,45 @@ export const useShop = (currentUser) => {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- 5. PROSES CHECKOUT KE DATABASE (DIPERBAIKI) ---
+  // --- 5. PROSES CHECKOUT (DIPERBAIKI DENGAN STATUS AWAL 'pending') ---
   const checkout = async (customerName, orderNote = '') => {
     if (cart.length === 0) return;
     
     try {
       const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-      // MAPPING ITEM AGAR DATA VARIAN TERSIMPAN LENGKAP
       const orderItems = cart.map(item => ({
-        id: item.id, // ID Unik (Product+Varian)
-        productId: item.productId || item.id.split('-')[0], // ID Produk Asli
+        id: item.id,
+        productId: item.productId || item.id.split('-')[0],
         name: item.name,
         price: Number(item.price),
         quantity: Number(item.quantity),
-        
-        // --- DATA PENTING UNTUK RECEIPT ---
-        selectedVariant: item.selectedVariant || null, // Simpan Objek Lengkap
-        variant: item.variant || (item.selectedVariant?.name) || 'Tanpa Varian', // String Fallback
-        
-        notes: item.notes || item.note || "" // Catatan
+        selectedVariant: item.selectedVariant || null,
+        variant: item.variant || (item.selectedVariant?.name) || 'Tanpa Varian',
+        notes: item.notes || item.note || "" 
       }));
 
       const orderData = {
         customerName: customerName || "Pelanggan",
         items: orderItems,
         total: total,
-        note: orderNote, // Catatan global order (misal tanggal)
-        status: 'Baru',
+        note: orderNote,
+        // STATUS AWAL: 'pending' (Menunggu Konfirmasi Admin)
+        status: 'pending', 
         createdAt: serverTimestamp(),
         userId: currentUser ? currentUser.uid : 'public'
       };
 
-      // Simpan ke Firestore
       const docRef = await addDoc(collection(db, "orders"), orderData);
       
-      // Buat objek lokal untuk update UI instan (tanpa reload)
       const newOrder = { 
         id: docRef.id, 
         ...orderData, 
-        createdAt: new Date() 
+        createdAt: new Date() // Fallback tanggal lokal sebelum serverTimestamp balik
       };
       
       setCurrentOrder(newOrder);
-      setCart([]); // Kosongkan keranjang
+      setCart([]); 
       return newOrder;
 
     } catch (error) {
@@ -167,11 +160,11 @@ export const useShop = (currentUser) => {
     }
   };
 
-  // --- SELESAIKAN PESANAN ---
-  const markOrderDone = async (orderId) => {
+  // --- UPDATE STATUS ORDER (ADMIN) ---
+  const updateOrderStatus = async (orderId, newStatus) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
-      await updateDoc(orderRef, { status: 'Selesai' });
+      await updateDoc(orderRef, { status: newStatus });
     } catch (error) {
       console.error("Update status error:", error);
       alert("Gagal memperbarui status pesanan.");
@@ -187,7 +180,7 @@ export const useShop = (currentUser) => {
     updateQuantity, 
     removeFromCart, 
     checkout,
-    markOrderDone,
+    updateOrderStatus, // Ganti nama markOrderDone jadi lebih umum
     updateCartItemDetails 
   };
 };

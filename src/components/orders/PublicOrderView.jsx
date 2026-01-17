@@ -3,13 +3,14 @@ import { db } from '../../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { formatRupiah } from '../../utils/format';
 import ItemSelectionModal from '../menu/ItemSelectionModal';
-import { Search, Calendar, Plus, Lock } from 'lucide-react'; // Pastikan Lock diimport
+import { Search, Calendar, Plus, Lock, ArrowLeft } from 'lucide-react';
 
 const PublicOrderView = ({ 
   onAddToCart, 
   orderDateInfo, 
   onChangeDate, 
-  shopClosedInfo // <--- Menerima Prop Info Tutup Toko
+  shopClosedInfo,
+  onBack
 }) => {
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -129,17 +130,28 @@ const PublicOrderView = ({
       {/* FIXED HEADER POS */}
       <header className="fixed top-[72px] left-0 right-0 z-[999] bg-white shadow-lg border-b border-gray-200">
         <div className="bg-gray-900 px-4 py-2.5 flex justify-between items-center text-white">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <Calendar size={14} className="text-orange-500 shrink-0" />
-            <span className="text-[10px] font-black uppercase italic tracking-tighter truncate">
-              KASIR MODE: {orderDateInfo?.fullDate}
-            </span>
+          <div className="flex items-center gap-3 overflow-hidden">
+             
+            {/* TAMBAHAN: Tombol Kembali ke Landing Page */}
+            {onBack && (
+                <button onClick={onBack} className="p-1 -ml-1 hover:bg-white/20 rounded-full transition">
+                    <ArrowLeft size={16} className="text-white" />
+                </button>
+            )}
+            
+            <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-orange-500 shrink-0" />
+                <span className="text-[10px] font-black uppercase italic tracking-tighter truncate">
+                  {orderDateInfo?.fullDate}
+                </span>
+            </div>
           </div>
+          
           <button 
             onClick={() => { triggerHaptic(); onChangeDate(); }} 
             className="text-[9px] font-black border border-white/30 px-3 py-1.5 rounded-full uppercase hover:bg-orange-600 transition-all active:scale-90 shrink-0"
           >
-            Ganti
+            Ganti Tanggal
           </button>
         </div>
 
