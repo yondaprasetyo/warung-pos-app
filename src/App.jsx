@@ -147,7 +147,7 @@ const App = () => {
       } finally {
         setIsProcessingCheckout(false); 
       }
-  };
+    };
 
   // --- LOADING UTAMA APLIKASI ---
   // Kita tambahkan loadingOrder agar tidak flash landing page saat restore session
