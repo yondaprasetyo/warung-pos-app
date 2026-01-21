@@ -11,7 +11,7 @@ import html2canvas from 'html2canvas';
 // --- GANTI URL INI DENGAN LINK GAMBAR QRIS ANDA ---
 // Tips: Simpan foto QRIS di folder 'public' project Anda (misal: public/qris.jpg)
 // Lalu ubah const di bawah menjadi: const QRIS_IMAGE_URL = "/qris.jpg";
-const QRIS_IMAGE_URL = "https://placehold.co/400x400/orange/white?text=QRIS+MAMAH+YONDA"; 
+const QRIS_IMAGE_URL = "/qris.jpg"; 
 
 // --- GANTI DENGAN NOMOR WA ADMIN (Format 62...) ---
 const ADMIN_PHONE_NUMBER = "6287774223733"; 
