@@ -2,8 +2,9 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useShop } from '../../hooks/useShop';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../firebase';
+import { formatRupiah } from '../../utils/format';
 import { collection, getDocs } from 'firebase/firestore';
-import { Search, MessageSquare, Filter, Package, TrendingUp, Calendar, Printer, StickyNote } from 'lucide-react';
+import { Search, Filter, Package, TrendingUp, Calendar, Printer, StickyNote, CheckCircle, X } from 'lucide-react';
 
 const SalesLaporan = () => {
   const { currentUser } = useAuth();
@@ -35,7 +36,7 @@ const SalesLaporan = () => {
     fetchStock();
   }, [orders]);
 
-  // --- EXTRACT VARIAN UNIK (HANYA YANG RELEVAN) ---
+  // --- EXTRACT VARIAN UNIK ---
   const allVariants = useMemo(() => {
     const variants = new Set();
     orders.forEach(o => {
@@ -86,10 +87,17 @@ const SalesLaporan = () => {
       curr.setDate(curr.getDate() + 1);
     }
 
+    // --- FIX LOGIKA FILTER STATUS (Case Insensitive) ---
     const filteredByDate = orders.filter(o => {
+      // 1. Ambil status, fallback string kosong, lowercase
       const status = (o.status || '').toLowerCase();
+      
+      // 2. Cek apakah 'selesai' atau 'completed'
       const isCompleted = status === 'selesai' || status === 'completed';
+
+      // 3. Wajib ada createdAt dan status harus completed
       if (!o.createdAt || !isCompleted) return false;
+
       const oDate = getLocalDate(o.createdAt);
       return oDate >= startDate && oDate <= endDate;
     }).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
@@ -157,7 +165,8 @@ const SalesLaporan = () => {
         <div className="bg-gradient-to-br from-gray-800 to-black text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
           <div className="relative z-10">
             <p className="text-[10px] text-orange-400 uppercase font-black tracking-widest mb-1">Total Omzet</p>
-            <h3 className="text-3xl font-black italic">Rp {stats.totalRevenue.toLocaleString()}</h3>
+            {/* Menggunakan formatRupiah */}
+            <h3 className="text-3xl font-black italic">{formatRupiah(stats.totalRevenue)}</h3>
           </div>
           <TrendingUp className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120} />
         </div>
@@ -318,7 +327,6 @@ const SalesLaporan = () => {
                               <span className="text-[10px] font-black text-gray-600 uppercase italic leading-none">{item.name}</span>
                               <span className="text-[9px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-black">x{item.quantity}</span>
                               
-                              {/* FIX 1: HANYA TAMPILKAN VARIAN YANG BUKAN "TANPA VARIAN" */}
                               {item.variant && item.variant.toUpperCase() !== "TANPA VARIAN" && (
                                 <span className={`text-[8px] px-2 py-0.5 rounded-md font-black italic uppercase shadow-sm ${item.variant === selectedVariant ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-600'}`}>
                                   {item.variant}
@@ -326,7 +334,6 @@ const SalesLaporan = () => {
                               )}
                             </div>
 
-                            {/* FIX 2: MENAMPILKAN NOTES (CATATAN) DENGAN VISUAL MENCOLOK */}
                             {item.notes && (
                               <div className="text-[9px] text-orange-600 font-black italic mt-1.5 uppercase tracking-tighter flex items-center gap-1.5 bg-orange-50 w-fit px-2 py-1 rounded-lg border border-orange-100">
                                 <StickyNote size={10} className="text-orange-500" /> "{item.notes}"
@@ -337,8 +344,19 @@ const SalesLaporan = () => {
                       </div>
                     </td>
                     <td className="p-8 text-right">
-                      <div className="text-sm font-black text-gray-900 italic">Rp {Number(o.total).toLocaleString()}</div>
-                      <div className="text-[9px] text-green-500 font-black uppercase mt-1">Lunas ✔</div>
+                      {/* Menggunakan formatRupiah */}
+                      <div className="text-sm font-black text-gray-900 italic">{formatRupiah(o.total)}</div>
+                      
+                      {/* INDIKATOR LUNAS DINAMIS */}
+                      {o.isPaid ? (
+                        <div className="text-[9px] text-green-500 font-black uppercase mt-1 flex justify-end items-center gap-1">
+                           Lunas <CheckCircle size={10} />
+                        </div>
+                      ) : (
+                        <div className="text-[9px] text-red-500 font-black uppercase mt-1 flex justify-end items-center gap-1">
+                           Belum Bayar <X size={10} />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))

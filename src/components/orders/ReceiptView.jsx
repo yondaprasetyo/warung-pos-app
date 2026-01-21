@@ -1,16 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../../firebase';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore'; 
-import { ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle, RefreshCw, Download, Loader2 } from 'lucide-react'; // Ganti Printer jadi Download & Loader2
+import { db } from '../../firebase'; // Hapus import storage karena tidak dipakai
+import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore'; 
+import { 
+  ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle, 
+  RefreshCw, Download, Loader2, QrCode, MessageCircle 
+} from 'lucide-react'; // Ganti Upload/Wallet jadi MessageCircle (Icon WA)
 import { formatRupiah } from '../../utils/format';
-import html2canvas from 'html2canvas'; // <--- 1. IMPORT HTML2CANVAS
+import html2canvas from 'html2canvas';
+
+// --- GANTI URL INI DENGAN LINK GAMBAR QRIS ANDA ---
+// Tips: Simpan foto QRIS di folder 'public' project Anda (misal: public/qris.jpg)
+// Lalu ubah const di bawah menjadi: const QRIS_IMAGE_URL = "/qris.jpg";
+const QRIS_IMAGE_URL = "https://placehold.co/400x400/orange/white?text=QRIS+MAMAH+YONDA"; 
+
+// --- GANTI DENGAN NOMOR WA ADMIN (Format 62...) ---
+const ADMIN_PHONE_NUMBER = "6287774223733"; 
 
 const ReceiptView = ({ order, onBack }) => {
   const [liveOrder, setLiveOrder] = useState(order);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // <--- State untuk loading saat simpan gambar
+  const [isSaving, setIsSaving] = useState(false);
 
-  // --- 1. LISTENER REAL-TIME (OTOMATIS) ---
+  // --- STATE MODAL PEMBAYARAN ---
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  // --- 1. LISTENER REAL-TIME ---
   useEffect(() => {
     if (!order?.id) return;
 
@@ -28,17 +42,13 @@ const ReceiptView = ({ order, onBack }) => {
     return () => unsubscribe();
   }, [order?.id]);
 
-  // --- 2. FUNGSI REFRESH MANUAL (TOMBOL) ---
+  // --- 2. FUNGSI REFRESH MANUAL ---
   const handleManualRefresh = async () => {
     if (!order?.id) return;
-    
-    setIsRefreshing(true); // Mulai animasi muter
-    
+    setIsRefreshing(true);
     try {
-      // Tarik data paksa dari database (sekalipun onSnapshot sudah jalan)
       const docRef = doc(db, "orders", order.id);
       const docSnap = await getDoc(docRef);
-      
       if (docSnap.exists()) {
         const data = docSnap.data();
         setLiveOrder({ 
@@ -50,41 +60,56 @@ const ReceiptView = ({ order, onBack }) => {
     } catch (error) {
       console.error("Gagal refresh:", error);
     } finally {
-      // Beri jeda sedikit biar user sadar tombolnya bekerja
       setTimeout(() => setIsRefreshing(false), 800); 
     }
   };
 
-  // --- 3. FUNGSI SIMPAN GAMBAR (PENGGANTI CETAK) ---
+  // --- 3. FUNGSI SIMPAN GAMBAR ---
   const handleSaveImage = async () => {
     setIsSaving(true);
     try {
-      // Ambil elemen struk berdasarkan ID
       const element = document.getElementById('receipt-content');
-      
       if (!element) return;
-
-      // Konversi HTML ke Canvas (Gambar)
       const canvas = await html2canvas(element, {
-        scale: 2, // Resolusi 2x lipat biar tajam di HP Retina/HD
-        backgroundColor: '#ffffff', // Pastikan background putih
-        useCORS: true // Agar gambar eksternal (jika ada) ikut ter-render
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true 
       });
-
-      // Buat link download palsu
       const image = canvas.toDataURL("image/png");
       const link = document.createElement('a');
       link.href = image;
-      // Nama file saat didownload
       link.download = `Struk-${liveOrder.customerName}-${liveOrder.id.substring(0,5)}.png`;
       link.click();
-
     } catch (error) {
       console.error("Gagal menyimpan gambar:", error);
       alert("Maaf, gagal menyimpan struk. Coba screenshot manual saja.");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // --- 4. FUNGSI KONFIRMASI VIA WHATSAPP ---
+  const handleConfirmViaWA = async () => {
+    // 1. Susun Pesan WA
+    const message = `Halo Admin Mamah Yonda,%0A%0ASaya sudah melakukan pembayaran via QRIS untuk:%0AOrder ID: *${liveOrder.id.toUpperCase()}*%0AAtas Nama: *${liveOrder.customerName}*%0ATotal: *${formatRupiah(liveOrder.total)}*%0A%0ABerikut saya lampirkan bukti transfernya (foto di chat ini). Mohon dicek ya!`;
+    
+    // 2. Buka WhatsApp di Tab Baru
+    // Menggunakan API wa.me
+    window.open(`https://wa.me/${ADMIN_PHONE_NUMBER}?text=${message}`, '_blank');
+
+    // 3. Update Status Pembayaran di Database (Opsional: memberi tanda bahwa user sudah lapor)
+    // Kita set status pembayaran jadi 'verification_via_wa'
+    try {
+        const orderDocRef = doc(db, "orders", liveOrder.id);
+        await updateDoc(orderDocRef, {
+            paymentStatus: 'verification_via_wa'
+        });
+    } catch (err) {
+        console.error("Gagal update status lokal:", err);
+    }
+
+    // 4. Tutup Modal
+    setShowPaymentModal(false);
   };
 
   if (!liveOrder) return null;
@@ -107,7 +132,7 @@ const ReceiptView = ({ order, onBack }) => {
             icon: <Clock size={48} className="animate-pulse text-yellow-500" />, 
             title: 'MENUNGGU KONFIRMASI', 
             desc: 'Mohon tunggu, Admin sedang mengecek pesananmu...',
-            canRefresh: true // Hanya muncul tombol refresh di status ini (opsional)
+            canRefresh: true 
         };
     }
     if (s === 'processing' || s === 'proses') {
@@ -142,9 +167,67 @@ const ReceiptView = ({ order, onBack }) => {
 
   const statusUI = getStatusUI(liveOrder.status);
 
+  // Logic Tombol Bayar:
+  // Muncul jika status sudah SELESAI tapi BELUM LUNAS (isPaid false)
+  const isCompletedButUnpaid = 
+    (liveOrder.status === 'completed' || liveOrder.status === 'selesai') && 
+    !liveOrder.isPaid;
+
+  // Cek apakah user sudah pernah klik tombol Konfirmasi WA
+  const isWaitingVerification = liveOrder.paymentStatus === 'verification_via_wa';
+
   return (
-    <div className="max-w-md mx-auto p-4 mt-6 mb-20 animate-in fade-in zoom-in duration-300">
+    <div className="max-w-md mx-auto p-4 mt-6 mb-20 animate-in fade-in zoom-in duration-300 relative">
       
+      {/* --- MODAL PEMBAYARAN QRIS & WA --- */}
+      {showPaymentModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl">
+                  {/* Header Modal */}
+                  <div className="bg-orange-500 p-4 flex justify-between items-center text-white">
+                      <h3 className="font-black italic uppercase flex items-center gap-2">
+                          <QrCode size={20} /> Scan QRIS
+                      </h3>
+                      <button onClick={() => setShowPaymentModal(false)} className="bg-white/20 p-1 rounded-full hover:bg-white/40 transition-colors">
+                          <XCircle size={24} />
+                      </button>
+                  </div>
+                  
+                  <div className="p-6 flex flex-col items-center gap-4">
+                      {/* Area Gambar QRIS */}
+                      <div className="bg-white p-2 border-2 border-gray-100 rounded-xl shadow-lg">
+                          <img src={QRIS_IMAGE_URL} alt="QRIS Code" className="w-48 h-48 object-contain" />
+                      </div>
+                      
+                      {/* Info Nominal */}
+                      <div className="text-center">
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Total Tagihan</p>
+                          <p className="text-3xl font-black text-orange-600 italic tracking-tighter">
+                             {formatRupiah(liveOrder.total)}
+                          </p>
+                      </div>
+
+                      <div className="w-full h-px bg-gray-100 my-2"></div>
+
+                      {/* Instruksi & Tombol WA */}
+                      <div className="text-center w-full space-y-3">
+                          <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
+                              Silakan transfer sesuai nominal di atas, lalu konfirmasi dan kirim foto bukti transfer via WhatsApp.
+                          </p>
+                          
+                          <button 
+                              onClick={handleConfirmViaWA}
+                              className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white py-3 rounded-xl font-black uppercase tracking-wider shadow-lg flex justify-center items-center gap-2 transition-all active:scale-95"
+                          >
+                               <MessageCircle size={20} className="fill-white text-[#25D366]" /> Konfirmasi ke WhatsApp
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Tombol Kembali */}
       <button 
         onClick={onBack}
         className="mb-4 flex items-center gap-2 text-gray-500 hover:text-orange-500 font-bold text-xs transition-all print:hidden"
@@ -152,14 +235,13 @@ const ReceiptView = ({ order, onBack }) => {
         <ArrowLeft size={16} /> KEMBALI KE MENU
       </button>
 
-      {/* --- BANNER STATUS LIVE --- */}
+      {/* --- BANNER STATUS PESANAN --- */}
       <div className={`print:hidden mb-6 p-8 rounded-[2rem] text-center border-4 border-double shadow-lg transition-all duration-500 flex flex-col items-center gap-3 ${statusUI.style}`}>
           <div>{statusUI.icon}</div>
           <div>
             <h2 className="text-2xl font-black italic tracking-tighter leading-none mb-1">{statusUI.title}</h2>
             <p className="text-xs font-bold opacity-80 mb-4">{statusUI.desc}</p>
             
-            {/* --- TOMBOL REFRESH MANUAL --- */}
             {statusUI.canRefresh && (
                 <button 
                   onClick={handleManualRefresh}
@@ -173,12 +255,42 @@ const ReceiptView = ({ order, onBack }) => {
           </div>
       </div>
 
-      {/* --- KONTEN STRUK (DIBERI ID UNTUK DIFOTO) --- */}
+      {/* --- BANNER TOMBOL BAYAR (Jika Selesai & Belum Lunas) --- */}
+      {isCompletedButUnpaid && !isWaitingVerification && (
+          <div className="print:hidden mb-6 animate-bounce">
+              <button 
+                  onClick={() => setShowPaymentModal(true)}
+                  className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-[2rem] shadow-xl shadow-orange-200 flex items-center justify-center gap-3 transform transition-transform hover:scale-105 active:scale-95"
+              >
+                  <div className="bg-white/20 p-2 rounded-full">
+                      <QrCode size={24} />
+                  </div>
+                  <div className="text-left">
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-90">Pesanan Selesai?</p>
+                      <p className="text-lg font-black italic leading-none">BAYAR VIA QRIS</p>
+                  </div>
+              </button>
+          </div>
+      )}
+
+      {/* --- BANNER INFO SUDAH KONFIRMASI --- */}
+      {isWaitingVerification && !liveOrder.isPaid && (
+          <div className="print:hidden mb-6 bg-blue-50 border border-blue-200 p-4 rounded-2xl flex items-center gap-3 text-blue-800">
+              <MessageCircle size={32} className="text-blue-500 animate-pulse" />
+              <div>
+                  <p className="font-black italic uppercase text-sm">Sedang Diverifikasi</p>
+                  <p className="text-[11px] leading-tight mt-1">
+                      Anda sudah konfirmasi via WA. Admin akan segera mengubah status menjadi LUNAS.
+                  </p>
+              </div>
+          </div>
+      )}
+
+      {/* --- KONTEN STRUK (Printable Area) --- */}
       <div 
         id="receipt-content" 
         className="bg-white rounded-[2rem] shadow-2xl p-8 border-t-[12px] border-orange-500 relative overflow-hidden receipt-card"
       >
-        
         {/* Header Toko */}
         <div className="text-center mb-8 relative z-10">
           <h2 className="text-3xl font-black text-gray-800 tracking-tighter leading-none italic uppercase">Warung Makan<br/>Mamah Yonda</h2>
@@ -198,6 +310,12 @@ const ReceiptView = ({ order, onBack }) => {
                 <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic">Status:</span>
                 <span className={`font-black uppercase text-[10px] italic px-2 py-0.5 rounded ${statusUI.style}`}>
                     {liveOrder.status || 'Pending'}
+                </span>
+            </div>
+            <div className="flex justify-between items-end">
+                <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic">Pembayaran:</span>
+                <span className={`font-black uppercase text-[10px] italic px-2 py-0.5 rounded ${liveOrder.isPaid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {liveOrder.isPaid ? 'LUNAS' : 'BELUM LUNAS'}
                 </span>
             </div>
             <div className="flex justify-between items-end">

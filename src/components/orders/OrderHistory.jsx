@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
-import { Receipt, CheckCircle, Clock, StickyNote, ChefHat, Flame, CalendarDays, X, Check, Trash2 } from 'lucide-react'; // <--- Import Trash2
+import { 
+  Receipt, CheckCircle, Clock, StickyNote, ChefHat, Flame, 
+  CalendarDays, X, Check, Trash2, Wallet, MessageCircle, AlertCircle 
+} from 'lucide-react'; 
 import { formatRupiah } from '../../utils/format';
 import { useShop } from '../../hooks/useShop';
 
 const OrderHistory = ({ orders }) => {
-  // Ambil fungsi removeOrder dari hook
-  const { updateOrderStatus, removeOrder } = useShop();
+  const { updateOrderStatus, removeOrder, togglePaymentStatus } = useShop();
 
   // --- LOGIKA RINGKASAN DAPUR ---
   const kitchenSummary = useMemo(() => {
@@ -41,7 +43,7 @@ const OrderHistory = ({ orders }) => {
     return Object.entries(summary);
   }, [orders]);
 
-  // Urutkan Pesanan: Pending -> Processing -> Completed -> Cancelled, lalu Waktu Descending
+  // Urutkan Pesanan
   const sortedOrders = [...orders].sort((a, b) => {
       const statusScore = (status) => {
           const s = (status || 'pending').toLowerCase();
@@ -128,6 +130,11 @@ const OrderHistory = ({ orders }) => {
           const isPending = status === 'pending' || status === 'baru';
           const isProcessing = status === 'processing' || status === 'proses';
           const isCompleted = status === 'completed' || status === 'selesai';
+          
+          // --- LOGIKA STATUS BAYAR ---
+          const isPaid = order.isPaid === true;
+          // Cek apakah pelanggan sudah lapor WA (status: verification_via_wa)
+          const isWaitingVerification = order.paymentStatus === 'verification_via_wa' && !isPaid;
 
           return (
             <div 
@@ -206,7 +213,7 @@ const OrderHistory = ({ orders }) => {
                             </button>
                         )}
 
-                        {/* TOMBOL HAPUS PERMANEN (SELALU MUNCUL) */}
+                        {/* TOMBOL HAPUS */}
                         <button 
                             onClick={() => handleConfirmDelete(order.id, order.customerName)} 
                             className="bg-gray-100 hover:bg-red-600 hover:text-white text-gray-400 px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1 transition-all"
@@ -252,12 +259,62 @@ const OrderHistory = ({ orders }) => {
                 })}
               </div>
 
-              <div className="pt-2 flex justify-between items-center">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Transaksi</span>
-                <span className="text-orange-600 font-black text-2xl italic tracking-tighter">
-                  {formatRupiah(order.total)}
-                </span>
+              {/* FOOTER: STATUS BAYAR & TOTAL */}
+              <div className="pt-4 border-t border-gray-100 mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                
+                {/* --- TOMBOL STATUS BAYAR ADMIN --- */}
+                <button 
+                  onClick={() => togglePaymentStatus(order.id, isPaid)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all w-full sm:w-auto justify-center ${
+                    isPaid 
+                      ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
+                      : isWaitingVerification
+                      ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 animate-pulse'
+                      : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 hover:border-orange-200 hover:text-orange-500'
+                  }`}
+                  title="Klik untuk ubah status pembayaran"
+                >
+                  {isPaid ? (
+                    // 1. JIKA SUDAH LUNAS
+                    <>
+                      <CheckCircle size={18} className="fill-green-600 text-white" />
+                      <div className="flex flex-col items-start text-left">
+                        <span className="text-[10px] font-black uppercase tracking-widest">Status Pembayaran</span>
+                        <span className="text-sm font-black italic">SUDAH LUNAS</span>
+                      </div>
+                    </>
+                  ) : isWaitingVerification ? (
+                    // 2. JIKA MENUNGGU VERIFIKASI WA (TOMBAL BIRU)
+                    <>
+                      <MessageCircle size={18} className="text-blue-600" />
+                      <div className="flex flex-col items-start text-left">
+                        <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                             <AlertCircle size={10} /> Konfirmasi WA
+                        </span>
+                        <span className="text-sm font-black italic">VERIFIKASI BAYAR?</span>
+                      </div>
+                    </>
+                  ) : (
+                    // 3. JIKA BELUM BAYAR (DEFAULT)
+                    <>
+                      <Wallet size={18} />
+                      <div className="flex flex-col items-start text-left">
+                        <span className="text-[10px] font-black uppercase tracking-widest">Status Pembayaran</span>
+                        <span className="text-sm font-black italic">BELUM BAYAR</span>
+                      </div>
+                    </>
+                  )}
+                </button>
+
+                {/* TOTAL */}
+                <div className="flex flex-col items-end">
+                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Transaksi</span>
+                   <span className={`font-black text-2xl italic tracking-tighter ${isPaid ? 'text-green-600' : 'text-orange-600'}`}>
+                     {formatRupiah(order.total)}
+                   </span>
+                </div>
               </div>
+
             </div>
           );
         })}

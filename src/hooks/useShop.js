@@ -10,14 +10,14 @@ import {
   doc, 
   updateDoc, 
   deleteDoc, 
-  getDoc // <--- Import getDoc
+  getDoc 
 } from 'firebase/firestore';
 
 export const useShop = (currentUser) => {
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
   const [currentOrder, setCurrentOrder] = useState(null);
-  const [loadingOrder, setLoadingOrder] = useState(true); // State baru untuk loading cek session
+  const [loadingOrder, setLoadingOrder] = useState(true); 
 
   // --- AMBIL DATA PESANAN (Admin) ---
   useEffect(() => {
@@ -33,7 +33,7 @@ export const useShop = (currentUser) => {
     return () => unsubscribe();
   }, []);
 
-  // --- FITUR BARU: CEK SESSION (Restore Order saat Refresh) ---
+  // --- RESTORE SESSION ---
   useEffect(() => {
     const restoreSession = async () => {
       const savedOrderId = localStorage.getItem('activeOrderId');
@@ -45,27 +45,25 @@ export const useShop = (currentUser) => {
           
           if (docSnap.exists()) {
             const data = docSnap.data();
-            // Kembalikan ke state currentOrder
             setCurrentOrder({
               id: docSnap.id,
               ...data,
               createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
             });
           } else {
-            // Jika data di DB sudah dihapus admin, bersihkan localstorage
             localStorage.removeItem('activeOrderId');
           }
         } catch (error) {
           console.error("Gagal restore session:", error);
         }
       }
-      setLoadingOrder(false); // Selesai loading
+      setLoadingOrder(false); 
     };
 
     restoreSession();
   }, []);
 
-  // --- LOGIKA CART (Sama seperti sebelumnya) ---
+  // --- LOGIKA CART ---
   const addToCart = (newItem) => {
     setCart(prevCart => {
       const existingItemIndex = prevCart.findIndex(item => item.id === newItem.id);
@@ -124,7 +122,7 @@ export const useShop = (currentUser) => {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- CHECKOUT (Update: Simpan ID ke LocalStorage) ---
+  // --- CHECKOUT ---
   const checkout = async (customerName, orderNote = '') => {
     if (cart.length === 0) return;
     try {
@@ -146,6 +144,7 @@ export const useShop = (currentUser) => {
         total: total,
         note: orderNote,
         status: 'pending', 
+        isPaid: false, // Default belum bayar
         createdAt: serverTimestamp(),
         userId: currentUser ? currentUser.uid : 'public'
       };
@@ -158,7 +157,6 @@ export const useShop = (currentUser) => {
         createdAt: new Date()
       };
       
-      // SIMPAN ID KE BROWSER
       localStorage.setItem('activeOrderId', docRef.id);
       
       setCurrentOrder(newOrder);
@@ -170,10 +168,9 @@ export const useShop = (currentUser) => {
     }
   };
 
-  // --- FUNGSI BARU: RESET ORDER (Keluar dari Receipt) ---
   const resetCurrentOrder = () => {
     setCurrentOrder(null);
-    localStorage.removeItem('activeOrderId'); // Hapus session
+    localStorage.removeItem('activeOrderId'); 
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -181,6 +178,23 @@ export const useShop = (currentUser) => {
       const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, { status: newStatus });
     } catch (error) { console.error("Update error:", error); alert("Gagal update status."); }
+  };
+
+  // --- FUNGSI BARU: TOGGLE STATUS BAYAR ---
+  const togglePaymentStatus = async (orderId, currentPaymentStatus) => {
+    try {
+      const orderRef = doc(db, "orders", orderId);
+      const newIsPaid = !currentPaymentStatus;
+      
+      await updateDoc(orderRef, { 
+        isPaid: newIsPaid,
+        // Jika jadi LUNAS, ubah status teks jadi 'paid', jika batal lunas jadi 'unpaid'
+        paymentStatus: newIsPaid ? 'paid' : 'unpaid' 
+      });
+    } catch (err) {
+      console.error("Gagal update status bayar:", err);
+      alert("Gagal update status bayar");
+    }
   };
 
   const removeOrder = async (orderId) => {
@@ -195,14 +209,15 @@ export const useShop = (currentUser) => {
     orders, 
     currentOrder, 
     setCurrentOrder,
-    loadingOrder, // Export loading state
-    resetCurrentOrder, // Export reset function
+    loadingOrder, 
+    resetCurrentOrder, 
     addToCart, 
     updateQuantity, 
     removeFromCart, 
     checkout,
     updateOrderStatus,
     updateCartItemDetails,
-    removeOrder 
+    removeOrder,
+    togglePaymentStatus // <--- Export fungsi baru
   };
 };
