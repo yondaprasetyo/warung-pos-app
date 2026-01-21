@@ -1,19 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../../firebase'; // Hapus import storage karena tidak dipakai
+import { db } from '../../firebase'; 
 import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore'; 
 import { 
   ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle, 
-  RefreshCw, Download, Loader2, QrCode, MessageCircle 
-} from 'lucide-react'; // Ganti Upload/Wallet jadi MessageCircle (Icon WA)
+  RefreshCw, Download, Loader2, QrCode, MessageCircle, Maximize2, ZoomIn 
+} from 'lucide-react'; 
 import { formatRupiah } from '../../utils/format';
 import html2canvas from 'html2canvas';
 
 // --- GANTI URL INI DENGAN LINK GAMBAR QRIS ANDA ---
-// Tips: Simpan foto QRIS di folder 'public' project Anda (misal: public/qris.jpg)
-// Lalu ubah const di bawah menjadi: const QRIS_IMAGE_URL = "/qris.jpg";
+// Pastikan file qris.jpg ada di folder 'public'
 const QRIS_IMAGE_URL = "/qris.jpg"; 
 
-// --- GANTI DENGAN NOMOR WA ADMIN (Format 62...) ---
+// --- GANTI DENGAN NOMOR WA ADMIN ---
 const ADMIN_PHONE_NUMBER = "6287774223733"; 
 
 const ReceiptView = ({ order, onBack }) => {
@@ -21,8 +20,9 @@ const ReceiptView = ({ order, onBack }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- STATE MODAL PEMBAYARAN ---
+  // --- STATE MODAL & FULLSCREEN ---
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isQrisFullscreen, setIsQrisFullscreen] = useState(false);
 
   // --- 1. LISTENER REAL-TIME ---
   useEffect(() => {
@@ -88,17 +88,12 @@ const ReceiptView = ({ order, onBack }) => {
     }
   };
 
-  // --- 4. FUNGSI KONFIRMASI VIA WHATSAPP ---
+  // --- 4. FUNGSI KONFIRMASI WA ---
   const handleConfirmViaWA = async () => {
-    // 1. Susun Pesan WA
     const message = `Halo Admin Mamah Yonda,%0A%0ASaya sudah melakukan pembayaran via QRIS untuk:%0AOrder ID: *${liveOrder.id.toUpperCase()}*%0AAtas Nama: *${liveOrder.customerName}*%0ATotal: *${formatRupiah(liveOrder.total)}*%0A%0ABerikut saya lampirkan bukti transfernya (foto di chat ini). Mohon dicek ya!`;
     
-    // 2. Buka WhatsApp di Tab Baru
-    // Menggunakan API wa.me
     window.open(`https://wa.me/${ADMIN_PHONE_NUMBER}?text=${message}`, '_blank');
 
-    // 3. Update Status Pembayaran di Database (Opsional: memberi tanda bahwa user sudah lapor)
-    // Kita set status pembayaran jadi 'verification_via_wa'
     try {
         const orderDocRef = doc(db, "orders", liveOrder.id);
         await updateDoc(orderDocRef, {
@@ -108,7 +103,6 @@ const ReceiptView = ({ order, onBack }) => {
         console.error("Gagal update status lokal:", err);
     }
 
-    // 4. Tutup Modal
     setShowPaymentModal(false);
   };
 
@@ -168,22 +162,33 @@ const ReceiptView = ({ order, onBack }) => {
   const statusUI = getStatusUI(liveOrder.status);
 
   // Logic Tombol Bayar:
-  // Muncul jika status sudah SELESAI tapi BELUM LUNAS (isPaid false)
   const isCompletedButUnpaid = 
     (liveOrder.status === 'completed' || liveOrder.status === 'selesai') && 
     !liveOrder.isPaid;
 
-  // Cek apakah user sudah pernah klik tombol Konfirmasi WA
   const isWaitingVerification = liveOrder.paymentStatus === 'verification_via_wa';
 
   return (
     <div className="max-w-md mx-auto p-4 mt-6 mb-20 animate-in fade-in zoom-in duration-300 relative">
       
-      {/* --- MODAL PEMBAYARAN QRIS & WA --- */}
+      {/* --- 1. FITUR FULL SCREEN QRIS (OVERLAY) --- */}
+      {isQrisFullscreen && (
+        <div 
+            className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
+            onClick={() => setIsQrisFullscreen(false)} 
+        >
+             <p className="text-white/70 text-sm font-bold uppercase tracking-widest mb-4 animate-pulse">Ketuk Layar Untuk Kembali</p>
+             <div className="bg-white p-4 rounded-3xl max-w-full max-h-[80vh] flex items-center justify-center">
+                <img src={QRIS_IMAGE_URL} alt="QRIS Full" className="max-w-full max-h-[70vh] object-contain" />
+             </div>
+             <p className="text-orange-500 text-3xl font-black italic mt-6">{formatRupiah(liveOrder.total)}</p>
+        </div>
+      )}
+
+      {/* --- 2. MODAL PEMBAYARAN --- */}
       {showPaymentModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl">
-                  {/* Header Modal */}
+              <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl relative">
                   <div className="bg-orange-500 p-4 flex justify-between items-center text-white">
                       <h3 className="font-black italic uppercase flex items-center gap-2">
                           <QrCode size={20} /> Scan QRIS
@@ -194,12 +199,27 @@ const ReceiptView = ({ order, onBack }) => {
                   </div>
                   
                   <div className="p-6 flex flex-col items-center gap-4">
-                      {/* Area Gambar QRIS */}
-                      <div className="bg-white p-2 border-2 border-gray-100 rounded-xl shadow-lg">
-                          <img src={QRIS_IMAGE_URL} alt="QRIS Code" className="w-48 h-48 object-contain" />
+                      {/* --- AREA GAMBAR QRIS (DIPERBESAR & KLIKABLE) --- */}
+                      <div 
+                        className="bg-white p-2 border-2 border-gray-100 rounded-xl shadow-lg w-full relative group cursor-zoom-in"
+                        onClick={() => setIsQrisFullscreen(true)} 
+                      >
+                          <img src={QRIS_IMAGE_URL} alt="QRIS Code" className="w-full h-auto max-h-[300px] object-contain" />
+                          
+                          <div className="absolute inset-0 bg-black/5 group-hover:bg-black/20 transition-all flex items-center justify-center rounded-lg">
+                             <span className="bg-black/60 text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Maximize2 size={12} /> Perbesar
+                             </span>
+                          </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-gray-400">
+                         <ZoomIn size={12} />
+                         <span className="text-[10px] font-bold uppercase">Ketuk gambar untuk memperbesar</span>
                       </div>
                       
-                      {/* Info Nominal */}
+                      <div className="w-full h-px bg-gray-100 my-1"></div>
+
                       <div className="text-center">
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Total Tagihan</p>
                           <p className="text-3xl font-black text-orange-600 italic tracking-tighter">
@@ -207,14 +227,7 @@ const ReceiptView = ({ order, onBack }) => {
                           </p>
                       </div>
 
-                      <div className="w-full h-px bg-gray-100 my-2"></div>
-
-                      {/* Instruksi & Tombol WA */}
-                      <div className="text-center w-full space-y-3">
-                          <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
-                              Silakan transfer sesuai nominal di atas, lalu konfirmasi dan kirim foto bukti transfer via WhatsApp.
-                          </p>
-                          
+                      <div className="text-center w-full space-y-3 mt-2">
                           <button 
                               onClick={handleConfirmViaWA}
                               className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white py-3 rounded-xl font-black uppercase tracking-wider shadow-lg flex justify-center items-center gap-2 transition-all active:scale-95"
@@ -227,7 +240,7 @@ const ReceiptView = ({ order, onBack }) => {
           </div>
       )}
 
-      {/* Tombol Kembali */}
+      {/* --- TOMBOL KEMBALI --- */}
       <button 
         onClick={onBack}
         className="mb-4 flex items-center gap-2 text-gray-500 hover:text-orange-500 font-bold text-xs transition-all print:hidden"
@@ -235,7 +248,7 @@ const ReceiptView = ({ order, onBack }) => {
         <ArrowLeft size={16} /> KEMBALI KE MENU
       </button>
 
-      {/* --- BANNER STATUS PESANAN --- */}
+      {/* --- BANNER STATUS LIVE --- */}
       <div className={`print:hidden mb-6 p-8 rounded-[2rem] text-center border-4 border-double shadow-lg transition-all duration-500 flex flex-col items-center gap-3 ${statusUI.style}`}>
           <div>{statusUI.icon}</div>
           <div>
@@ -273,7 +286,7 @@ const ReceiptView = ({ order, onBack }) => {
           </div>
       )}
 
-      {/* --- BANNER INFO SUDAH KONFIRMASI --- */}
+      {/* --- BANNER VERIFIKASI --- */}
       {isWaitingVerification && !liveOrder.isPaid && (
           <div className="print:hidden mb-6 bg-blue-50 border border-blue-200 p-4 rounded-2xl flex items-center gap-3 text-blue-800">
               <MessageCircle size={32} className="text-blue-500 animate-pulse" />
@@ -383,7 +396,7 @@ const ReceiptView = ({ order, onBack }) => {
         </div>
       </div>
       
-      {/* --- 4. TOMBOL SIMPAN KE GALERI --- */}
+      {/* --- 5. TOMBOL SIMPAN KE GALERI --- */}
       <div className="mt-6">
           <button 
             onClick={handleSaveImage} 
