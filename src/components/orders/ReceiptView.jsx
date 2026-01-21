@@ -3,7 +3,7 @@ import { db } from '../../firebase';
 import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore'; 
 import { 
   ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle, 
-  RefreshCw, Download, Loader2, QrCode, MessageCircle, Maximize2, ZoomIn 
+  RefreshCw, Download, Loader2, QrCode, MessageCircle, Maximize2, ZoomIn, X 
 } from 'lucide-react'; 
 import { formatRupiah } from '../../utils/format';
 import html2canvas from 'html2canvas';
@@ -177,7 +177,14 @@ const ReceiptView = ({ order, onBack }) => {
             className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
             onClick={() => setIsQrisFullscreen(false)} 
         >
-             <p className="text-white/70 text-sm font-bold uppercase tracking-widest mb-4 animate-pulse">Ketuk Layar Untuk Kembali</p>
+             {/* Tombol Tutup X di pojok */}
+             <button className="absolute top-6 right-6 text-white bg-white/20 p-2 rounded-full">
+                <X size={24} />
+             </button>
+
+             <p className="text-white/70 text-sm font-bold uppercase tracking-widest mb-4 animate-pulse mt-10">
+                Ketuk Layar Untuk Kembali
+             </p>
              <div className="bg-white p-4 rounded-3xl max-w-full max-h-[80vh] flex items-center justify-center">
                 <img src={QRIS_IMAGE_URL} alt="QRIS Full" className="max-w-full max-h-[70vh] object-contain" />
              </div>
