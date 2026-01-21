@@ -87,7 +87,9 @@ const SalesLaporan = () => {
     }
 
     const filteredByDate = orders.filter(o => {
-      if (!o.createdAt || o.status !== 'Selesai') return false;
+      const status = (o.status || '').toLowerCase();
+      const isCompleted = status === 'selesai' || status === 'completed';
+      if (!o.createdAt || !isCompleted) return false;
       const oDate = getLocalDate(o.createdAt);
       return oDate >= startDate && oDate <= endDate;
     }).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
