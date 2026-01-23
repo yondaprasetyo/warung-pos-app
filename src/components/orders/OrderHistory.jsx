@@ -1,27 +1,27 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Receipt, CheckCircle, Clock, StickyNote, ChefHat, Flame, 
-  CalendarDays, X, Check, Trash2, Wallet, MessageCircle, AlertCircle, Filter, Calendar
+  CalendarDays, X, Check, Trash2, Wallet, MessageCircle, Filter, Calendar
 } from 'lucide-react'; 
 import { formatRupiah } from '../../utils/format';
 import { useShop } from '../../hooks/useShop';
 
-// --- HELPER UNTUK MENGAMBIL TANGGAL TARGET ---
-// Prioritaskan 'orderDate' (Target Hari H), jika tidak ada pakai 'createdAt'
+// --- HELPER BARU: AMBIL TANGGAL TARGET (JADWAL) ---
+// Prioritaskan 'orderDate' (Target Hari H), jika tidak ada (data lama) pakai 'createdAt'
 const getTargetDate = (order) => {
   return order.orderDate || order.createdAt;
 };
 
-// --- HELPER UNTUK FORMAT TANGGAL ---
+// --- HELPER FORMAT TANGGAL ---
 const formatDateKey = (dateString) => {
   if (!dateString) return 'invalid';
   
-  // Jika formatnya sudah YYYY-MM-DD (misal: "2026-01-23"), langsung kembalikan
+  // Jika format sudah YYYY-MM-DD (dari orderDate), kembalikan langsung
   if (dateString.length === 10 && dateString.includes('-')) {
       return dateString;
   }
 
-  // Jika format ISO Long / Timestamp
+  // Jika format ISO Long / Timestamp (dari createdAt)
   const d = new Date(dateString);
   const offset = d.getTimezoneOffset() * 60000;
   const localDate = new Date(d.getTime() - offset);
@@ -31,7 +31,7 @@ const formatDateKey = (dateString) => {
 const formatDateDisplay = (dateString) => {
   if (!dateString) return '-';
   const d = new Date(dateString);
-  // Format Bahasa Indonesia: Senin, 23 Oktober 2025
+  // Format: Senin, 23 Oktober 2025
   return d.toLocaleDateString('id-ID', { 
     weekday: 'long', 
     day: 'numeric', 
@@ -42,17 +42,20 @@ const formatDateDisplay = (dateString) => {
 
 const OrderHistory = ({ orders }) => {
   const { updateOrderStatus, removeOrder, togglePaymentStatus } = useShop();
+  
+  // State filter: 'all' atau 'YYYY-MM-DD'
   const [filterDate, setFilterDate] = useState('all'); 
+  const todayKey = formatDateKey(new Date().toISOString());
 
-  // --- 1. LOGIKA RINGKASAN DAPUR ---
+  // --- 1. RINGKASAN DAPUR (YANG HARUS DIMASAK) ---
   const kitchenSummary = useMemo(() => {
     // Ambil order yang statusnya aktif
     const activeOrders = orders.filter(o => {
         const s = (o.status || 'pending').toLowerCase();
-        // Cek Status
+        // Cek Status (harus aktif)
         const isActiveStatus = s === 'pending' || s === 'processing' || s === 'baru' || s === 'proses';
         
-        // Cek Tanggal (Jika sedang filter tanggal, hanya tampilkan ringkasan tanggal tsb)
+        // Cek Tanggal (Jika sedang filter tanggal, hanya hitung masakan untuk tanggal tsb)
         if (filterDate !== 'all') {
             const orderTargetDate = formatDateKey(getTargetDate(o));
             return isActiveStatus && orderTargetDate === filterDate;
@@ -82,7 +85,7 @@ const OrderHistory = ({ orders }) => {
     });
 
     return Object.entries(summary);
-  }, [orders, filterDate]); 
+  }, [orders, filterDate]); // Update jika filter tanggal berubah
 
   // --- 2. DATA PROCESSING ---
 
@@ -91,16 +94,17 @@ const OrderHistory = ({ orders }) => {
     return [...orders].sort((a, b) => {
       const dateA = new Date(getTargetDate(a));
       const dateB = new Date(getTargetDate(b));
-      // Descending (Masa Depan -> Lampau)
+      // Urutkan: Jadwal paling jauh/masa depan di atas
       return dateB - dateA; 
     });
   }, [orders]);
 
-  // B. Grouping Logic
+  // B. Grouping Logic (Filter & Grouping berdasarkan Target Date)
   const groupedOrders = useMemo(() => {
     // 1. Filter
     const filtered = sortedOrders.filter(order => {
       if (filterDate === 'all') return true;
+      // Bandingkan tanggal jadwal (orderDate)
       return formatDateKey(getTargetDate(order)) === filterDate;
     });
 
@@ -116,9 +120,6 @@ const OrderHistory = ({ orders }) => {
 
     return groups;
   }, [sortedOrders, filterDate]);
-
-  // Helper Key Hari Ini
-  const todayKey = formatDateKey(new Date().toISOString());
 
   // --- FUNGSI KLIK HAPUS ---
   const handleConfirmDelete = (orderId, customerName) => {
@@ -152,7 +153,7 @@ const OrderHistory = ({ orders }) => {
             <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
                 <div className="flex items-center gap-2 text-gray-400 mr-2 shrink-0">
                     <Filter size={18} />
-                    <span className="text-xs font-bold uppercase tracking-widest hidden sm:inline">Filter Hari H:</span>
+                    <span className="text-xs font-bold uppercase tracking-widest hidden sm:inline">Filter Jadwal:</span>
                 </div>
                 
                 <button
@@ -211,7 +212,7 @@ const OrderHistory = ({ orders }) => {
             <div>
               <h3 className="text-white font-black uppercase italic tracking-tighter leading-none text-lg">Antrean Produksi</h3>
               <p className="text-orange-400 text-[10px] font-black uppercase tracking-widest mt-1">
-                 {filterDate === 'all' ? 'Total Seluruh Order Aktif' : `Total Order Aktif untuk ${formatDateDisplay(filterDate)}`}
+                 {filterDate === 'all' ? 'Total Seluruh Jadwal' : `Persiapan Masak: ${formatDateDisplay(filterDate)}`}
               </p>
             </div>
           </div>
@@ -291,17 +292,24 @@ const OrderHistory = ({ orders }) => {
                                     </div>
                                 )}
 
-                                {/* Tampilkan Kapan Dibuat vs Kapan Dimakan */}
-                                <div className="flex flex-col gap-1">
-                                     {/* Tanggal Pesanan (Target) */}
-                                     {order.orderDate && (
-                                         <p className="text-[10px] text-orange-600 font-bold flex items-center gap-1 uppercase tracking-widest">
+                                {/* --- TAMPILAN TANGGAL YANG LEBIH JELAS --- */}
+                                <div className="flex flex-col gap-1 mt-1">
+                                     {/* 1. TANGGAL JADWAL (TARGET) */}
+                                     {order.orderDate ? (
+                                         <p className="text-[10px] text-orange-600 font-black flex items-center gap-1 uppercase tracking-widest bg-orange-50 w-fit px-2 py-0.5 rounded">
                                             <CalendarDays size={12} /> 
                                             Jadwal: {formatDateDisplay(order.orderDate)}
                                          </p>
+                                     ) : (
+                                         // Fallback untuk data lama
+                                         <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-widest">
+                                            <CalendarDays size={12} /> 
+                                            Jadwal: Sesuai Tgl Pesan
+                                         </p>
                                      )}
-                                     {/* Tanggal Input (Created) */}
-                                     <p className="text-[9px] text-gray-400 font-medium flex items-center gap-1 uppercase tracking-widest">
+
+                                     {/* 2. TANGGAL INPUT (CREATED) */}
+                                     <p className="text-[9px] text-gray-400 font-medium flex items-center gap-1 uppercase tracking-widest pl-1">
                                         <Clock size={10} /> 
                                         Dipesan: {new Date(order.createdAt).toLocaleString('id-ID')}
                                      </p>
