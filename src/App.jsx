@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
 import { useStoreSchedule } from './hooks/useStoreSchedule'; 
 import { db } from './firebase'; 
-import { logActivity } from './utils/logger'; // <--- IMPORT LOGGER
+import { logActivity } from './utils/logger'; 
 import { doc, writeBatch } from 'firebase/firestore'; 
 import { ShoppingBag, LogIn, UtensilsCrossed, ChevronRight, ArrowLeft } from 'lucide-react';
 
@@ -106,7 +106,11 @@ const App = () => {
 
       try {
         const orderNote = `Order untuk tanggal: ${orderDate?.fullDate}`;
-        const order = await checkout(customerNameInput, orderNote);
+        // UPDATE: Ambil tanggal target (ISO String YYYY-MM-DD)
+        const targetDate = orderDate?.isoDate;
+
+        // UPDATE: Kirim targetDate sebagai argumen ke-3
+        const order = await checkout(customerNameInput, orderNote, targetDate);
         
         if (order) {
           const batch = writeBatch(db);
@@ -114,7 +118,6 @@ const App = () => {
 
           cart.forEach((item) => {
             if (item.stock !== undefined && item.stock !== -1) {
-              // --- UPDATE STOK DENGAN ID YANG BENAR ---
               const realProductId = (item.productId || item.id).split('-')[0];
               const productRef = doc(db, "products", realProductId); 
               
@@ -128,8 +131,6 @@ const App = () => {
             await batch.commit();
           }
 
-          // --- LOGGING TRANSAKSI ---
-          // Mencatat siapa yang memproses dan detail singkat
           if (currentUser) {
             logActivity(
               currentUser.uid, 
@@ -138,7 +139,6 @@ const App = () => {
               `Pesanan a.n ${customerNameInput} (Total: Rp ${currentOrder?.total?.toLocaleString('id-ID')})`
             );
           }
-          // -------------------------
 
           setShowNameModal(false);
           navigateTo('receipt');

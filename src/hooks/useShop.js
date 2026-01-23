@@ -70,7 +70,7 @@ export const useShop = (currentUser) => {
       if (existingItemIndex > -1) {
         const existingItem = prevCart[existingItemIndex];
         const newQuantity = existingItem.quantity + newItem.quantity;
-        if (existingItem.stock !== -1 && newQuantity > existingItem.stock) {
+        if (existingItem.stock !== undefined && existingItem.stock !== -1 && newQuantity > existingItem.stock) {
           alert(`Maaf, stok ${existingItem.name} maksimal ${existingItem.stock}.`);
           return prevCart;
         }
@@ -95,7 +95,7 @@ export const useShop = (currentUser) => {
       const item = newCart[index];
       const newQty = item.quantity + delta;
       
-      if (delta > 0 && item.stock !== -1 && newQty > item.stock) {
+      if (delta > 0 && item.stock !== undefined && item.stock !== -1 && newQty > item.stock) {
         alert(`Maaf, sisa stok ${item.name} hanya ada ${item.stock}.`);
         return prev;
       }
@@ -123,7 +123,8 @@ export const useShop = (currentUser) => {
   };
 
   // --- CHECKOUT ---
-  const checkout = async (customerName, orderNote = '') => {
+  // UPDATE: Menerima targetDate (tanggal pesanan dikonsumsi)
+  const checkout = async (customerName, orderNote = '', targetDate = null) => {
     if (cart.length === 0) return;
     try {
       const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -143,8 +144,9 @@ export const useShop = (currentUser) => {
         items: orderItems,
         total: total,
         note: orderNote,
+        orderDate: targetDate, // <--- MENYIMPAN TANGGAL TARGET PESANAN
         status: 'pending', 
-        isPaid: false, // Default belum bayar
+        isPaid: false, 
         createdAt: serverTimestamp(),
         userId: currentUser ? currentUser.uid : 'public'
       };
@@ -180,7 +182,7 @@ export const useShop = (currentUser) => {
     } catch (error) { console.error("Update error:", error); alert("Gagal update status."); }
   };
 
-  // --- FUNGSI BARU: TOGGLE STATUS BAYAR ---
+  // --- TOGGLE STATUS BAYAR ---
   const togglePaymentStatus = async (orderId, currentPaymentStatus) => {
     try {
       const orderRef = doc(db, "orders", orderId);
@@ -188,7 +190,6 @@ export const useShop = (currentUser) => {
       
       await updateDoc(orderRef, { 
         isPaid: newIsPaid,
-        // Jika jadi LUNAS, ubah status teks jadi 'paid', jika batal lunas jadi 'unpaid'
         paymentStatus: newIsPaid ? 'paid' : 'unpaid' 
       });
     } catch (err) {
@@ -218,6 +219,6 @@ export const useShop = (currentUser) => {
     updateOrderStatus,
     updateCartItemDetails,
     removeOrder,
-    togglePaymentStatus // <--- Export fungsi baru
+    togglePaymentStatus 
   };
 };

@@ -6,10 +6,22 @@ import {
 import { formatRupiah } from '../../utils/format';
 import { useShop } from '../../hooks/useShop';
 
+// --- HELPER UNTUK MENGAMBIL TANGGAL TARGET ---
+// Prioritaskan 'orderDate' (Target Hari H), jika tidak ada pakai 'createdAt'
+const getTargetDate = (order) => {
+  return order.orderDate || order.createdAt;
+};
+
 // --- HELPER UNTUK FORMAT TANGGAL ---
 const formatDateKey = (dateString) => {
   if (!dateString) return 'invalid';
-  // Menggunakan local time agar tidak geser hari karena perbedaan Timezone
+  
+  // Jika formatnya sudah YYYY-MM-DD (misal: "2026-01-23"), langsung kembalikan
+  if (dateString.length === 10 && dateString.includes('-')) {
+      return dateString;
+  }
+
+  // Jika format ISO Long / Timestamp
   const d = new Date(dateString);
   const offset = d.getTimezoneOffset() * 60000;
   const localDate = new Date(d.getTime() - offset);
@@ -30,15 +42,23 @@ const formatDateDisplay = (dateString) => {
 
 const OrderHistory = ({ orders }) => {
   const { updateOrderStatus, removeOrder, togglePaymentStatus } = useShop();
-  
-  // State filter: 'all' atau 'YYYY-MM-DD'
   const [filterDate, setFilterDate] = useState('all'); 
 
-  // --- 1. LOGIKA RINGKASAN DAPUR (TETAP SAMA) ---
+  // --- 1. LOGIKA RINGKASAN DAPUR ---
   const kitchenSummary = useMemo(() => {
+    // Ambil order yang statusnya aktif
     const activeOrders = orders.filter(o => {
         const s = (o.status || 'pending').toLowerCase();
-        return s === 'pending' || s === 'processing' || s === 'baru' || s === 'proses';
+        // Cek Status
+        const isActiveStatus = s === 'pending' || s === 'processing' || s === 'baru' || s === 'proses';
+        
+        // Cek Tanggal (Jika sedang filter tanggal, hanya tampilkan ringkasan tanggal tsb)
+        if (filterDate !== 'all') {
+            const orderTargetDate = formatDateKey(getTargetDate(o));
+            return isActiveStatus && orderTargetDate === filterDate;
+        }
+
+        return isActiveStatus;
     });
 
     const summary = {};
@@ -49,49 +69,45 @@ const OrderHistory = ({ orders }) => {
         const variantText = currentVariant && currentVariant.toUpperCase() !== "TANPA VARIAN" 
           ? ` (${currentVariant})` 
           : '';
-          
         const key = `${item.name}${variantText}`;
 
         if (!summary[key]) {
           summary[key] = { quantity: 0, notes: new Set() };
         }
-
         summary[key].quantity += item.quantity;
         
         const itemNote = item.notes || item.note;
-        if (itemNote) {
-          summary[key].notes.add(itemNote);
-        }
+        if (itemNote) summary[key].notes.add(itemNote);
       });
     });
 
     return Object.entries(summary);
-  }, [orders]);
+  }, [orders, filterDate]); 
 
   // --- 2. DATA PROCESSING ---
 
-  // A. Urutkan semua pesanan (Terbaru ke Terlama)
+  // A. Urutkan Pesanan (Berdasarkan Target Date, bukan CreatedAt)
   const sortedOrders = useMemo(() => {
     return [...orders].sort((a, b) => {
-      const dateA = new Date(a.createdAt);
-      const dateB = new Date(b.createdAt);
+      const dateA = new Date(getTargetDate(a));
+      const dateB = new Date(getTargetDate(b));
+      // Descending (Masa Depan -> Lampau)
       return dateB - dateA; 
     });
   }, [orders]);
 
-  // B. Grouping Logic (Filter & Grouping)
+  // B. Grouping Logic
   const groupedOrders = useMemo(() => {
     // 1. Filter
     const filtered = sortedOrders.filter(order => {
       if (filterDate === 'all') return true;
-      // Bandingkan string YYYY-MM-DD
-      return formatDateKey(order.createdAt) === filterDate;
+      return formatDateKey(getTargetDate(order)) === filterDate;
     });
 
     // 2. Grouping
     const groups = {};
     filtered.forEach(order => {
-      const dateKey = formatDateKey(order.createdAt);
+      const dateKey = formatDateKey(getTargetDate(order));
       if (!groups[dateKey]) {
         groups[dateKey] = [];
       }
@@ -101,7 +117,7 @@ const OrderHistory = ({ orders }) => {
     return groups;
   }, [sortedOrders, filterDate]);
 
-  // Helper Key untuk Hari Ini
+  // Helper Key Hari Ini
   const todayKey = formatDateKey(new Date().toISOString());
 
   // --- FUNGSI KLIK HAPUS ---
@@ -129,18 +145,16 @@ const OrderHistory = ({ orders }) => {
         </h2>
       </div>
 
-      {/* --- FILTER BAR BARU (HYBRID SYSTEM) --- */}
+      {/* --- FILTER BAR --- */}
       <div className="mb-8 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex flex-col sm:flex-row items-center gap-3 justify-between">
             
-            {/* Bagian Kiri: Tombol Cepat */}
             <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
                 <div className="flex items-center gap-2 text-gray-400 mr-2 shrink-0">
                     <Filter size={18} />
-                    <span className="text-xs font-bold uppercase tracking-widest hidden sm:inline">Filter:</span>
+                    <span className="text-xs font-bold uppercase tracking-widest hidden sm:inline">Filter Hari H:</span>
                 </div>
                 
-                {/* Tombol SEMUA */}
                 <button
                     onClick={() => setFilterDate('all')}
                     className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
@@ -152,7 +166,6 @@ const OrderHistory = ({ orders }) => {
                     Semua
                 </button>
 
-                {/* Tombol HARI INI */}
                 <button
                     onClick={() => setFilterDate(todayKey)}
                     className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
@@ -165,7 +178,6 @@ const OrderHistory = ({ orders }) => {
                 </button>
             </div>
 
-            {/* Bagian Kanan: Date Picker Custom */}
             <div className="relative w-full sm:w-auto mt-2 sm:mt-0">
                 <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-colors w-full ${
                     filterDate !== 'all' && filterDate !== todayKey 
@@ -173,8 +185,6 @@ const OrderHistory = ({ orders }) => {
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}>
                     <Calendar size={18} className={filterDate !== 'all' && filterDate !== todayKey ? "text-orange-600" : "text-gray-400"} />
-                    
-                    {/* INPUT TANGGAL HTML5 NATIVE */}
                     <input 
                         type="date" 
                         value={filterDate === 'all' ? '' : filterDate}
@@ -182,7 +192,6 @@ const OrderHistory = ({ orders }) => {
                         className="bg-transparent outline-none text-sm font-bold text-gray-700 uppercase tracking-wide w-full sm:w-auto cursor-pointer"
                     />
                 </div>
-                {/* Label kecil jika sedang filter tanggal manual */}
                 {filterDate !== 'all' && filterDate !== todayKey && (
                      <span className="absolute -top-2.5 right-3 bg-white px-2 py-0.5 rounded text-[9px] font-black text-orange-500 uppercase tracking-widest border border-orange-100 shadow-sm">
                         Custom Date
@@ -192,7 +201,7 @@ const OrderHistory = ({ orders }) => {
         </div>
       </div>
 
-      {/* --- PANEL RINGKASAN DAPUR (Selalu muncul di atas) --- */}
+      {/* --- PANEL RINGKASAN DAPUR --- */}
       {kitchenSummary.length > 0 && (
         <div className="mb-10 bg-gray-900 rounded-[2rem] p-6 shadow-2xl border-4 border-orange-500/20">
           <div className="flex items-center gap-3 mb-6 border-b border-gray-800 pb-4">
@@ -201,7 +210,9 @@ const OrderHistory = ({ orders }) => {
             </div>
             <div>
               <h3 className="text-white font-black uppercase italic tracking-tighter leading-none text-lg">Antrean Produksi</h3>
-              <p className="text-orange-400 text-[10px] font-black uppercase tracking-widest mt-1">Total yang harus disiapkan saat ini</p>
+              <p className="text-orange-400 text-[10px] font-black uppercase tracking-widest mt-1">
+                 {filterDate === 'all' ? 'Total Seluruh Order Aktif' : `Total Order Aktif untuk ${formatDateDisplay(filterDate)}`}
+              </p>
             </div>
           </div>
 
@@ -214,7 +225,6 @@ const OrderHistory = ({ orders }) => {
                     <Flame size={14} className="animate-pulse" /> {data.quantity}
                   </span>
                 </div>
-                
                 {data.notes.size > 0 && (
                   <div className="mt-3 pt-3 border-t border-gray-700/50">
                     <p className="text-[8px] text-gray-500 font-black uppercase tracking-widest mb-1 italic">Catatan:</p>
@@ -237,8 +247,8 @@ const OrderHistory = ({ orders }) => {
                <div className="bg-gray-50 p-4 rounded-full mb-4">
                     <CalendarDays size={32} className="text-gray-300" />
                </div>
-               <p className="text-gray-500 font-bold text-lg">Tidak ada transaksi</p>
-               <p className="text-gray-400 text-sm">Pada tanggal yang dipilih</p>
+               <p className="text-gray-500 font-bold text-lg">Tidak ada jadwal pesanan</p>
+               <p className="text-gray-400 text-sm">Untuk tanggal yang dipilih</p>
            </div>
       ) : (
           Object.keys(groupedOrders).map((dateKey) => (
@@ -256,37 +266,22 @@ const OrderHistory = ({ orders }) => {
                     <div className="h-px bg-gray-300 flex-1 hidden sm:block"></div>
                 </div>
 
-                {/* LIST KARTU */}
                 <div className="space-y-4">
                     {groupedOrders[dateKey].map(order => {
                         const status = (order.status || 'pending').toLowerCase();
                         const isPending = status === 'pending' || status === 'baru';
                         const isProcessing = status === 'processing' || status === 'proses';
                         const isCompleted = status === 'completed' || status === 'selesai';
-                        
                         const isPaid = order.isPaid === true;
                         const isWaitingVerification = order.paymentStatus === 'verification_via_wa' && !isPaid;
 
                         return (
-                            <div 
-                            key={order.id} 
-                            className={`border rounded-2xl p-5 shadow-sm transition-all duration-300 hover:shadow-md ${
-                                isPending 
-                                ? 'bg-yellow-50 border-yellow-200 ring-2 ring-yellow-100' 
-                                : isProcessing
-                                ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100'
-                                : 'bg-white border-gray-100 opacity-90'
-                            }`}
-                            >
+                            <div key={order.id} className={`border rounded-2xl p-5 shadow-sm transition-all duration-300 hover:shadow-md ${isPending ? 'bg-yellow-50 border-yellow-200 ring-2 ring-yellow-100' : isProcessing ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100' : 'bg-white border-gray-100 opacity-90'}`}>
                             <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 border-b border-dashed border-gray-200 pb-4">
                                 <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
                                     <h3 className="font-black text-gray-800 text-lg uppercase tracking-tighter italic">{order.customerName}</h3>
-                                    {order.userId === 'public' && (
-                                    <span className="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded-md font-black border border-blue-700 uppercase tracking-tighter">
-                                        ONLINE
-                                    </span>
-                                    )}
+                                    {order.userId === 'public' && <span className="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded-md font-black border border-blue-700 uppercase tracking-tighter">ONLINE</span>}
                                 </div>
                                 
                                 {order.note && (
@@ -296,21 +291,27 @@ const OrderHistory = ({ orders }) => {
                                     </div>
                                 )}
 
-                                <p className="text-[10px] text-gray-500 font-bold flex items-center gap-1 uppercase tracking-widest">
-                                    <Clock size={12} className="text-gray-400" /> 
-                                    {new Date(order.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                                </p>
+                                {/* Tampilkan Kapan Dibuat vs Kapan Dimakan */}
+                                <div className="flex flex-col gap-1">
+                                     {/* Tanggal Pesanan (Target) */}
+                                     {order.orderDate && (
+                                         <p className="text-[10px] text-orange-600 font-bold flex items-center gap-1 uppercase tracking-widest">
+                                            <CalendarDays size={12} /> 
+                                            Jadwal: {formatDateDisplay(order.orderDate)}
+                                         </p>
+                                     )}
+                                     {/* Tanggal Input (Created) */}
+                                     <p className="text-[9px] text-gray-400 font-medium flex items-center gap-1 uppercase tracking-widest">
+                                        <Clock size={10} /> 
+                                        Dipesan: {new Date(order.createdAt).toLocaleString('id-ID')}
+                                     </p>
+                                </div>
                                 </div>
 
                                 <div className="flex flex-col items-end gap-2 shrink-0 w-full sm:w-auto">
-                                    <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                        isPending ? 'bg-yellow-500 text-white animate-pulse' :
-                                        isProcessing ? 'bg-blue-500 text-white' :
-                                        isCompleted ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                    }`}>
-                                        {isPending ? '⏳ Menunggu Konfirmasi' : isProcessing ? '🍳 Sedang Dimasak' : isCompleted ? '✅ Selesai' : '❌ Batal'}
+                                    <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isPending ? 'bg-yellow-500 text-white animate-pulse' : isProcessing ? 'bg-blue-500 text-white' : isCompleted ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {isPending ? '⏳ Menunggu' : isProcessing ? '🍳 Dimasak' : isCompleted ? '✅ Selesai' : '❌ Batal'}
                                     </span>
-                                    
                                     <div className="flex gap-2 w-full sm:w-auto mt-2 justify-end">
                                         {isPending && (
                                             <>
@@ -318,15 +319,11 @@ const OrderHistory = ({ orders }) => {
                                                 <button onClick={() => { if(window.confirm('Tolak?')) updateOrderStatus(order.id, 'cancelled') }} className="bg-red-100 hover:bg-red-200 text-red-600 text-[10px] font-black px-3 py-2 rounded-xl active:scale-95"><X size={14} /> TOLAK</button>
                                             </>
                                         )}
-                                        {isProcessing && (
-                                            <button onClick={() => updateOrderStatus(order.id, 'completed')} className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] font-black px-4 py-2 rounded-xl flex items-center justify-center gap-2 shadow-md active:scale-95"><Check size={14} /> SELESAI</button>
-                                        )}
+                                        {isProcessing && <button onClick={() => updateOrderStatus(order.id, 'completed')} className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] font-black px-4 py-2 rounded-xl flex items-center justify-center gap-2 shadow-md active:scale-95"><Check size={14} /> SELESAI</button>}
                                         <button onClick={() => handleConfirmDelete(order.id, order.customerName)} className="bg-gray-100 hover:bg-red-600 hover:text-white text-gray-400 px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1"><Trash2 size={16} /> <span className="hidden sm:inline">HAPUS</span></button>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Detail Items */}
                             <div className="space-y-3 mb-4 bg-white/50 p-3 rounded-xl border border-gray-100">
                                 {order.items.map((item, idx) => (
                                     <div key={idx} className="flex flex-col border-b border-gray-50 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0">
@@ -339,8 +336,6 @@ const OrderHistory = ({ orders }) => {
                                     </div>
                                 ))}
                             </div>
-
-                            {/* Footer Status Bayar & Total */}
                             <div className="pt-4 border-t border-gray-100 mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                                 <button onClick={() => togglePaymentStatus(order.id, isPaid)} className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all w-full sm:w-auto justify-center ${isPaid ? 'bg-green-50 border-green-200 text-green-700' : isWaitingVerification ? 'bg-blue-50 border-blue-200 text-blue-700 animate-pulse' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
                                     {isPaid ? <><CheckCircle size={18} className="fill-green-600 text-white" /><div className="text-left"><span className="text-[10px] font-black uppercase block">Status</span><span className="text-sm font-black italic">LUNAS</span></div></> 
