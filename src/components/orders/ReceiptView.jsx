@@ -3,7 +3,7 @@ import { db } from '../../firebase';
 import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore'; 
 import { 
   ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle, 
-  RefreshCw, Download, Loader2, QrCode, MessageCircle, Maximize2, ZoomIn, X 
+  RefreshCw, Download, Loader2, QrCode, MessageCircle, Maximize2, X 
 } from 'lucide-react'; 
 import { formatRupiah } from '../../utils/format';
 import html2canvas from 'html2canvas';
@@ -15,7 +15,8 @@ const QRIS_IMAGE_URL = "/qris.jpg";
 const ADMIN_PHONE_NUMBER = "6287774223733"; 
 
 const ReceiptView = ({ order, onBack }) => {
-  const [liveOrder, setLiveOrder] = useState(order);
+  // Pastikan inisialisasi state aman
+  const [liveOrder, setLiveOrder] = useState(order || null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -25,6 +26,14 @@ const ReceiptView = ({ order, onBack }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isQrisFullscreen, setIsQrisFullscreen] = useState(false);
 
+  // 1. UPDATE STATE JIKA PROP ORDER BERUBAH (FIX WHITE SCREEN)
+  useEffect(() => {
+     if (order) {
+        setLiveOrder(order);
+     }
+  }, [order]);
+
+  // 2. LISTEN KE FIRESTORE UNTUK UPDATE REALTIME
   useEffect(() => {
     if (!order?.id) return;
     const unsubscribe = onSnapshot(doc(db, "orders", order.id), (docSnapshot) => {
@@ -41,10 +50,10 @@ const ReceiptView = ({ order, onBack }) => {
   }, [order?.id]);
 
   const handleManualRefresh = async () => {
-    if (!order?.id) return;
+    if (!liveOrder?.id) return;
     setIsRefreshing(true);
     try {
-      const docRef = doc(db, "orders", order.id);
+      const docRef = doc(db, "orders", liveOrder.id);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -58,31 +67,26 @@ const ReceiptView = ({ order, onBack }) => {
     finally { setTimeout(() => setIsRefreshing(false), 800); }
   };
 
-  // --- PERBAIKAN LOGIKA SIMPAN GAMBAR ---
   const handleSaveImage = async () => {
     if (!receiptRef.current) return;
     
     setIsSaving(true);
     try {
-      // Tunggu sebentar untuk memastikan render selesai
       await new Promise(resolve => setTimeout(resolve, 100));
 
       const canvas = await html2canvas(receiptRef.current, {
-        scale: 3, // Resolusi dipertinggi (3x) agar tajam
-        backgroundColor: '#ffffff', // Paksa background putih
-        useCORS: true, // Izinkan gambar eksternal
+        scale: 3, 
+        backgroundColor: '#ffffff', 
+        useCORS: true, 
         logging: false,
-        // Opsi ini membantu menjaga layout tetap rapi saat dicapture
         windowWidth: 400, 
         onclone: (documentClone) => {
             const element = documentClone.getElementById('receipt-content');
             if (element) {
-                // Paksa font dan layout saat capture agar tidak default ke Times New Roman
                 element.style.fontFamily = 'Arial, Helvetica, sans-serif';
                 element.style.padding = '40px';
                 element.style.width = '100%';
                 
-                // Paksa warna teks agar terbaca
                 const texts = element.querySelectorAll('*');
                 texts.forEach(el => {
                     if (window.getComputedStyle(el).color === 'rgba(0, 0, 0, 0)') {
@@ -116,7 +120,19 @@ const ReceiptView = ({ order, onBack }) => {
     setShowPaymentModal(false);
   };
 
-  if (!liveOrder) return null;
+  // --- PERBAIKAN UTAMA: TAMPILAN LOADING JIKA DATA BELUM SIAP ---
+  if (!liveOrder) {
+      return (
+        <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
+            <Loader2 size={48} className="text-orange-500 animate-spin mb-4" />
+            <h2 className="text-xl font-black text-gray-800 italic uppercase">Memuat Pesanan...</h2>
+            <p className="text-gray-400 text-sm mt-2">Mohon tunggu sebentar, sedang mengambil data struk.</p>
+            <button onClick={onBack} className="mt-8 text-sm font-bold text-orange-600 hover:underline">
+                Kembali ke Menu
+            </button>
+        </div>
+      );
+  }
 
   const formatOrderDate = (dateObj) => {
     if (!dateObj) return '-';
@@ -137,9 +153,9 @@ const ReceiptView = ({ order, onBack }) => {
 
   const statusUI = getStatusUI(liveOrder.status);
   const isCancelled = liveOrder.status === 'cancelled' || liveOrder.status === 'batal';
-  const canPayNow = !liveOrder.isPaid && !isCancelled && !isWaitingVerification;
-
+  
   const isWaitingVerification = liveOrder.paymentStatus === 'verification_via_wa';
+  const canPayNow = !liveOrder.isPaid && !isCancelled && !isWaitingVerification;
 
   return (
     <div className="max-w-md mx-auto p-4 mt-6 mb-20 animate-in fade-in zoom-in duration-300 relative">
@@ -224,7 +240,6 @@ const ReceiptView = ({ order, onBack }) => {
             <button onClick={() => setShowPaymentModal(true)} className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-[2rem] shadow-xl shadow-orange-200 flex items-center justify-center gap-3 transform transition-transform hover:scale-105 active:scale-95">
                 <div className="bg-white/20 p-2 rounded-full"><QrCode size={24} /></div>
                 <div className="text-left">
-                  {/* Ubah teks label kecil agar cocok untuk pesanan baru */}
                   <p className="text-[10px] font-black uppercase tracking-widest opacity-90">
                       {liveOrder.status === 'completed' || liveOrder.status === 'selesai' ? 'Pesanan Selesai?' : 'Menunggu Pembayaran'}
                   </p>
@@ -244,8 +259,6 @@ const ReceiptView = ({ order, onBack }) => {
 
       {/* ================================================== 
           STRUK KONTEN (YANG AKAN DI-DOWNLOAD)
-          Saya tambahkan Inline Style (style={{...}}) di sini
-          untuk menjamin layout tidak hancur saat didownload.
           ==================================================
       */}
       <div 
@@ -260,7 +273,6 @@ const ReceiptView = ({ order, onBack }) => {
         </div>
 
         <div className="border-y-2 border-dashed border-gray-100 py-6 mb-6 space-y-2" style={{ borderTop: '2px dashed #f3f4f6', borderBottom: '2px dashed #f3f4f6', padding: '20px 0' }}>
-            {/* Menggunakan Flexbox di Inline Style agar html2canvas membacanya */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
                 <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic" style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase' }}>Pelanggan:</span>
                 <span className="font-black text-gray-800 uppercase text-sm italic" style={{ fontWeight: 900, color: '#1f2937' }}>{liveOrder.customerName}</span>
