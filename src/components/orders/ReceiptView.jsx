@@ -136,7 +136,9 @@ const ReceiptView = ({ order, onBack }) => {
   };
 
   const statusUI = getStatusUI(liveOrder.status);
-  const isCompletedButUnpaid = (liveOrder.status === 'completed' || liveOrder.status === 'selesai') && !liveOrder.isPaid;
+  const isCancelled = liveOrder.status === 'cancelled' || liveOrder.status === 'batal';
+  const canPayNow = !liveOrder.isPaid && !isCancelled && !isWaitingVerification;
+
   const isWaitingVerification = liveOrder.paymentStatus === 'verification_via_wa';
 
   return (
@@ -217,13 +219,19 @@ const ReceiptView = ({ order, onBack }) => {
       </div>
 
       {/* BANNER TOMBOL BAYAR */}
-      {isCompletedButUnpaid && !isWaitingVerification && (
-          <div className="print:hidden mb-6 animate-bounce">
-              <button onClick={() => setShowPaymentModal(true)} className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-[2rem] shadow-xl shadow-orange-200 flex items-center justify-center gap-3 transform transition-transform hover:scale-105 active:scale-95">
-                  <div className="bg-white/20 p-2 rounded-full"><QrCode size={24} /></div>
-                  <div className="text-left"><p className="text-[10px] font-black uppercase tracking-widest opacity-90">Pesanan Selesai?</p><p className="text-lg font-black italic leading-none">BAYAR VIA QRIS</p></div>
-              </button>
-          </div>
+      {canPayNow && (
+        <div className="print:hidden mb-6 animate-bounce">
+            <button onClick={() => setShowPaymentModal(true)} className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-[2rem] shadow-xl shadow-orange-200 flex items-center justify-center gap-3 transform transition-transform hover:scale-105 active:scale-95">
+                <div className="bg-white/20 p-2 rounded-full"><QrCode size={24} /></div>
+                <div className="text-left">
+                  {/* Ubah teks label kecil agar cocok untuk pesanan baru */}
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-90">
+                      {liveOrder.status === 'completed' || liveOrder.status === 'selesai' ? 'Pesanan Selesai?' : 'Menunggu Pembayaran'}
+                  </p>
+                  <p className="text-lg font-black italic leading-none">BAYAR VIA QRIS</p>
+                </div>
+            </button>
+        </div>
       )}
 
       {/* Banner Menunggu Verifikasi */}

@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../firebase';
 import { formatRupiah } from '../../utils/format';
 import { collection, getDocs } from 'firebase/firestore';
-import { Search, Filter, Package, TrendingUp, Calendar, Printer, StickyNote, CheckCircle, X } from 'lucide-react';
+import { Search, Filter, Package, TrendingUp, Calendar, Printer, StickyNote, CheckCircle, X, Clock } from 'lucide-react';
 
 const SalesLaporan = () => {
   const { currentUser } = useAuth();
@@ -36,6 +36,45 @@ const SalesLaporan = () => {
     fetchStock();
   }, [orders]);
 
+  // --- HELPER: PARSE TANGGAL DARI NOTE ---
+  // Fungsi ini mencoba mengambil tanggal dari string "Order untuk tanggal: ..."
+  // Jika gagal, dia akan fallback ke createdAt
+  const getOrderTargetDate = (order) => {
+    try {
+      // 1. Cek jika ada field khusus (jika nanti Anda update backend)
+      if (order.orderDate) return new Date(order.orderDate);
+
+      // 2. Coba parsing dari Note (Format App.jsx: "Order untuk tanggal: Senin, 23 Januari 2026")
+      if (order.note && typeof order.note === 'string' && order.note.includes("Order untuk tanggal:")) {
+        const dateString = order.note.split("Order untuk tanggal:")[1].trim(); // Ambil bagian setelah titik dua
+        // dateString contoh: "Senin, 23 Januari 2026"
+        
+        // Kita perlu mapping bulan Indonesia ke index (0-11)
+        const months = {
+          'Januari': 0, 'Februari': 1, 'Maret': 2, 'April': 3, 'Mei': 4, 'Juni': 5,
+          'Juli': 6, 'Agustus': 7, 'September': 8, 'Oktober': 9, 'November': 10, 'Desember': 11
+        };
+
+        const parts = dateString.split(', '); // Pisahkan "Senin" dengan tanggal
+        if (parts.length > 1) {
+           const fullDatePart = parts[1]; // "23 Januari 2026"
+           const [day, monthName, year] = fullDatePart.split(' ');
+           
+           if (months[monthName] !== undefined) {
+             return new Date(year, months[monthName], parseInt(day));
+           }
+        }
+      }
+
+      // 3. Fallback: Gunakan createdAt
+      return order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+    } catch { 
+      // PERUBAHAN DI SINI: Saya menghapus '(err)' agar linter tidak protes.
+      // Jika error parsing, kembalikan createdAt
+      return order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt || new Date());
+    }
+  };
+
   // --- EXTRACT VARIAN UNIK ---
   const allVariants = useMemo(() => {
     const variants = new Set();
@@ -60,24 +99,30 @@ const SalesLaporan = () => {
 
   // --- PERHITUNGAN STATISTIK & FILTERING ---
   const stats = useMemo(() => {
-    const getLocalDate = (dateSource) => {
+    const getFormattedISODate = (dateObj) => {
       try {
-        if (!dateSource) return null;
-        const d = dateSource.toDate ? dateSource.toDate() : new Date(dateSource);
-        return d.toLocaleDateString('en-CA'); 
+        if (!dateObj) return null;
+        // Mengatasi masalah timezone offset agar akurat sesuai tanggal lokal
+        const offset = dateObj.getTimezoneOffset() * 60000;
+        const localDate = new Date(dateObj.getTime() - offset);
+        return localDate.toISOString().split('T')[0];
       } catch { return null; }
     };
 
     const start = new Date(startDate);
     const end = new Date(endDate);
+    // Set end date ke akhir hari agar inklusif
+    end.setHours(23, 59, 59, 999);
+
     const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
     const currentMode = (diffDays > 31 && viewMode === 'harian') ? 'bulanan' : viewMode;
 
     const dataMap = new Map();
     let curr = new Date(start);
     
+    // Inisialisasi Chart Map
     while (curr <= end) {
-      const dStr = getLocalDate(new Date(curr));
+      const dStr = getFormattedISODate(new Date(curr));
       const key = currentMode === 'harian' ? dStr : dStr.substring(0, 7);
       const label = currentMode === 'harian' 
         ? new Date(curr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
@@ -87,20 +132,25 @@ const SalesLaporan = () => {
       curr.setDate(curr.getDate() + 1);
     }
 
-    // --- FIX LOGIKA FILTER STATUS (Case Insensitive) ---
+    // --- LOGIKA FILTER STATUS & TANGGAL TARGET ---
     const filteredByDate = orders.filter(o => {
-      // 1. Ambil status, fallback string kosong, lowercase
+      // 1. Cek Status
       const status = (o.status || '').toLowerCase();
-      
-      // 2. Cek apakah 'selesai' atau 'completed'
       const isCompleted = status === 'selesai' || status === 'completed';
+      if (!isCompleted) return false;
 
-      // 3. Wajib ada createdAt dan status harus completed
-      if (!o.createdAt || !isCompleted) return false;
+      // 2. Ambil Tanggal TARGET (Bukan CreatedAt)
+      const targetDate = getOrderTargetDate(o);
+      const targetDateISO = getFormattedISODate(targetDate);
 
-      const oDate = getLocalDate(o.createdAt);
-      return oDate >= startDate && oDate <= endDate;
-    }).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+      // 3. Filter Range Tanggal
+      return targetDateISO >= startDate && targetDateISO <= endDate;
+    }).sort((a, b) => {
+        // Sort berdasarkan tanggal target, bukan created
+        const dateA = getOrderTargetDate(a);
+        const dateB = getOrderTargetDate(b);
+        return dateA - dateB;
+    });
 
     // Logic Pencarian & Varian
     const displayOrders = filteredByDate.filter(o => {
@@ -111,10 +161,18 @@ const SalesLaporan = () => {
       return matchSearch && matchVariant;
     });
 
+    // Isi Data Chart berdasarkan Tanggal TARGET
     filteredByDate.forEach(o => {
-      const oDate = getLocalDate(o.createdAt);
-      const key = currentMode === 'harian' ? oDate : oDate.substring(0, 7);
-      if (dataMap.has(key)) dataMap.get(key).total += Number(o.total) || 0;
+      const targetDate = getOrderTargetDate(o);
+      const targetDateISO = getFormattedISODate(targetDate);
+      const key = currentMode === 'harian' ? targetDateISO : targetDateISO.substring(0, 7);
+      
+      if (dataMap.has(key)) {
+          dataMap.get(key).total += Number(o.total) || 0;
+      } else {
+          // Fallback jika tanggal di luar range inisialisasi (jarang terjadi jika filter benar)
+          // Opsional: bisa di-skip atau di-add
+      }
     });
 
     const chartData = Array.from(dataMap.values());
@@ -146,6 +204,9 @@ const SalesLaporan = () => {
             <TrendingUp className="text-orange-500" size={32} />
             Laporan & Stok
           </h2>
+          <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">
+             Menampilkan data berdasarkan <span className="text-orange-600">TANGGAL PESANAN DIJADWALKAN</span>
+          </p>
           <div className="flex gap-2 mt-4">
             <button onClick={() => setViewMode('harian')} className={`px-6 py-2 rounded-2xl text-[10px] font-black transition-all shadow-sm ${viewMode === 'harian' ? 'bg-orange-500 text-white' : 'bg-white text-gray-400 border border-gray-100'}`}>HARIAN</button>
             <button onClick={() => setViewMode('bulanan')} className={`px-6 py-2 rounded-2xl text-[10px] font-black transition-all shadow-sm ${viewMode === 'bulanan' ? 'bg-orange-500 text-white' : 'bg-white text-gray-400 border border-gray-100'}`}>BULANAN</button>
@@ -164,7 +225,7 @@ const SalesLaporan = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gradient-to-br from-gray-800 to-black text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
           <div className="relative z-10">
-            <p className="text-[10px] text-orange-400 uppercase font-black tracking-widest mb-1">Total Omzet</p>
+            <p className="text-[10px] text-orange-400 uppercase font-black tracking-widest mb-1">Total Omzet (Target)</p>
             {/* Menggunakan formatRupiah */}
             <h3 className="text-3xl font-black italic">{formatRupiah(stats.totalRevenue)}</h3>
           </div>
@@ -179,7 +240,7 @@ const SalesLaporan = () => {
         </div>
 
         <div className="bg-white p-8 rounded-[2.5rem] border-2 border-gray-50 shadow-sm flex flex-col items-center justify-center">
-          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Pesanan Sukses</p>
+          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Pesanan Terjadwal</p>
           <h3 className="text-4xl font-black text-orange-500 italic">{stats.totalCount}</h3>
         </div>
       </div>
@@ -188,7 +249,7 @@ const SalesLaporan = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* GRAPH */}
         <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border-2 border-gray-50 shadow-sm">
-          <h4 className="font-black text-gray-700 mb-10 flex items-center gap-2 uppercase text-xs tracking-widest italic">📈 Grafik Arus Kas</h4>
+          <h4 className="font-black text-gray-700 mb-10 flex items-center gap-2 uppercase text-xs tracking-widest italic">📈 Grafik Pesanan (Sesuai Tanggal Acara)</h4>
           <div ref={scrollRef} className="overflow-x-auto pb-6 scrollbar-hide">
             <div className="flex items-end h-64 gap-4 px-4 border-b-2 border-gray-50" style={{ minWidth: stats.chartData.length > 8 ? `${stats.chartData.length * 70}px` : '100%' }}>
               {stats.chartData.map((d, i) => (
@@ -252,7 +313,7 @@ const SalesLaporan = () => {
       <div className="bg-white rounded-[3rem] border-2 border-gray-50 shadow-xl overflow-hidden">
         <div className="p-8 border-b border-gray-50 bg-gray-50/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <h4 className="font-black text-gray-700 uppercase tracking-widest text-xs italic flex items-center gap-2">
-            <TrendingUp size={16} className="text-orange-500" /> Rincian Transaksi Selesai
+            <TrendingUp size={16} className="text-orange-500" /> Rincian Transaksi
           </h4>
           
           <div className="flex flex-wrap items-center gap-3">
@@ -293,80 +354,100 @@ const SalesLaporan = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50/50 text-[10px] uppercase text-gray-400 font-black tracking-widest border-b border-gray-50">
               <tr>
-                <th className="p-8">Waktu Transaksi</th>
-                <th className="p-8">Pelanggan & Rincian Pesanan</th>
+                {/* KOLOM BARU: UNTUK TANGGAL */}
+                <th className="p-8 text-orange-600">Untuk Tanggal</th>
+                <th className="p-8">Diinput Pada</th>
+                <th className="p-8">Pelanggan & Pesanan</th>
                 <th className="p-8 text-right">Nominal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {stats.displayOrders.length > 0 ? (
-                [...stats.displayOrders].reverse().map((o) => (
-                  <tr key={o.id} className="hover:bg-orange-50/10 transition-all group">
-                    <td className="p-8">
-                      <div className="text-xs font-black text-gray-700 uppercase">
-                        {new Date(o.createdAt?.toDate ? o.createdAt.toDate() : o.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'long' })}
-                      </div>
-                      <div className="text-[10px] font-black text-orange-400 mt-1">
-                        {new Date(o.createdAt?.toDate ? o.createdAt.toDate() : o.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                      </div>
-                    </td>
-                    <td className="p-8">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-black text-xs">
-                          {o.customerName?.charAt(0).toUpperCase()}
+                // Karena kita sudah sort di `stats`, tidak perlu reverse lagi disini, atau bisa disesuaikan
+                stats.displayOrders.map((o) => {
+                  const targetDate = getOrderTargetDate(o);
+                  return (
+                    <tr key={o.id} className="hover:bg-orange-50/10 transition-all group">
+                      
+                      {/* CELL KOLOM BARU: TANGGAL TARGET */}
+                      <td className="p-8">
+                        <div className="text-sm font-black text-orange-500 uppercase italic">
+                          {targetDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
                         </div>
-                        <div className="flex flex-col">
-                          <span className="font-black text-gray-800 uppercase text-xs tracking-tight">{o.customerName}</span>
-                          <span className="text-[9px] font-bold text-gray-300 tracking-widest">ID: {o.id?.slice(-8).toUpperCase()}</span>
+                        <div className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-widest">
+                          {targetDate.toLocaleDateString('id-ID', { weekday: 'long' })}
                         </div>
-                      </div>
-                      <div className="flex flex-col gap-2.5">
-                        {o.items?.map((item, idx) => (
-                          <div key={idx} className="flex flex-col border-l-4 border-gray-50 pl-4 group-hover:border-orange-200 transition-colors">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black text-gray-600 uppercase italic leading-none">{item.name}</span>
-                              <span className="text-[9px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-black">x{item.quantity}</span>
-                              
-                              {item.variant && item.variant.toUpperCase() !== "TANPA VARIAN" && (
-                                <span className={`text-[8px] px-2 py-0.5 rounded-md font-black italic uppercase shadow-sm ${item.variant === selectedVariant ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-600'}`}>
-                                  {item.variant}
-                                </span>
+                      </td>
+
+                      {/* CELL LAMA: WAKTU INPUT (CREATED AT) */}
+                      <td className="p-8 opacity-60">
+                         <div className="text-[10px] font-bold text-gray-700 flex items-center gap-1">
+                           <Clock size={10} />
+                           {new Date(o.createdAt?.toDate ? o.createdAt.toDate() : o.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
+                         </div>
+                         <div className="text-[9px] font-bold text-gray-400 mt-0.5">
+                           {new Date(o.createdAt?.toDate ? o.createdAt.toDate() : o.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                         </div>
+                      </td>
+
+                      <td className="p-8">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-black text-xs">
+                            {o.customerName?.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-black text-gray-800 uppercase text-xs tracking-tight">{o.customerName}</span>
+                            <span className="text-[9px] font-bold text-gray-300 tracking-widest">ID: {o.id?.slice(-8).toUpperCase()}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2.5">
+                          {o.items?.map((item, idx) => (
+                            <div key={idx} className="flex flex-col border-l-4 border-gray-50 pl-4 group-hover:border-orange-200 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black text-gray-600 uppercase italic leading-none">{item.name}</span>
+                                <span className="text-[9px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-black">x{item.quantity}</span>
+                                
+                                {item.variant && item.variant.toUpperCase() !== "TANPA VARIAN" && (
+                                  <span className={`text-[8px] px-2 py-0.5 rounded-md font-black italic uppercase shadow-sm ${item.variant === selectedVariant ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-600'}`}>
+                                    {item.variant}
+                                  </span>
+                                )}
+                              </div>
+
+                              {item.notes && (
+                                <div className="text-[9px] text-orange-600 font-black italic mt-1.5 uppercase tracking-tighter flex items-center gap-1.5 bg-orange-50 w-fit px-2 py-1 rounded-lg border border-orange-100">
+                                  <StickyNote size={10} className="text-orange-500" /> "{item.notes}"
+                                </div>
                               )}
                             </div>
-
-                            {item.notes && (
-                              <div className="text-[9px] text-orange-600 font-black italic mt-1.5 uppercase tracking-tighter flex items-center gap-1.5 bg-orange-50 w-fit px-2 py-1 rounded-lg border border-orange-100">
-                                <StickyNote size={10} className="text-orange-500" /> "{item.notes}"
-                              </div>
-                            )}
+                          ))}
+                        </div>
+                      </td>
+                      <td className="p-8 text-right">
+                        {/* Menggunakan formatRupiah */}
+                        <div className="text-sm font-black text-gray-900 italic">{formatRupiah(o.total)}</div>
+                        
+                        {/* INDIKATOR LUNAS DINAMIS */}
+                        {o.isPaid ? (
+                          <div className="text-[9px] text-green-500 font-black uppercase mt-1 flex justify-end items-center gap-1">
+                             Lunas <CheckCircle size={10} />
                           </div>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="p-8 text-right">
-                      {/* Menggunakan formatRupiah */}
-                      <div className="text-sm font-black text-gray-900 italic">{formatRupiah(o.total)}</div>
-                      
-                      {/* INDIKATOR LUNAS DINAMIS */}
-                      {o.isPaid ? (
-                        <div className="text-[9px] text-green-500 font-black uppercase mt-1 flex justify-end items-center gap-1">
-                           Lunas <CheckCircle size={10} />
-                        </div>
-                      ) : (
-                        <div className="text-[9px] text-red-500 font-black uppercase mt-1 flex justify-end items-center gap-1">
-                           Belum Bayar <X size={10} />
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                        ) : (
+                          <div className="text-[9px] text-red-500 font-black uppercase mt-1 flex justify-end items-center gap-1">
+                             Belum Bayar <X size={10} />
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan="3" className="p-32 text-center">
+                  <td colSpan="4" className="p-32 text-center">
                     <div className="flex flex-col items-center justify-center opacity-20">
                       <Search size={64} className="mb-4 text-gray-400" />
                       <p className="text-sm font-black uppercase tracking-[0.2em]">Data Tidak Ditemukan</p>
-                      <p className="text-[10px] mt-1 font-bold italic">Coba ubah kata kunci atau filter Anda</p>
+                      <p className="text-[10px] mt-1 font-bold italic">Coba ubah kata kunci atau filter tanggal</p>
                     </div>
                   </td>
                 </tr>
