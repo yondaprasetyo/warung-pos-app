@@ -294,25 +294,26 @@ const OrderHistory = ({ orders }) => {
 
                                 {/* --- TAMPILAN TANGGAL YANG LEBIH JELAS --- */}
                                 <div className="flex flex-col gap-1 mt-1">
-                                     {/* 1. TANGGAL JADWAL (TARGET) */}
-                                     {order.orderDate ? (
-                                         <p className="text-[10px] text-orange-600 font-black flex items-center gap-1 uppercase tracking-widest bg-orange-50 w-fit px-2 py-0.5 rounded">
-                                            <CalendarDays size={12} /> 
-                                            Jadwal: {formatDateDisplay(order.orderDate)}
-                                         </p>
-                                     ) : (
-                                         // Fallback untuk data lama
-                                         <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-widest">
-                                            <CalendarDays size={12} /> 
-                                            Jadwal: Sesuai Tgl Pesan
-                                         </p>
-                                     )}
+                                  {/* 1. TANGGAL JADWAL (TARGET) */}
+                                  {/* Cek apakah orderDate ada DAN valid */}
+                                  {order.orderDate && order.orderDate !== 'invalid' ? (
+                                      <p className="text-[10px] text-orange-600 font-black flex items-center gap-1 uppercase tracking-widest bg-orange-50 w-fit px-2 py-0.5 rounded">
+                                          <CalendarDays size={12} /> 
+                                          Jadwal: {formatDateDisplay(order.orderDate)}
+                                      </p>
+                                  ) : (
+                                      // Fallback Data Lama: Tampilkan tanggal pembuatan sebagai jadwal default
+                                      <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-widest">
+                                          <CalendarDays size={12} /> 
+                                          Jadwal: {formatDateDisplay(order.createdAt)} (Pesanan Langsung)
+                                      </p>
+                                  )}
 
-                                     {/* 2. TANGGAL INPUT (CREATED) */}
-                                     <p className="text-[9px] text-gray-400 font-medium flex items-center gap-1 uppercase tracking-widest pl-1">
-                                        <Clock size={10} /> 
-                                        Dipesan: {new Date(order.createdAt).toLocaleString('id-ID')}
-                                     </p>
+                                  {/* 2. TANGGAL INPUT (CREATED) */}
+                                  <p className="text-[9px] text-gray-400 font-medium flex items-center gap-1 uppercase tracking-widest pl-1">
+                                      <Clock size={10} /> 
+                                      Dipesan: {new Date(order.createdAt).toLocaleString('id-ID')}
+                                  </p>
                                 </div>
                                 </div>
 
