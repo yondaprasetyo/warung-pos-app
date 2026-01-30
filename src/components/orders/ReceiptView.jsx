@@ -1,42 +1,38 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../../firebase'; 
 import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore'; 
 import { 
-  ArrowLeft, StickyNote, Clock, ChefHat, CheckCircle, XCircle, 
-  RefreshCw, Download, Loader2, QrCode, MessageCircle, Maximize2, X 
+  ArrowLeft, Clock, ChefHat, CheckCircle, XCircle, 
+  RefreshCw, Download, Loader2, QrCode, MessageCircle, X, Share2, Copy, Check
 } from 'lucide-react'; 
 import { formatRupiah } from '../../utils/format';
 import html2canvas from 'html2canvas';
 
-// --- GANTI URL INI DENGAN LINK GAMBAR QRIS ANDA ---
 const QRIS_IMAGE_URL = "/qris.jpg"; 
-
-// --- GANTI DENGAN NOMOR WA ADMIN ---
 const ADMIN_PHONE_NUMBER = "6287774223733"; 
 
 const ReceiptView = ({ order, onBack }) => {
-  // Pastikan inisialisasi state aman
+  const { orderId: urlOrderId } = useParams();
+  const navigate = useNavigate();
+  
+  // ID prioritas dari URL (untuk sharing) baru kemudian dari props
+  const targetOrderId = urlOrderId || order?.id;
+
   const [liveOrder, setLiveOrder] = useState(order || null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // Ref untuk elemen struk agar capture lebih akurat
-  const receiptRef = useRef(null);
-
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isQrisFullscreen, setIsQrisFullscreen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  
+  const receiptRef = useRef(null);
 
-  // 1. UPDATE STATE JIKA PROP ORDER BERUBAH (FIX WHITE SCREEN)
+  // 1. LISTEN REALTIME KE FIRESTORE
   useEffect(() => {
-     if (order) {
-        setLiveOrder(order);
-     }
-  }, [order]);
-
-  // 2. LISTEN KE FIRESTORE UNTUK UPDATE REALTIME
-  useEffect(() => {
-    if (!order?.id) return;
-    const unsubscribe = onSnapshot(doc(db, "orders", order.id), (docSnapshot) => {
+    if (!targetOrderId) return;
+    
+    const unsubscribe = onSnapshot(doc(db, "orders", targetOrderId), (docSnapshot) => {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();
         setLiveOrder({ 
@@ -45,15 +41,26 @@ const ReceiptView = ({ order, onBack }) => {
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date() 
         });
       }
+    }, (error) => {
+      console.error("Error listening to order:", error);
     });
+
     return () => unsubscribe();
-  }, [order?.id]);
+  }, [targetOrderId]);
+
+  // 2. FUNGSI COPY LINK
+  const handleCopyLink = () => {
+    const fullUrl = window.location.origin + "/receipt/" + targetOrderId;
+    navigator.clipboard.writeText(fullUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleManualRefresh = async () => {
-    if (!liveOrder?.id) return;
+    if (!targetOrderId) return;
     setIsRefreshing(true);
     try {
-      const docRef = doc(db, "orders", liveOrder.id);
+      const docRef = doc(db, "orders", targetOrderId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -63,291 +70,230 @@ const ReceiptView = ({ order, onBack }) => {
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date() 
         });
       }
-    } catch (error) { console.error("Gagal refresh:", error); } 
-    finally { setTimeout(() => setIsRefreshing(false), 800); }
+    } catch (error) { 
+      console.error("Gagal refresh:", error); 
+    } finally { 
+      setTimeout(() => setIsRefreshing(false), 800); 
+    }
   };
 
   const handleSaveImage = async () => {
     if (!receiptRef.current) return;
-    
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
-
+      // Tunggu sebentar agar render stabil
+      await new Promise(resolve => setTimeout(resolve, 200));
       const canvas = await html2canvas(receiptRef.current, {
         scale: 3, 
         backgroundColor: '#ffffff', 
         useCORS: true, 
         logging: false,
-        windowWidth: 400, 
-        onclone: (documentClone) => {
-            const element = documentClone.getElementById('receipt-content');
-            if (element) {
-                element.style.fontFamily = 'Arial, Helvetica, sans-serif';
-                element.style.padding = '40px';
-                element.style.width = '100%';
-                
-                const texts = element.querySelectorAll('*');
-                texts.forEach(el => {
-                    if (window.getComputedStyle(el).color === 'rgba(0, 0, 0, 0)') {
-                        el.style.color = '#000000';
-                    }
-                });
-            }
-        }
+        width: receiptRef.current.offsetWidth,
+        height: receiptRef.current.offsetHeight
       });
 
       const image = canvas.toDataURL("image/png", 1.0);
       const link = document.createElement('a');
       link.href = image;
-      link.download = `Struk-${liveOrder.customerName}-${liveOrder.id.substring(0,5)}.png`;
+      link.download = `Struk-${liveOrder.customerName}-${targetOrderId.substring(0,5)}.png`;
       link.click();
     } catch (error) {
       console.error("Gagal menyimpan gambar:", error);
-      alert("Maaf, gagal menyimpan struk. Coba screenshot manual saja.");
+      alert("Gagal menyimpan otomatis. Silakan screenshot layar Anda.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleConfirmViaWA = async () => {
-    const message = `Halo Admin Mamah Yonda,%0A%0ASaya sudah melakukan pembayaran via QRIS untuk:%0AOrder ID: *${liveOrder.id.toUpperCase()}*%0AAtas Nama: *${liveOrder.customerName}*%0ATotal: *${formatRupiah(liveOrder.total)}*%0A%0ABerikut saya lampirkan bukti transfernya (foto di chat ini). Mohon dicek ya!`;
+    const message = `Halo Admin Mamah Yonda,%0A%0ASaya sudah bayar via QRIS:%0AOrder: *${targetOrderId.toUpperCase()}*%0ANama: *${liveOrder.customerName}*%0ATotal: *${formatRupiah(liveOrder.total)}*`;
     window.open(`https://wa.me/${ADMIN_PHONE_NUMBER}?text=${message}`, '_blank');
     try {
-        const orderDocRef = doc(db, "orders", liveOrder.id);
-        await updateDoc(orderDocRef, { paymentStatus: 'verification_via_wa' });
-    } catch (err) { console.error("Gagal update status lokal:", err); }
+        await updateDoc(doc(db, "orders", targetOrderId), { paymentStatus: 'verification_via_wa' });
+    } catch (err) { 
+      console.error("Gagal update status:", err); 
+    }
     setShowPaymentModal(false);
   };
 
-  // --- PERBAIKAN UTAMA: TAMPILAN LOADING JIKA DATA BELUM SIAP ---
   if (!liveOrder) {
-      return (
-        <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
-            <Loader2 size={48} className="text-orange-500 animate-spin mb-4" />
-            <h2 className="text-xl font-black text-gray-800 italic uppercase">Memuat Pesanan...</h2>
-            <p className="text-gray-400 text-sm mt-2">Mohon tunggu sebentar, sedang mengambil data struk.</p>
-            <button onClick={onBack} className="mt-8 text-sm font-bold text-orange-600 hover:underline">
-                Kembali ke Menu
-            </button>
-        </div>
-      );
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-gray-50">
+          <Loader2 size={48} className="text-orange-500 animate-spin mb-4" />
+          <h2 className="text-xl font-black text-gray-800 italic uppercase tracking-tighter">Mencari Pesanan...</h2>
+          <button onClick={() => navigate('/')} className="mt-8 text-orange-600 font-bold underline">Kembali ke Menu</button>
+      </div>
+    );
   }
-
-  const formatOrderDate = (dateObj) => {
-    if (!dateObj) return '-';
-    return dateObj.toLocaleString('id-ID', {
-      day: '2-digit', month: 'long', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-  };
 
   const getStatusUI = (status) => {
     const s = (status || 'pending').toLowerCase();
-    if (s === 'pending' || s === 'baru') return { style: 'bg-yellow-50 border-yellow-200 text-yellow-700', icon: <Clock size={48} className="animate-pulse text-yellow-500" />, title: 'MENUNGGU KONFIRMASI', desc: 'Mohon tunggu, Admin sedang mengecek pesananmu...', canRefresh: true };
-    if (s === 'processing' || s === 'proses') return { style: 'bg-blue-50 border-blue-200 text-blue-700', icon: <ChefHat size={48} className="animate-bounce text-blue-500" />, title: 'PESANAN DITERIMA', desc: 'Hore! Makananmu sedang disiapkan di dapur.', canRefresh: true };
-    if (s === 'completed' || s === 'selesai') return { style: 'bg-green-50 border-green-200 text-green-700', icon: <CheckCircle size={48} className="text-green-500" />, title: 'PESANAN SELESAI', desc: 'Pesanan sudah selesai/diantar. Terima kasih!', canRefresh: false };
-    if (s === 'cancelled' || s === 'batal') return { style: 'bg-red-50 border-red-200 text-red-700', icon: <XCircle size={48} className="text-red-500" />, title: 'PESANAN DIBATALKAN', desc: 'Maaf, pesanan ini tidak dapat diproses.', canRefresh: false };
-    return { style: 'bg-gray-50', icon: null, title: s, desc: '', canRefresh: true };
+    if (s === 'pending' || s === 'baru') return { style: 'bg-yellow-50 border-yellow-200 text-yellow-700', icon: <Clock size={48} className="animate-pulse text-yellow-500" />, title: 'MENUNGGU KONFIRMASI', desc: 'Sabar ya, Admin sedang mengecek pesananmu.' };
+    if (s === 'processing' || s === 'proses') return { style: 'bg-blue-50 border-blue-200 text-blue-700', icon: <ChefHat size={48} className="animate-bounce text-blue-500" />, title: 'SEDANG DIMASAK', desc: 'Pesananmu sudah diterima dan sedang diproses.' };
+    if (s === 'completed' || s === 'selesai') return { style: 'bg-green-50 border-green-200 text-green-700', icon: <CheckCircle size={48} className="text-green-500" />, title: 'PESANAN SELESAI', desc: 'Makanan sudah siap/diantar. Selamat makan!' };
+    if (s === 'cancelled' || s === 'batal') return { style: 'bg-red-50 border-red-200 text-red-700', icon: <XCircle size={48} className="text-red-500" />, title: 'DIBATALKAN', desc: 'Maaf, pesananmu tidak dapat kami proses.' };
+    return { style: 'bg-gray-50', icon: null, title: s, desc: '' };
   };
 
   const statusUI = getStatusUI(liveOrder.status);
-  const isCancelled = liveOrder.status === 'cancelled' || liveOrder.status === 'batal';
-  
-  const isWaitingVerification = liveOrder.paymentStatus === 'verification_via_wa';
-  const canPayNow = !liveOrder.isPaid && !isCancelled && !isWaitingVerification;
+  const canPayNow = !liveOrder.isPaid && liveOrder.status !== 'cancelled' && liveOrder.paymentStatus !== 'verification_via_wa';
 
   return (
-    <div className="max-w-md mx-auto p-4 mt-6 mb-20 animate-in fade-in zoom-in duration-300 relative">
+    <div className="max-w-md mx-auto p-4 mb-24 animate-in fade-in duration-500">
       
-      {/* 1. LAYAR PENUH (FULLSCREEN OVERLAY) JIKA GAMBAR DIKLIK */}
+      {/* MODAL QRIS FULLSCREEN */}
       {isQrisFullscreen && (
-        <div 
-            className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
-            onClick={() => setIsQrisFullscreen(false)} 
-        >
-             <button className="absolute top-6 right-6 text-white bg-white/20 p-2 rounded-full"><X size={24} /></button>
-             <p className="text-white/70 text-xs font-bold uppercase tracking-widest mb-6 animate-pulse mt-10">Ketuk Layar Untuk Kembali</p>
-             <div className="bg-white p-4 rounded-2xl w-full max-w-sm flex items-center justify-center shadow-2xl shadow-white/10">
-                <img src={QRIS_IMAGE_URL} alt="QRIS Full" className="w-full h-auto object-contain" />
-             </div>
-             <div className="text-center mt-8">
-                <p className="text-gray-400 text-xs uppercase tracking-widest">Total Tagihan</p>
-                <p className="text-orange-500 text-4xl font-black italic">{formatRupiah(liveOrder.total)}</p>
-             </div>
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4" onClick={() => setIsQrisFullscreen(false)}>
+          <button className="absolute top-6 right-6 text-white"><X size={32} /></button>
+          <div className="bg-white p-4 rounded-2xl max-w-xs w-full">
+            <img src={QRIS_IMAGE_URL} className="w-full h-auto" alt="QRIS" />
+          </div>
+          <p className="text-white mt-6 font-black text-3xl italic">{formatRupiah(liveOrder.total)}</p>
+          <p className="text-gray-400 text-sm mt-2 font-bold uppercase tracking-widest">Ketuk untuk menutup</p>
         </div>
       )}
 
-      {/* 2. MODAL PEMBAYARAN */}
+      {/* MODAL PEMBAYARAN */}
       {showPaymentModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl relative">
-                  <div className="bg-orange-500 p-4 flex justify-between items-center text-white shadow-md z-10 relative">
-                      <h3 className="font-black italic uppercase flex items-center gap-2 text-lg"><QrCode size={20} /> Scan QRIS</h3>
-                      <button onClick={() => setShowPaymentModal(false)} className="bg-white/20 p-1.5 rounded-full hover:bg-white/40 transition-colors"><X size={20} /></button>
-                  </div>
-                  <div className="p-5 flex flex-col items-center gap-4 bg-gray-50/50">
-                      <div 
-                        className="bg-white p-3 border-2 border-gray-200 rounded-2xl shadow-lg w-full relative group cursor-pointer hover:border-orange-400 transition-all"
-                        onClick={() => setIsQrisFullscreen(true)} 
-                      >
-                          <div className="aspect-square w-full flex items-center justify-center overflow-hidden rounded-xl bg-white">
-                             <img src={QRIS_IMAGE_URL} alt="QRIS Code" className="w-full h-full object-contain" />
-                          </div>
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10 rounded-2xl">
-                             <span className="bg-black/70 text-white text-xs font-bold px-4 py-2 rounded-full flex items-center gap-2 backdrop-blur-sm"><Maximize2 size={14} /> Perbesar</span>
-                          </div>
-                      </div>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest -mt-2">Ketuk gambar untuk memperbesar</p>
-                      <div className="w-full h-px bg-gray-200 my-1"></div>
-                      <div className="text-center">
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Total Tagihan</p>
-                          <p className="text-4xl font-black text-gray-800 italic tracking-tighter">{formatRupiah(liveOrder.total)}</p>
-                      </div>
-                      <div className="w-full mt-2">
-                          <button onClick={handleConfirmViaWA} className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white py-4 rounded-xl font-black uppercase tracking-wider shadow-lg flex justify-center items-center gap-2 transition-all active:scale-95 shadow-green-200">
-                               <MessageCircle size={22} className="fill-white text-[#25D366]" /> KONFIRMASI KE WHATSAPP
-                          </button>
-                          <p className="text-[10px] text-center text-gray-400 mt-3 font-medium px-4 leading-tight">Setelah transfer, wajib kirim bukti transfer agar pesanan diproses lunas.</p>
-                      </div>
-                  </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl">
+            <div className="bg-orange-500 p-5 flex justify-between items-center text-white">
+              <h3 className="font-black italic uppercase flex items-center gap-2 tracking-tighter"><QrCode size={20} /> Pembayaran QRIS</h3>
+              <button onClick={() => setShowPaymentModal(false)}><X size={24} /></button>
+            </div>
+            <div className="p-8 flex flex-col items-center gap-6">
+              <div className="border-4 border-dashed border-gray-100 rounded-3xl p-3 cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => setIsQrisFullscreen(true)}>
+                <img src={QRIS_IMAGE_URL} className="w-full aspect-square object-contain" alt="QRIS" />
+                <div className="flex justify-center mt-2 text-gray-400 italic font-bold text-[10px] uppercase tracking-widest gap-1"><Maximize2 size={10}/> Klik untuk memperbesar</div>
               </div>
+              <div className="text-center">
+                <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Total Tagihan</p>
+                <p className="text-4xl font-black text-gray-800 italic tracking-tighter">{formatRupiah(liveOrder.total)}</p>
+              </div>
+              <button onClick={handleConfirmViaWA} className="w-full bg-[#25D366] text-white py-5 rounded-2xl font-black flex justify-center items-center gap-3 shadow-lg shadow-green-200 active:scale-95 transition-all uppercase italic tracking-wider">
+                <MessageCircle size={22} /> Konfirmasi ke WA
+              </button>
+            </div>
           </div>
+        </div>
       )}
 
-      {/* TOMBOL KEMBALI */}
-      <button onClick={onBack} className="mb-4 flex items-center gap-2 text-gray-500 hover:text-orange-500 font-bold text-xs transition-all print:hidden">
-        <ArrowLeft size={16} /> KEMBALI KE MENU
-      </button>
-
-      {/* Banner Status */}
-      <div className={`print:hidden mb-6 p-8 rounded-[2rem] text-center border-4 border-double shadow-lg flex flex-col items-center gap-3 ${statusUI.style}`}>
-          <div>{statusUI.icon}</div>
-          <div>
-            <h2 className="text-2xl font-black italic tracking-tighter leading-none mb-1">{statusUI.title}</h2>
-            <p className="text-xs font-bold opacity-80 mb-4">{statusUI.desc}</p>
-            {statusUI.canRefresh && (
-                <button onClick={handleManualRefresh} disabled={isRefreshing} className="mx-auto flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm border border-black/5 disabled:opacity-50">
-                  <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} /> {isRefreshing ? 'Mengecek...' : 'Refresh Status'}
-                </button>
-            )}
-          </div>
+      {/* HEADER ACTION */}
+      <div className="flex justify-between items-center mb-6">
+        <button onClick={onBack || (() => navigate('/'))} className="flex items-center gap-2 text-gray-400 hover:text-orange-500 font-black text-[10px] uppercase tracking-widest transition-colors">
+          <ArrowLeft size={16} /> Kembali
+        </button>
+        <button onClick={handleCopyLink} className="flex items-center gap-2 text-orange-500 font-black text-[10px] uppercase tracking-widest bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100 active:scale-95 transition-all">
+          {copied ? <Check size={14} /> : <Share2 size={14} />} {copied ? 'Tersalin' : 'Bagikan Struk'}
+        </button>
       </div>
 
-      {/* BANNER TOMBOL BAYAR */}
-      {canPayNow && (
-        <div className="print:hidden mb-6 animate-bounce">
-            <button onClick={() => setShowPaymentModal(true)} className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-[2rem] shadow-xl shadow-orange-200 flex items-center justify-center gap-3 transform transition-transform hover:scale-105 active:scale-95">
-                <div className="bg-white/20 p-2 rounded-full"><QrCode size={24} /></div>
-                <div className="text-left">
-                  <p className="text-[10px] font-black uppercase tracking-widest opacity-90">
-                      {liveOrder.status === 'completed' || liveOrder.status === 'selesai' ? 'Pesanan Selesai?' : 'Menunggu Pembayaran'}
-                  </p>
-                  <p className="text-lg font-black italic leading-none">BAYAR VIA QRIS</p>
-                </div>
-            </button>
-        </div>
-      )}
+      {/* BANNER STATUS */}
+      <div className={`mb-6 p-8 rounded-[2.5rem] text-center border-4 border-double shadow-xl shadow-gray-100 flex flex-col items-center gap-2 ${statusUI.style}`}>
+          <div className="mb-2">{statusUI.icon}</div>
+          <h2 className="text-2xl font-black italic tracking-tighter leading-none">{statusUI.title}</h2>
+          <p className="text-[10px] font-bold uppercase opacity-60 tracking-wider mb-2">{statusUI.desc}</p>
+          <button onClick={handleManualRefresh} disabled={isRefreshing} className="flex items-center gap-2 px-5 py-2 bg-white/60 hover:bg-white rounded-full text-[10px] font-black uppercase tracking-tighter transition-all">
+            <RefreshCw size={14} className={isRefreshing ? "animate-spin text-orange-500" : ""} /> 
+            {isRefreshing ? 'Mengecek...' : 'Refresh Status'}
+          </button>
+      </div>
 
-      {/* Banner Menunggu Verifikasi */}
-      {isWaitingVerification && !liveOrder.isPaid && (
-          <div className="print:hidden mb-6 bg-blue-50 border border-blue-200 p-4 rounded-2xl flex items-center gap-3 text-blue-800">
-              <MessageCircle size={32} className="text-blue-500 animate-pulse" />
-              <div><p className="font-black italic uppercase text-sm">Sedang Diverifikasi</p><p className="text-[11px] leading-tight mt-1">Anda sudah konfirmasi via WA. Admin akan segera mengubah status menjadi LUNAS.</p></div>
+      {/* TOMBOL BAYAR CEPAT */}
+      {canPayNow && ( liveOrder.status !== 'completed' && (
+        <button onClick={() => setShowPaymentModal(true)} className="w-full mb-8 bg-gradient-to-r from-orange-500 to-red-600 text-white p-5 rounded-[2.5rem] shadow-xl shadow-orange-100 flex items-center justify-center gap-4 animate-pulse hover:animate-none transition-all active:scale-95">
+          <QrCode size={28} />
+          <div className="text-left leading-none">
+            <p className="text-[10px] font-black uppercase opacity-80 tracking-widest mb-1 text-white">Sudah lapar?</p>
+            <p className="text-xl font-black italic uppercase tracking-tighter">Bayar Sekarang via QRIS</p>
           </div>
-      )}
+        </button>
+      ))}
 
-      {/* ================================================== 
-          STRUK KONTEN (YANG AKAN DI-DOWNLOAD)
-          ==================================================
-      */}
-      <div 
-        id="receipt-content" 
-        ref={receiptRef}
-        className="bg-white rounded-[2rem] shadow-2xl p-8 border-t-[12px] border-orange-500 relative overflow-hidden receipt-card"
-        style={{ backgroundColor: 'white', color: 'black', fontFamily: 'Arial, sans-serif' }} 
-      >
-        <div className="text-center mb-8 relative z-10">
-          <h2 className="text-3xl font-black text-gray-800 tracking-tighter leading-none italic uppercase" style={{ margin: 0, color: '#1f2937' }}>Warung Makan<br/>Mamah Yonda</h2>
-          <p className="text-[9px] text-gray-400 mt-2 leading-relaxed font-bold uppercase italic" style={{ color: '#9ca3af' }}>Jl. Cipulir 5 No. 17D, Jakarta Selatan<br/>WA: 087774223733</p>
+      {/* KONTEN STRUK (DAPAT DISIMPAN) */}
+      <div id="receipt-capture" ref={receiptRef} className="bg-white rounded-[2.5rem] shadow-2xl p-10 border-t-[15px] border-orange-500 relative overflow-hidden ring-1 ring-black/5" style={{ backgroundColor: 'white' }}>
+        {/* Dekorasi Lubang Struk */}
+        <div className="absolute top-0 left-10 right-10 flex justify-between">
+           {[...Array(6)].map((_, i) => <div key={i} className="w-3 h-6 bg-orange-500/20 rounded-b-full"></div>)}
         </div>
 
-        <div className="border-y-2 border-dashed border-gray-100 py-6 mb-6 space-y-2" style={{ borderTop: '2px dashed #f3f4f6', borderBottom: '2px dashed #f3f4f6', padding: '20px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
-                <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic" style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase' }}>Pelanggan:</span>
-                <span className="font-black text-gray-800 uppercase text-sm italic" style={{ fontWeight: 900, color: '#1f2937' }}>{liveOrder.customerName}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
-                <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic" style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase' }}>Status:</span>
-                <span className={`font-black uppercase text-[10px] italic px-2 py-0.5 rounded ${statusUI.style}`} style={{ fontWeight: 900, fontSize: '10px' }}>{liveOrder.status || 'Pending'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
-                <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic" style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase' }}>Pembayaran:</span>
-                <span className={`font-black uppercase text-[10px] italic px-2 py-0.5 rounded ${liveOrder.isPaid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`} style={{ fontWeight: 900, fontSize: '10px' }}>{liveOrder.isPaid ? 'LUNAS' : 'BELUM LUNAS'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest italic" style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase' }}>Waktu:</span>
-                <span className="font-black text-gray-700 text-[10px] italic" style={{ fontWeight: 900, fontSize: '10px', color: '#374151' }}>{formatOrderDate(liveOrder.createdAt)}</span>
-            </div>
-        </div>
-
-        <div className="space-y-6 mb-8" style={{ marginBottom: '30px' }}>
-            {liveOrder.items?.map((item, idx) => {
-              const variantLabel = item.selectedVariant?.name || item.variant;
-              return (
-                <div key={idx} className="relative" style={{ marginBottom: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span className="text-sm font-black text-gray-800 uppercase tracking-tight italic" style={{ fontWeight: 900, color: '#1f2937' }}>
-                            {item.name} <span className="text-orange-600 ml-1" style={{ color: '#ea580c' }}>x{item.quantity}</span>
-                        </span>
-                        {variantLabel && variantLabel !== 'Tanpa Varian' && (
-                            <span className="text-[9px] font-black text-gray-400 italic uppercase tracking-tighter" style={{ fontSize: '9px', color: '#9ca3af' }}>Varian: {variantLabel}</span>
-                        )}
-                    </div>
-                    <span className="text-sm font-black text-gray-800 italic" style={{ fontWeight: 900, color: '#1f2937' }}>{formatRupiah(item.price * item.quantity)}</span>
-                  </div>
-                  {(item.notes || item.note) && (
-                      <div className="mt-2 flex items-start gap-2 bg-gray-50 p-3 rounded-xl border-l-4 border-orange-500" style={{ marginTop: '5px', padding: '10px', backgroundColor: '#f9fafb', borderLeft: '4px solid #f97316' }}>
-                          <StickyNote size={12} className="text-orange-500 mt-0.5" color="#f97316" />
-                          <p className="text-[11px] text-gray-700 font-black italic leading-tight uppercase tracking-tight" style={{ margin: 0, fontSize: '11px', color: '#374151' }}>"{item.notes || item.note}"</p>
-                      </div>
-                  )}
-                </div>
-              );
-            })}
-        </div>
-
-        <div className="border-t-2 border-double border-gray-100 pt-6 mb-8" style={{ borderTop: '4px double #f3f4f6', paddingTop: '20px', marginBottom: '30px' }}>
-          <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb', padding: '15px', borderRadius: '15px' }}>
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest italic" style={{ color: '#9ca3af', fontSize: '10px', textTransform: 'uppercase' }}>Total Akhir</span>
-            <span className="text-2xl font-black text-orange-600 print:text-black italic tracking-tighter" style={{ fontSize: '24px', fontWeight: 900, color: '#ea580c' }}>{formatRupiah(liveOrder.total)}</span>
+        <div className="text-center mb-10 mt-4">
+          <h2 className="text-3xl font-black text-gray-800 italic uppercase tracking-tighter leading-[0.8]">Warung Makan<br/><span className="text-orange-500">Mamah Yonda</span></h2>
+          <div className="mt-4 flex flex-col items-center gap-1">
+             <div className="h-0.5 w-12 bg-gray-200 rounded-full"></div>
+             <p className="text-[9px] text-gray-400 font-black uppercase italic tracking-[0.2em]">Cipulir 5 No. 17D, Jak-Sel</p>
           </div>
         </div>
 
-        <div className="text-center space-y-3" style={{ textAlign: 'center' }}>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] italic" style={{ color: '#9ca3af', letterSpacing: '0.3em' }}>Terima Kasih</p>
-            <div className="flex justify-center gap-1" style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                {[1,2,3,4,5].map(i => <div key={i} className="h-1 w-1 bg-gray-200 rounded-full" style={{ width: '4px', height: '4px', backgroundColor: '#e5e7eb', borderRadius: '50%' }}></div>)}
+        <div className="border-y-2 border-dashed border-gray-100 py-6 mb-8 grid grid-cols-2 gap-y-3 text-[10px]">
+          <div className="flex flex-col">
+            <span className="text-gray-400 font-black uppercase tracking-widest italic mb-0.5">Pelanggan</span>
+            <span className="font-black text-gray-800 uppercase text-sm italic tracking-tighter">{liveOrder.customerName}</span>
+          </div>
+          <div className="flex flex-col items-end text-right">
+            <span className="text-gray-400 font-black uppercase tracking-widest italic mb-0.5">Order ID</span>
+            <span className="font-black text-gray-800 text-xs italic">#{targetOrderId.substring(0,8).toUpperCase()}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-gray-400 font-black uppercase tracking-widest italic mb-0.5">Tanggal</span>
+            <span className="font-black text-gray-700 italic">{liveOrder.createdAt?.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+          </div>
+          <div className="flex flex-col items-end text-right">
+            <span className="text-gray-400 font-black uppercase tracking-widest italic mb-0.5">Status Bayar</span>
+            <span className={`font-black text-[10px] uppercase italic ${liveOrder.isPaid ? 'text-green-600' : 'text-orange-600'}`}>
+              {liveOrder.isPaid ? 'Lunas' : 'Belum Lunas'}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-6 mb-10">
+          {liveOrder.items?.map((item, idx) => (
+            <div key={idx} className="flex justify-between items-start group">
+              <div className="flex flex-col max-w-[70%]">
+                <span className="text-sm font-black text-gray-800 uppercase italic tracking-tighter leading-tight group-hover:text-orange-500 transition-colors">
+                  {item.name} <span className="text-orange-500 ml-1">x{item.quantity}</span>
+                </span>
+                {item.selectedVariant && (
+                  <span className="text-[9px] font-black text-gray-400 italic mt-0.5 bg-gray-50 self-start px-2 py-0.5 rounded-full border border-gray-100">
+                    Varian: {item.selectedVariant.name}
+                  </span>
+                )}
+                {item.notes && <span className="text-[9px] text-orange-400 font-bold italic mt-1 leading-tight">"{item.notes}"</span>}
+              </div>
+              <span className="text-sm font-black text-gray-800 italic tracking-tighter">{formatRupiah(item.price * item.quantity)}</span>
             </div>
+          ))}
+        </div>
+
+        <div className="border-t-4 border-double border-gray-100 pt-8 mb-4">
+          <div className="flex justify-between items-center bg-gray-50 px-6 py-5 rounded-[2rem] border border-gray-100">
+            <span className="text-xs font-black text-gray-400 uppercase italic tracking-widest">Total Bayar</span>
+            <span className="text-3xl font-black text-orange-600 italic tracking-tighter drop-shadow-sm">{formatRupiah(liveOrder.total)}</span>
+          </div>
+        </div>
+
+        <div className="mt-10 flex flex-col items-center gap-4">
+           <div className="flex gap-2">
+              {[...Array(12)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-gray-100 rounded-full"></div>)}
+           </div>
+           <p className="text-center text-[9px] font-black text-gray-300 uppercase tracking-[0.4em] italic">Terima Kasih Atas Pesanannya</p>
         </div>
       </div>
       
-      <div className="mt-6">
-          <button onClick={handleSaveImage} disabled={isSaving} className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-[2rem] font-black transition-all flex justify-center items-center gap-3 shadow-xl shadow-orange-100 active:scale-95 italic uppercase tracking-wider disabled:opacity-70">
-            {isSaving ? <><Loader2 size={20} className="animate-spin" /> Memproses Gambar...</> : <><Download size={20} /> Simpan Struk (Galeri)</>}
+      {/* ACTION FOOTER */}
+      <div className="mt-8 flex flex-col gap-3">
+          <button onClick={handleSaveImage} disabled={isSaving} className="w-full bg-gray-900 text-white py-5 rounded-[2rem] font-black transition-all flex justify-center items-center gap-3 active:scale-95 italic uppercase tracking-widest shadow-xl shadow-gray-200 disabled:opacity-70">
+            {isSaving ? <><Loader2 size={20} className="animate-spin text-orange-500" /> Menyimpan...</> : <><Download size={20} /> Simpan Gambar Struk</>}
           </button>
-          <p className="text-center text-[10px] text-gray-400 font-bold mt-4 uppercase tracking-widest">Gambar akan tersimpan otomatis di Folder Download / Galeri HP Anda.</p>
+          
+          <div className="p-4 bg-orange-50 rounded-2xl border border-dashed border-orange-200 text-center">
+            <p className="text-[9px] font-black text-orange-400 uppercase tracking-widest leading-none mb-1">Punya kendala?</p>
+            <a href={`https://wa.me/${ADMIN_PHONE_NUMBER}`} target="_blank" rel="noreferrer" className="text-[10px] font-black text-orange-600 uppercase italic underline decoration-2 underline-offset-4 flex items-center justify-center gap-1">
+              <MessageCircle size={12} /> Hubungi Admin via WhatsApp
+            </a>
+          </div>
       </div>
 
-      <style>{`
-        @media print { 
-            @page { margin: 0; } 
-            body { margin: 0; padding: 0.5cm; background: white; } 
-            .print\\:hidden { display: none !important; } 
-            .receipt-card { border: none !important; box-shadow: none !important; padding: 0 !important; width: 100% !important; max-width: none !important; } 
-        }
-      `}</style>
     </div>
   );
 };
