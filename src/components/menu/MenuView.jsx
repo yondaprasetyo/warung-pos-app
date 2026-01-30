@@ -89,10 +89,9 @@ const MenuView = ({
                             </div>
                             <input 
                               type="date" 
-                              // TAMBAHAN: appearance-none m-0 p-0 bg-transparent
-                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20 appearance-none m-0 p-0 bg-transparent"
-                              style={{ WebkitAppearance: 'none' }} // Paksa reset khusus Safari
-                              value={orderDateInfo?.isoDate || new Date().toISOString().split('T')[0]}
+                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20 appearance-none bg-transparent"
+                              style={{ colorScheme: 'dark' }} // Membantu kontras picker di beberapa device
+                              value={orderDateInfo?.isoDate || ""}
                               onChange={(e) => onUpdateDate && onUpdateDate(e.target.value)}
                             />
                           </div>

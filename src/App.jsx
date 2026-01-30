@@ -133,7 +133,7 @@ const AppContent = () => {
           let hasStockUpdate = false;
 
           cart.forEach((item) => {
-            if (item.stock !== undefined && item.stock !== -1) {
+            if (item.stock !== undefined && item.stock !== -1) { 
               const realProductId = (item.productId || item.id).split('-')[0];
               const productRef = doc(db, "products", realProductId); 
               const newStock = Math.max(0, item.stock - item.quantity);

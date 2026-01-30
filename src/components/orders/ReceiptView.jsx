@@ -4,7 +4,8 @@ import { db } from '../../firebase';
 import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore'; 
 import { 
   ArrowLeft, Clock, ChefHat, CheckCircle, XCircle, 
-  RefreshCw, Download, Loader2, QrCode, MessageCircle, X, Share2, Copy, Check
+  RefreshCw, Download, Loader2, QrCode, MessageCircle, X, Share2, Copy, Check,
+  Maximize2 // <--- TAMBAHKAN INI
 } from 'lucide-react'; 
 import { formatRupiah } from '../../utils/format';
 import html2canvas from 'html2canvas';
@@ -274,7 +275,7 @@ const ReceiptView = ({ order, onBack }) => {
 
         <div className="mt-10 flex flex-col items-center gap-4">
            <div className="flex gap-2">
-              {[...Array(12)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-gray-100 rounded-full"></div>)}
+             {[...Array(12)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-gray-100 rounded-full"></div>)}
            </div>
            <p className="text-center text-[9px] font-black text-gray-300 uppercase tracking-[0.4em] italic">Terima Kasih Atas Pesanannya</p>
         </div>

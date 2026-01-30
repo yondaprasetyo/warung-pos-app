@@ -4,7 +4,9 @@ import { formatRupiah } from '../../utils/format';
 
 const ItemSelectionModal = ({ product, onClose, onConfirm }) => {
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(
+    product.variants && product.variants.length > 0 ? product.variants[0] : null
+  );
   const [note, setNote] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
 
