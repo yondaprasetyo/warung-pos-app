@@ -71,24 +71,29 @@ export const useAuth = () => {
   }, [currentUser]);
 
   const login = async (email, password) => {
-    setAuthError('');
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
-      // --- LOGIKA LOGGING LOGIN ---
-      // Kita pakai userCredential.user karena state currentUser mungkin belum update
-      const u = userCredential.user;
-      // Coba ambil nama dari Firestore (optional) atau pakai email sementara
-      logActivity(u.uid, u.email, "LOGIN", "Berhasil masuk ke sistem");
-      // ----------------------------
+  setAuthError('');
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const u = userCredential.user;
 
-      return true;
-    } catch (error) {
-      console.error("Login Error:", error.code);
-      setAuthError('Email atau password salah!');
-      return false;
+    // Ambil data tambahan segera untuk mempercepat transisi profil
+    const userDoc = await getDoc(doc(db, "users", u.uid));
+    if (userDoc.exists()) {
+      setCurrentUser({ uid: u.uid, email: u.email, ...userDoc.data() });
     }
-  };
+
+    logActivity(u.uid, u.email, "LOGIN", "Berhasil masuk ke sistem");
+    return true; // Login sukses
+  } catch (error) {
+    console.error("Login Error:", error.code);
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+       setAuthError('Email atau password salah!');
+    } else {
+       setAuthError('Gagal masuk: Periksa koneksi internet Anda.');
+    }
+    return false;
+  }
+};
 
   const register = async (userData) => {
     setAuthError('');
