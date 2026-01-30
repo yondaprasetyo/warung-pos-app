@@ -58,7 +58,7 @@ const App = () => {
 const AppContent = () => {
   const navigate = useNavigate();
   
-  // 1. SEMUA STATE
+  // 1. STATE
   const [currentView, setCurrentView] = useState('menu'); 
   const [isPublicMode, setIsPublicMode] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
@@ -66,7 +66,7 @@ const AppContent = () => {
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false); 
   const [orderDate, setOrderDate] = useState(null);
   
-  // 2. SEMUA CUSTOM HOOKS
+  // 2. CUSTOM HOOKS
   const { 
     users, currentUser, authError, setAuthError,
     login, logout, register, deleteUser, loading 
@@ -82,7 +82,7 @@ const AppContent = () => {
 
   const { checkIsClosed } = useStoreSchedule();
 
-  // 3. SEMUA MEMO & EFFECTS (Harus di atas conditional return)
+  // 3. MEMO & EFFECTS
   const shopClosedInfo = useMemo(() => {
      if (!orderDate || !orderDate.isoDate) return null;
      return checkIsClosed(orderDate.isoDate); 
@@ -94,23 +94,17 @@ const AppContent = () => {
     }
   }, [currentUser, orderDate]);
 
-  // 4. CONDITIONAL LOADING RENDER
-  if (loading || loadingOrder) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-orange-50">
-        <Loader2 className="text-orange-500 animate-spin mb-4" size={48} />
-        <h2 className="text-orange-800 font-black italic tracking-widest animate-pulse">
-          MEMUAT WARUNG...
-        </h2>
-      </div>
-    );
-  }
-
-  // 5. HANDLER FUNCTIONS
+  // 4. HANDLER FUNCTIONS
   const handleAdminDateChange = (newDateString) => {
     if (!newDateString) return;
     const newDate = new Date(newDateString);
     setOrderDate(getFormattedDateInfo(newDate));
+  };
+
+  // Fungsi baru untuk mereset tanggal (digunakan oleh pelanggan online)
+  const handleResetDate = () => {
+    setOrderDate(null);
+    setCurrentView('menu');
   };
 
   const navigateTo = (view) => {
@@ -163,6 +157,18 @@ const AppContent = () => {
         setIsProcessingCheckout(false); 
       }
     };
+
+  // 5. CONDITIONAL LOADING RENDER
+  if (loading || loadingOrder) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-orange-50">
+        <Loader2 className="text-orange-500 animate-spin mb-4" size={48} />
+        <h2 className="text-orange-800 font-black italic tracking-widest animate-pulse">
+          MEMUAT WARUNG...
+        </h2>
+      </div>
+    );
+  }
 
   const renderNameModal = () => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -240,7 +246,15 @@ const AppContent = () => {
               currentView={currentView} 
             />
             <main className="pt-[88px] px-4 max-w-7xl mx-auto">
-              {currentView === 'menu' && <MenuView onAddToCart={addToCart} orderDateInfo={orderDate || getFormattedDateInfo(new Date())} onUpdateDate={handleAdminDateChange} isAdmin={true} shopClosedInfo={shopClosedInfo} />}
+              {currentView === 'menu' && (
+                <MenuView 
+                  onAddToCart={addToCart} 
+                  orderDateInfo={orderDate || getFormattedDateInfo(new Date())} 
+                  onUpdateDate={handleAdminDateChange} 
+                  isAdmin={true} 
+                  shopClosedInfo={shopClosedInfo} 
+                />
+              )}
               {currentView === 'cart' && <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} updateCartItemDetails={updateCartItemDetails} onCheckout={() => setShowNameModal(true)} onBack={() => setCurrentView('menu')} />}
               {currentView === 'orders' && <OrderHistory orders={orders} />}
               {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
@@ -258,8 +272,14 @@ const AppContent = () => {
             <div className="min-h-screen bg-gray-50 pb-20"> 
               <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => { setIsPublicMode(false); setOrderDate(null); }} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="text-gray-600" size={20} /></button>
-                    <div><h1 className="font-black text-orange-500 text-lg italic leading-none">Mamah Yonda</h1><p className="text-xs text-gray-500">{orderDate.fullDate}</p></div>
+                    {/* Menggunakan handleResetDate agar pelanggan bisa pilih tanggal lagi */}
+                    <button onClick={handleResetDate} className="p-2 hover:bg-gray-100 rounded-full">
+                      <ArrowLeft className="text-gray-600" size={20} />
+                    </button>
+                    <div>
+                      <h1 className="font-black text-orange-500 text-lg italic leading-none">Mamah Yonda</h1>
+                      <p className="text-xs text-gray-500">{orderDate.fullDate}</p>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => setCurrentView('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2 relative">
@@ -268,7 +288,15 @@ const AppContent = () => {
                   </div>
               </header>
               <main className="max-w-7xl mx-auto">
-                {currentView === 'menu' && <MenuView onAddToCart={addToCart} orderDateInfo={orderDate} isAdmin={false} shopClosedInfo={shopClosedInfo} />}
+                {currentView === 'menu' && (
+                  <MenuView 
+                    onAddToCart={addToCart} 
+                    orderDateInfo={orderDate} 
+                    isAdmin={false} 
+                    shopClosedInfo={shopClosedInfo} 
+                    onUpdateDate={handleResetDate} // Fix: Kirim fungsi reset ke MenuView
+                  />
+                )}
                 {currentView === 'cart' && <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} updateCartItemDetails={updateCartItemDetails} onCheckout={() => setShowNameModal(true)} onBack={() => setCurrentView('menu')} />}
               </main>
               {showNameModal && renderNameModal()}

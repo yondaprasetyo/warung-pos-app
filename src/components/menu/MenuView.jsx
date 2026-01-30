@@ -3,15 +3,14 @@ import { db } from '../../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { formatRupiah } from '../../utils/format';
 import ItemSelectionModal from './ItemSelectionModal';
-import { Search, Calendar, Plus, ChevronDown, Lock } from 'lucide-react'; // Tambah icon Lock
+import { Search, Calendar, Plus, ChevronDown, Lock } from 'lucide-react';
 
 const MenuView = ({ 
   onAddToCart, 
   orderDateInfo, 
-  onChangeDate, 
-  onUpdateDate, 
+  onUpdateDate, // Menggunakan prop onUpdateDate sebagai fungsi reset/ubah tanggal
   isAdmin, 
-  shopClosedInfo // <--- TERIMA PROP INI
+  shopClosedInfo 
 }) => {
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -71,7 +70,7 @@ const MenuView = ({
   if (shopClosedInfo) {
     return (
         <div className="relative min-h-screen bg-gray-50">
-             {/* HEADER TETAP MUNCUL AGAR ADMIN BISA GANTI TANGGAL */}
+             {/* HEADER MODE TUTUP */}
              <header className="fixed top-[72px] left-0 right-0 z-[999] bg-white shadow-xl border-b border-gray-100">
                  <div className="bg-red-600 px-4 py-3 flex justify-between items-center text-white transition-all">
                      <div className="flex items-center gap-2 overflow-hidden flex-1 relative">
@@ -81,16 +80,16 @@ const MenuView = ({
                           <div className="relative flex items-center cursor-pointer group">
                             <div className="flex flex-col leading-none z-10 pointer-events-none">
                                <span className="text-[8px] text-red-200 font-bold uppercase tracking-widest mb-0.5">
-                                  Lihat Tanggal Lain:
+                                 Lihat Tanggal Lain:
                                </span>
                                <span className="text-xs font-black uppercase italic tracking-tight truncate flex items-center gap-1 group-hover:text-red-100 transition-colors">
-                                  {orderDateInfo?.fullDate} <ChevronDown size={12} className="opacity-70"/>
+                                 {orderDateInfo?.fullDate} <ChevronDown size={12} className="opacity-70"/>
                                </span>
                             </div>
                             <input 
                               type="date" 
                               className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20 appearance-none bg-transparent"
-                              style={{ colorScheme: 'dark' }} // Membantu kontras picker di beberapa device
+                              style={{ colorScheme: 'dark' }}
                               value={orderDateInfo?.isoDate || ""}
                               onChange={(e) => onUpdateDate && onUpdateDate(e.target.value)}
                             />
@@ -108,7 +107,10 @@ const MenuView = ({
                      </div>
 
                      {!isAdmin && (
-                        <button onClick={onChangeDate} className="text-[9px] font-black bg-white text-red-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm transition-transform">
+                        <button 
+                          onClick={onUpdateDate} // Memanggil handleResetDate di App.jsx
+                          className="text-[9px] font-black bg-white text-red-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm transition-transform"
+                        >
                           Ubah
                         </button>
                      )}
@@ -133,12 +135,6 @@ const MenuView = ({
                         <span className="text-gray-800 underline">{orderDateInfo?.fullDate}</span>
                     </p>
                 </div>
-                
-                {isAdmin && (
-                    <p className="mt-8 text-gray-400 text-[10px] font-bold uppercase tracking-widest">
-                        (Anda dalam Mode Admin)
-                    </p>
-                )}
              </div>
         </div>
     );
@@ -162,18 +158,18 @@ const MenuView = ({
             {isAdmin ? (
               <div className="relative flex items-center cursor-pointer group">
                 <div className="flex flex-col leading-none z-10 pointer-events-none">
-                   <span className="text-[8px] text-orange-200 font-bold uppercase tracking-widest mb-0.5">
+                    <span className="text-[8px] text-orange-200 font-bold uppercase tracking-widest mb-0.5">
                       Menu Tanggal:
-                   </span>
-                   <span className="text-xs font-black uppercase italic tracking-tight truncate flex items-center gap-1 group-hover:text-orange-100 transition-colors">
+                    </span>
+                    <span className="text-xs font-black uppercase italic tracking-tight truncate flex items-center gap-1 group-hover:text-orange-100 transition-colors">
                       {orderDateInfo?.fullDate || "Pilih Tanggal"} 
                       <ChevronDown size={12} className="opacity-70"/>
-                   </span>
+                    </span>
                 </div>
                 <input 
                   type="date" 
                   className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20"
-                  value={orderDateInfo?.isoDate || new Date().toISOString().split('T')[0]}
+                  value={orderDateInfo?.isoDate || ""}
                   onChange={(e) => onUpdateDate && onUpdateDate(e.target.value)}
                 />
               </div>
@@ -191,7 +187,7 @@ const MenuView = ({
 
           {!isAdmin && (
             <button 
-              onClick={onChangeDate}
+              onClick={onUpdateDate} // Memanggil handleResetDate di App.jsx
               className="text-[9px] font-black bg-white text-orange-600 px-4 py-1.5 rounded-full uppercase active:scale-90 shadow-sm transition-transform"
             >
               Ubah
