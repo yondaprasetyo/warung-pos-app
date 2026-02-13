@@ -14,6 +14,7 @@ import {
   ArrowLeft, 
   Loader2 
 } from 'lucide-react';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Components
 import Header from './components/layout/Header';
@@ -208,118 +209,98 @@ const AppContent = () => {
     </div>
   );
 
+  const renderMainContent = (isAdminView = false) => {
+    switch (currentView) {
+      case 'menu':
+        return (
+          <MenuView 
+            onAddToCart={addToCart} 
+            orderDateInfo={orderDate || getFormattedDateInfo(new Date())} 
+            onUpdateDate={isAdminView ? handleAdminDateChange : handleResetDate} 
+            isAdmin={isAdminView} 
+            shopClosedInfo={shopClosedInfo} 
+          />
+        );
+      case 'cart':
+        return (
+          <CartView 
+            cart={cart} 
+            updateQuantity={updateQuantity} 
+            removeFromCart={removeFromCart} 
+            updateCartItemDetails={updateCartItemDetails} 
+            onCheckout={() => setShowNameModal(true)} 
+            onBack={() => setCurrentView('menu')} 
+          />
+        );
+      case 'orders': return <OrderHistory orders={orders} />;
+      case 'laporan': return currentUser?.role === 'admin' && <SalesLaporan />;
+      case 'manage-menu': return currentUser?.role === 'admin' && <ProductManagement />;
+      case 'schedule': return currentUser?.role === 'admin' && <StoreScheduleSettings />;
+      case 'users': return currentUser?.role === 'admin' && <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => navigate('/register')} />;
+      case 'profile': return <ProfileView user={currentUser} onUpdate={() => alert('Fit? segera hadir')} />;
+      default: return <MenuView onAddToCart={addToCart} orderDateInfo={orderDate} />;
+    }
+  };
+
   return (
     <Routes>
+      {/* 1. RUTE PUBLIK: LOGIN & REGISTER */}
+      <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <LoginView onLogin={login} error={authError} />} />
+      <Route path="/register" element={currentUser ? <Navigate to="/" replace /> : <RegisterView onRegister={(d) => register(d) && navigate('/login')} onBack={() => navigate('/login')} error={authError} />} />
+
+      {/* 2. RUTE PUBLIK: RECEIPT (Bisa diakses tanpa login) */}
       <Route path="/receipt/:orderId" element={
-        <ReceiptView 
-            order={currentOrder} 
-            onBack={() => { 
-                resetCurrentOrder(); 
-                navigate('/'); 
-                setCurrentView('menu'); 
-            }} 
-        />
+        <ReceiptView order={currentOrder} onBack={() => { resetCurrentOrder(); navigate('/'); setCurrentView('menu'); }} />
       } />
 
-      <Route path="/login" element={
-        currentUser ? <Navigate to="/" replace /> : <LoginView onLogin={login} error={authError} />
-      } />
-
-      <Route path="/register" element={
-        currentUser ? <Navigate to="/" replace /> : (
-          <RegisterView 
-            onRegister={(d) => register(d) && navigate('/login')} 
-            onBack={() => navigate('/login')} 
-            error={authError} 
-          />
-        )
-      } />
-
+      {/* 3. RUTE UTAMA */}
       <Route path="/" element={
         currentUser ? (
+          /* TAMPILAN JIKA SUDAH LOGIN (ADMIN/STAF) */
           <div className="min-h-screen bg-orange-50/30 pb-10">
-            <Header 
-              user={currentUser} 
-              cartCount={cart.reduce((a, b) => a + b.quantity, 0)} 
-              onNavigate={navigateTo} 
-              onLogout={logout} 
-              currentView={currentView} 
-            />
+            <Header user={currentUser} cartCount={cart.reduce((a, b) => a + b.quantity, 0)} onNavigate={navigateTo} onLogout={logout} currentView={currentView} />
             <main className="pt-[88px] px-4 max-w-7xl mx-auto">
-              {currentView === 'menu' && (
-                <MenuView 
-                  onAddToCart={addToCart} 
-                  orderDateInfo={orderDate || getFormattedDateInfo(new Date())} 
-                  onUpdateDate={handleAdminDateChange} 
-                  isAdmin={true} 
-                  shopClosedInfo={shopClosedInfo} 
-                />
-              )}
-              {currentView === 'cart' && <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} updateCartItemDetails={updateCartItemDetails} onCheckout={() => setShowNameModal(true)} onBack={() => setCurrentView('menu')} />}
-              {currentView === 'orders' && <OrderHistory orders={orders} />}
-              {currentView === 'laporan' && currentUser.role === 'admin' && <SalesLaporan />}
-              {currentView === 'manage-menu' && currentUser.role === 'admin' && <ProductManagement />}
-              {currentView === 'schedule' && currentUser.role === 'admin' && <StoreScheduleSettings />}
-              {currentView === 'users' && currentUser.role === 'admin' && <UserManagement users={users} currentUser={currentUser} onDelete={deleteUser} onAddClick={() => navigate('/register')} />}
-              {currentView === 'profile' && <ProfileView user={currentUser} onUpdate={() => alert('Fitur segera hadir')} />}
+              {renderMainContent(true)}
             </main>
             {showNameModal && renderNameModal()}
           </div>
         ) : isPublicMode ? (
+          /* TAMPILAN MODE PELANGGAN UMUM */
           !orderDate ? (
             <OrderDateSelector onSelectDate={(info) => setOrderDate(getFormattedDateInfo(info?.dateObj || new Date()))} user={null} authLoading={false} onBack={() => setIsPublicMode(false)} />
           ) : (
             <div className="min-h-screen bg-gray-50 pb-20"> 
               <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
-                  <div className="flex items-center gap-2">
-                    {/* Menggunakan handleResetDate agar pelanggan bisa pilih tanggal lagi */}
-                    <button onClick={handleResetDate} className="p-2 hover:bg-gray-100 rounded-full">
-                      <ArrowLeft className="text-gray-600" size={20} />
-                    </button>
-                    <div>
-                      <h1 className="font-black text-orange-500 text-lg italic leading-none">Mamah Yonda</h1>
-                      <p className="text-xs text-gray-500">{orderDate.fullDate}</p>
-                    </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleResetDate} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft size={20} /></button>
+                  <div>
+                    <h1 className="font-black text-orange-500 text-lg italic leading-none">Mamah Yonda</h1>
+                    <p className="text-xs text-gray-500">{orderDate.fullDate}</p>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setCurrentView('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2 relative">
-                      <ShoppingBag size={18} /> <span>{cart.reduce((a, b) => a + b.quantity, 0)}</span>
-                    </button>
-                  </div>
+                </div>
+                <button onClick={() => setCurrentView('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2">
+                  <ShoppingBag size={18} /> <span>{cart.reduce((a, b) => a + b.quantity, 0)}</span>
+                </button>
               </header>
               <main className="max-w-7xl mx-auto">
-                {currentView === 'menu' && (
-                  <MenuView 
-                    onAddToCart={addToCart} 
-                    orderDateInfo={orderDate} 
-                    isAdmin={false} 
-                    shopClosedInfo={shopClosedInfo} 
-                    onUpdateDate={handleResetDate} // Fix: Kirim fungsi reset ke MenuView
-                  />
-                )}
-                {currentView === 'cart' && <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} updateCartItemDetails={updateCartItemDetails} onCheckout={() => setShowNameModal(true)} onBack={() => setCurrentView('menu')} />}
+                {renderMainContent(false)}
               </main>
               {showNameModal && renderNameModal()}
             </div>
           )
         ) : (
-          <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
-            <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-            <div className="z-10 flex flex-col items-center max-w-md w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="bg-white p-6 rounded-3xl shadow-xl shadow-orange-100 mb-8 transform rotate-3"><UtensilsCrossed size={64} className="text-orange-500" /></div>
-              <h1 className="text-4xl font-black text-gray-800 mb-2 tracking-tight italic">Warung Makan <span className="text-orange-600">Mamah Yonda</span></h1>
-              <p className="text-gray-500 mb-10 text-lg leading-relaxed font-medium">Masakan rumahan yang hangat,<br/>siap dinikmati kapan saja.</p>
-              <button 
-                onClick={() => { setCurrentView('menu'); setIsPublicMode(true); }} 
-                className="group relative w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-5 rounded-2xl shadow-lg hover:shadow-orange-300 transform transition-all active:scale-95"
-              >
-                <div className="flex items-center justify-center gap-3"><span className="text-xl font-black italic tracking-widest">PESAN SEKARANG</span><ChevronRight /></div>
+          /* TAMPILAN AWAL (WELCOME SCREEN) */
+          <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center p-6 text-center relative">
+            <div className="z-10 flex flex-col items-center max-w-md w-full">
+              <div className="bg-white p-6 rounded-3xl shadow-xl mb-8"><UtensilsCrossed size={64} className="text-orange-500" /></div>
+              <h1 className="text-4xl font-black text-gray-800 mb-2 italic">Warung Makan <span className="text-orange-600">Mamah Yonda</span></h1>
+              <p className="text-gray-500 mb-10 text-lg">Masakan rumahan yang hangat,<br/>siap dinikmati kapan saja.</p>
+              <button onClick={() => { setCurrentView('menu'); setIsPublicMode(true); }} className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white p-5 rounded-2xl shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
+                <span className="text-xl font-black italic tracking-widest">PESAN SEKARANG</span><ChevronRight />
               </button>
-              <div className="mt-12">
-                <button onClick={() => navigate('/login')} className="text-sm font-bold text-gray-400 hover:text-orange-500 flex items-center gap-2 px-4 py-2 rounded-full hover:bg-orange-100/50 transition-all">
-                  <LogIn size={14} /><span>MASUK ADMIN</span>
-                </button>
-              </div>
+              <button onClick={() => navigate('/login')} className="mt-12 text-sm font-bold text-gray-400 hover:text-orange-500 flex items-center gap-2">
+                <LogIn size={14} /><span>MASUK ADMIN</span>
+              </button>
             </div>
           </div>
         )

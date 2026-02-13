@@ -201,15 +201,22 @@ const ReceiptView = ({ order, onBack }) => {
       </div>
 
       {/* TOMBOL BAYAR CEPAT */}
-      {canPayNow && ( liveOrder.status !== 'completed' && (
-        <button onClick={() => setShowPaymentModal(true)} className="w-full mb-8 bg-gradient-to-r from-orange-500 to-red-600 text-white p-5 rounded-[2.5rem] shadow-xl shadow-orange-100 flex items-center justify-center gap-4 animate-pulse hover:animate-none transition-all active:scale-95">
+      {canPayNow && (
+        <button 
+          onClick={() => setShowPaymentModal(true)} 
+          className="w-full mb-8 bg-gradient-to-r from-orange-500 to-red-600 text-white p-5 rounded-[2.5rem] shadow-xl shadow-orange-100 flex items-center justify-center gap-4 animate-pulse hover:animate-none transition-all active:scale-95"
+        >
           <QrCode size={28} />
           <div className="text-left leading-none">
-            <p className="text-[10px] font-black uppercase opacity-80 tracking-widest mb-1 text-white">Sudah lapar?</p>
-            <p className="text-xl font-black italic uppercase tracking-tighter">Bayar Sekarang via QRIS</p>
+            <p className="text-[10px] font-black uppercase opacity-80 tracking-widest mb-1 text-white">
+              {liveOrder.status === 'completed' ? 'Makanan sudah siap!' : 'Sudah lapar?'}
+            </p>
+            <p className="text-xl font-black italic uppercase tracking-tighter">
+              Bayar Sekarang via QRIS
+            </p>
           </div>
         </button>
-      ))}
+      )}
 
       {/* KONTEN STRUK (DAPAT DISIMPAN) */}
       <div id="receipt-capture" ref={receiptRef} className="bg-white rounded-[2.5rem] shadow-2xl p-10 border-t-[15px] border-orange-500 relative overflow-hidden ring-1 ring-black/5" style={{ backgroundColor: 'white' }}>
@@ -222,7 +229,7 @@ const ReceiptView = ({ order, onBack }) => {
           <h2 className="text-3xl font-black text-gray-800 italic uppercase tracking-tighter leading-[0.8]">Warung Makan<br/><span className="text-orange-500">Mamah Yonda</span></h2>
           <div className="mt-4 flex flex-col items-center gap-1">
              <div className="h-0.5 w-12 bg-gray-200 rounded-full"></div>
-             <p className="text-[9px] text-gray-400 font-black uppercase italic tracking-[0.2em]">Cipulir 5 No. 17D, Jak-Sel</p>
+             <p className="text-[9px] text-gray-400 font-black uppercase italic tracking-[0.2em]">Jl. Cipulir 5 No. 17D, Kebayoran Lama, Jakarta Selatan</p>
           </div>
         </div>
 

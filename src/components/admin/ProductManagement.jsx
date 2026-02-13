@@ -24,7 +24,7 @@ const ProductManagement = () => {
     name: '', price: '', stock: '', category: '', imageUrl: '', availableDays: [] 
   });
 
-  const [variants, setVariants] = useState([{ name: '', useSpecialPrice: false, price: '' }]);
+  const [variants, setVariants] = useState([{ name: '', useSpecialPrice: false, price: '', stock: '' }]);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -118,14 +118,29 @@ const ProductManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const activeVariants = variants.filter(v => v.name.trim() !== "");
+
+      // 1. Logika Hybrid Stock
+      let finalGlobalStock = formData.stock === -1 ? -1 : Number(formData.stock);
+      
+      if (activeVariants.length > 0) {
+        const allVariantUnlimited = activeVariants.every(v => v.stock === -1);
+        if (allVariantUnlimited) {
+          finalGlobalStock = -1;
+        } else {
+          // Total stok global adalah jumlah dari stok semua varian
+          finalGlobalStock = activeVariants.reduce((sum, v) => sum + (v.stock === -1 ? 0 : Number(v.stock)), 0);
+        }
+      }
       const payload = {
         ...formData,
         price: Number(formData.price),
-        stock: formData.stock === -1 ? -1 : Number(formData.stock),
-        variants: variants.filter(v => v.name.trim() !== "").map(v => ({
+        stock: finalGlobalStock, // <--- Perbaikan: Menggunakan variabel hasil perhitungan hybrid
+        variants: activeVariants.map(v => ({
           name: v.name,
           price: v.useSpecialPrice ? Number(v.price) : Number(formData.price),
-          useSpecialPrice: v.useSpecialPrice
+          useSpecialPrice: v.useSpecialPrice,
+          stock: v.stock === -1 ? -1 : Number(v.stock) // <--- Tambahkan stok varian di sini
         })),
         isAvailable: true, 
         updatedAt: serverTimestamp()
@@ -136,7 +151,6 @@ const ProductManagement = () => {
         delete editPayload.isAvailable;
         await updateDoc(doc(db, "products", editingId), editPayload);
         
-        // LOGGING EDIT
         if (currentUser) {
             logActivity(currentUser.uid, currentUser.name, "EDIT MENU", `Mengupdate data menu: ${formData.name}`);
         }
@@ -144,7 +158,6 @@ const ProductManagement = () => {
       } else {
         await addDoc(collection(db, "products"), { ...payload, createdAt: serverTimestamp() });
         
-        // LOGGING ADD
         if (currentUser) {
             logActivity(currentUser.uid, currentUser.name, "TAMBAH MENU", `Menambah menu baru: ${formData.name}`);
         }
@@ -176,10 +189,26 @@ const ProductManagement = () => {
   const startEdit = (p) => {
     setEditingId(p.id);
     setFormData({
-      name: p.name || '', price: p.price || '', stock: p.stock ?? '',
-      category: p.category || 'Ayam', imageUrl: p.imageUrl || '', availableDays: p.availableDays || [] 
+      name: p.name || '', 
+      price: p.price || '', 
+      stock: p.stock ?? '',
+      category: p.category || 'Ayam', 
+      imageUrl: p.imageUrl || '', 
+      availableDays: p.availableDays || [] 
     });
-    setVariants(p.variants?.length > 0 ? p.variants : [{ name: '', useSpecialPrice: false, price: '' }]);
+    
+    // Pastikan field 'stock' di setiap varian ikut terisi saat mulai edit
+    setVariants(
+      p.variants?.length > 0 
+        ? p.variants.map(v => ({
+            name: v.name || '',
+            useSpecialPrice: v.useSpecialPrice || false,
+            price: v.price || '',
+            stock: v.stock ?? '' // Ambil stok varian dari DB
+          })) 
+        : [{ name: '', useSpecialPrice: false, price: '', stock: '' }]
+    );
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -276,39 +305,71 @@ const ProductManagement = () => {
 
         {/* VARIAN MENU */}
         <div className="mb-10 space-y-4">
-            <div className="flex justify-between items-center">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Layers size={14} /> Varian Menu</label>
-                <button type="button" onClick={() => setVariants([...variants, { name: '', useSpecialPrice: false, price: '' }])} className="text-[9px] font-black bg-orange-100 text-orange-600 px-3 py-1.5 rounded-lg hover:bg-orange-500 hover:text-white transition-all">+ TAMBAH VARIAN</button>
-            </div>
-            <div className="space-y-3">
-                {variants.map((v, i) => (
-                    <div key={i} className="flex gap-2 items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <input type="text" placeholder="Nama Varian" className="flex-1 bg-white p-2 rounded-xl text-xs font-bold outline-none" value={v.name} onChange={(e) => handleVariantChange(i, 'name', e.target.value)} />
-                        <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => {
-                                const newV = [...variants];
-                                newV[i].useSpecialPrice = !newV[i].useSpecialPrice;
-                                setVariants(newV);
-                            }} className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${v.useSpecialPrice ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
-                                <Tag size={14} />
-                            </button>
-                            <input type="number" disabled={!v.useSpecialPrice} placeholder="Harga" className={`w-24 p-2 rounded-xl text-xs font-black text-right ${v.useSpecialPrice ? 'bg-white text-orange-600' : 'bg-gray-100 text-gray-300'}`} value={v.useSpecialPrice ? v.price : formData.price} onChange={(e) => handleVariantChange(i, 'price', e.target.value)} />
-                        </div>
-                        <button type="button" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500"><Trash2 size={18} /></button>
-                    </div>
-                ))}
-            </div>
-        </div>
+          <div className="flex justify-between items-center">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Layers size={14} /> Varian Menu</label>
+              <button type="button" onClick={() => setVariants([...variants, { name: '', useSpecialPrice: false, price: '', stock: '' }])} className="text-[9px] font-black bg-orange-100 text-orange-600 px-3 py-1.5 rounded-lg hover:bg-orange-500 hover:text-white transition-all">+ TAMBAH VARIAN</button>
+          </div>
+          <div className="space-y-3">
+              {variants.map((v, i) => (
+                  <div key={i} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-3">
+                      <div className="flex gap-2 items-center">
+                          <input type="text" placeholder="Nama Varian" className="flex-1 bg-white p-2 rounded-xl text-xs font-bold outline-none border border-gray-200" value={v.name} onChange={(e) => handleVariantChange(i, 'name', e.target.value)} />
+                          
+                          {/* Toggle Harga Khusus */}
+                          <button type="button" onClick={() => {
+                              const newV = [...variants];
+                              newV[i].useSpecialPrice = !newV[i].useSpecialPrice;
+                              setVariants(newV);
+                          }} className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${v.useSpecialPrice ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-400'}`} title="Gunakan Harga Khusus Varian">
+                              <Tag size={14} />
+                          </button>
 
-        {/* STOK */}
-        <div className="mb-10 p-6 bg-gray-50 rounded-[2rem] flex items-center gap-6">
+                          <button type="button" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500"><Trash2 size={18} /></button>
+                      </div>
+
+                      <div className="flex gap-4 items-center pl-2">
+                          {/* Input Harga Varian */}
+                          <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-gray-400">HARGA:</span>
+                              <input type="number" disabled={!v.useSpecialPrice} placeholder="Harga" className={`w-24 p-2 rounded-xl text-xs font-black text-right border ${v.useSpecialPrice ? 'bg-white text-orange-600 border-orange-200' : 'bg-gray-100 text-gray-300 border-transparent'}`} value={v.useSpecialPrice ? v.price : formData.price} onChange={(e) => handleVariantChange(i, 'price', e.target.value)} />
+                          </div>
+
+                          {/* Input Stok Varian */}
+                          <div className="flex items-center gap-2 flex-1">
+                              <span className="text-[9px] font-bold text-gray-400">STOK:</span>
+                              <input type="number" disabled={v.stock === -1} placeholder="Qty" className={`w-20 p-2 rounded-xl text-xs font-black text-right border ${v.stock === -1 ? 'bg-gray-100 text-gray-300 border-transparent' : 'bg-white text-gray-700 border-gray-200'}`} value={v.stock === -1 ? '' : v.stock} onChange={(e) => handleVariantChange(i, 'stock', e.target.value)} />
+                              
+                              <label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 cursor-pointer">
+                                  <input type="checkbox" className="w-3 h-3 accent-orange-500" checked={v.stock === -1} onChange={(e) => handleVariantChange(i, 'stock', e.target.checked ? -1 : '')} /> ♾️ UNLIMITED
+                              </label>
+                          </div>
+                      </div>
+                  </div>
+              ))}
+          </div>
+      </div>
+
+        {/* STOK UTAMA */}
+        <div className={`mb-10 p-6 rounded-[2rem] flex items-center gap-6 transition-all ${variants.some(v => v.name.trim() !== "") ? 'bg-orange-50 opacity-80 border-2 border-orange-100' : 'bg-gray-50'}`}>
             <div className="flex-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah Stok</label>
-                <input type="number" disabled={formData.stock === -1} className="w-full p-4 bg-white rounded-xl outline-none font-black text-2xl" value={formData.stock === -1 ? '' : formData.stock} onChange={(e) => setFormData({...formData, stock: e.target.value})} />
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">
+                    {variants.some(v => v.name.trim() !== "") ? 'Total Stok (Otomatis dari Varian)' : 'Jumlah Stok'}
+                </label>
+                <input 
+                  type="number" 
+                  disabled={formData.stock === -1 || variants.some(v => v.name.trim() !== "")} 
+                  className="w-full p-4 bg-white rounded-xl outline-none font-black text-2xl border border-gray-100" 
+                  value={formData.stock === -1 ? '' : formData.stock} 
+                  onChange={(e) => setFormData({...formData, stock: e.target.value})} 
+                />
             </div>
-            <label className="flex items-center gap-3 text-xs font-black text-gray-500 cursor-pointer bg-white px-6 py-4 rounded-2xl border border-gray-200 shadow-sm">
-                <input type="checkbox" className="w-6 h-6 accent-orange-500" checked={formData.stock === -1} onChange={(e) => setFormData({...formData, stock: e.target.checked ? -1 : ''})} /> ♾️ UNLIMITED
-            </label>
+            
+            {/* Sembunyikan checkbox unlimited jika ada varian, karena unlimited diatur per varian */}
+            {!variants.some(v => v.name.trim() !== "") && (
+                <label className="flex items-center gap-3 text-xs font-black text-gray-500 cursor-pointer bg-white px-6 py-4 rounded-2xl border border-gray-200 shadow-sm">
+                    <input type="checkbox" className="w-6 h-6 accent-orange-500" checked={formData.stock === -1} onChange={(e) => setFormData({...formData, stock: e.target.checked ? -1 : ''})} /> ♾️ UNLIMITED
+                </label>
+            )}
         </div>
 
         <button type="submit" className="w-full bg-orange-600 text-white py-6 rounded-3xl font-black text-xl uppercase italic shadow-xl hover:bg-orange-700 transition-all">
@@ -343,60 +404,70 @@ const ProductManagement = () => {
             {filteredProducts.map((p) => (
               <tr key={p.id} className={`transition-all group ${p.isAvailable ? 'hover:bg-orange-50/20' : 'bg-gray-50 opacity-60 grayscale-[0.8]'}`}>
                 <td className="p-6 align-top">
+                  {/* Kolom Produk & Jadwal (Tetap sama) */}
                   <div className="flex items-start gap-3">
                     <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
-                        {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Image className="m-auto mt-3 text-gray-300" size={20} />}
+                      {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Image className="m-auto mt-3 text-gray-300" size={20} />}
                     </div>
                     <div>
-                        <p className={`font-black uppercase italic text-base leading-tight ${p.isAvailable ? 'text-gray-800' : 'text-gray-500 line-through decoration-2'}`}>{p.name}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                            <Calendar size={10} className={p.isAvailable ? "text-orange-500" : "text-gray-400"} />
-                            <p className={`text-[9px] font-bold uppercase tracking-tighter ${p.isAvailable ? 'text-orange-500' : 'text-gray-400'}`}>
-                                {p.availableDays?.length > 0 ? p.availableDays.sort((a,b) => a-b).map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
-                            </p>
-                        </div>
-                        {!p.isAvailable && <span className="text-[8px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-md mt-1 inline-block">NON-AKTIF</span>}
+                      <p className={`font-black uppercase italic text-base leading-tight ${p.isAvailable ? 'text-gray-800' : 'text-gray-500 line-through decoration-2'}`}>{p.name}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Calendar size={10} className={p.isAvailable ? "text-orange-500" : "text-gray-400"} />
+                        <p className={`text-[9px] font-bold uppercase tracking-tighter ${p.isAvailable ? 'text-orange-500' : 'text-gray-400'}`}>
+                          {p.availableDays?.length > 0 ? p.availableDays.sort((a,b) => a-b).map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
+                        </p>
+                      </div>
+                      {!p.isAvailable && <span className="text-[8px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-md mt-1 inline-block">NON-AKTIF</span>}
                     </div>
                   </div>
                 </td>
-                <td className="p-6 align-top">
-                    <div className="space-y-2">
-                        <div className={`text-[10px] font-black ${p.isAvailable ? 'text-orange-600' : 'text-gray-400'}`}>Rp {Number(p.price).toLocaleString('id-ID')} <span className="text-gray-400 font-bold">(Dasar)</span></div>
-                        {p.variants && p.variants.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                                {p.variants.map((v, idx) => (
-                                    <span key={idx} className="text-[8px] font-black bg-white border border-gray-200 px-2 py-1 rounded-md text-gray-500 italic">
-                                        {v.name}: Rp {Number(v.price).toLocaleString('id-ID')}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </td>
-                <td className="p-6 align-top">
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase ${p.stock === -1 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
-                        <Box size={12} />
-                        {p.stock === -1 ? 'Unlimited' : `${p.stock} Porsi`}
-                    </div>
-                </td>
-                <td className="p-6 text-center">
-                  <div className="flex justify-center gap-2 items-center">
-                    
-                    {/* TOMBOL TOGGLE STATUS */}
-                    <button 
-                        onClick={() => handleToggleStatus(p)} 
-                        className={`p-3 rounded-xl transition-all shadow-sm ${
-                            p.isAvailable 
-                            ? 'bg-green-100 text-green-600 hover:bg-green-600 hover:text-white' 
-                            : 'bg-gray-200 text-gray-500 hover:bg-gray-500 hover:text-white'
-                        }`}
-                        title={p.isAvailable ? "Non-aktifkan Menu" : "Aktifkan Menu"}
-                    >
-                        {p.isAvailable ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                    </button>
 
+                <td className="p-6 align-top">
+                  {/* Kolom Varian & Harga (DIPERBARUI DENGAN STOK VARIAN) */}
+                  <div className="space-y-2">
+                    <div className={`text-[10px] font-black ${p.isAvailable ? 'text-orange-600' : 'text-gray-400'}`}>
+                      Rp {Number(p.price).toLocaleString('id-ID')} <span className="text-gray-400 font-bold">(Dasar)</span>
+                    </div>
+                    {p.variants && p.variants.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        {p.variants.map((v, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <span className="text-[9px] font-black bg-white border border-gray-200 px-2 py-1 rounded-md text-gray-600 italic shadow-sm">
+                              {v.name}: Rp {Number(v.price).toLocaleString('id-ID')}
+                            </span>
+                            {/* Badge Stok per Varian */}
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md ${v.stock === -1 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {v.stock === -1 ? '∞' : `${v.stock} pcs`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </td>
+
+                <td className="p-6 align-top">
+                  {/* Kolom Stok Total */}
+                  <div className={`inline-flex flex-col gap-1 px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase ${p.stock === -1 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
+                    <div className="flex items-center gap-1.5">
+                      <Box size={12} />
+                      {p.stock === -1 ? 'Unlimited' : `${p.stock} Total`}
+                    </div>
+                    {p.variants?.length > 0 && <span className="text-[7px] text-gray-400">(Gabungan Varian)</span>}
+                  </div>
+                </td>
+
+                <td className="p-6 text-center">
+                  {/* Kolom Aksi (Tetap sama) */}
+                  <div className="flex justify-center gap-2 items-center">
+                    <button 
+                      onClick={() => handleToggleStatus(p)} 
+                      className={`p-3 rounded-xl transition-all shadow-sm ${p.isAvailable ? 'bg-green-100 text-green-600 hover:bg-green-600 hover:text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-500 hover:text-white'}`}
+                      title={p.isAvailable ? "Non-aktifkan Menu" : "Aktifkan Menu"}
+                    >
+                      {p.isAvailable ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                    </button>
                     <button onClick={() => startEdit(p)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"><Edit3 size={18} /></button>
-                    {/* Menggunakan handleDelete custom di sini */}
                     <button onClick={() => handleDelete(p)} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
                   </div>
                 </td>
