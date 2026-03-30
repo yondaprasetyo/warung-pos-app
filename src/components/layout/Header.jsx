@@ -75,9 +75,10 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
         
         {/* --- BAGIAN KIRI: LOGO & JUDUL --- */}
         <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-          {currentView !== 'menu' && currentView !== 'public-order' && (
+          {/* Tombol kembali hanya muncul jika bukan di menu utama */}
+          {currentView !== 'menu' && (
             <button 
-              onClick={() => onNavigate('menu')} 
+              onClick={() => onNavigate('exit-to-welcome')} // <--- Ubah sinyal navigasi ini
               className="hover:bg-white/20 p-2 rounded-lg transition active:scale-95 flex-shrink-0"
             >
               <ArrowLeft size={24} />
@@ -85,7 +86,7 @@ const Header = ({ user, cartCount, onNavigate, onLogout, currentView }) => {
           )}
           
           <h1 
-            onClick={() => onNavigate('menu')}
+            onClick={() => onNavigate('exit-to-welcome')} // <--- Samakan agar logo juga kembali ke awal
             className="font-bold truncate tracking-tight cursor-pointer leading-tight text-sm xs:text-base sm:text-xl md:text-2xl"
           >
             🍽️ Warung Makan Mamah Yonda

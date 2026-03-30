@@ -33,9 +33,9 @@ const LoginView = ({ onLogin, error }) => {
         <div className="text-center mb-8">
           <div className="text-6xl mb-4 animate-bounce">🍽️</div>
           <h1 className="text-3xl font-black text-gray-800 italic uppercase tracking-tighter">
-            Warung Makan <span className="text-orange-500">Mamah Yonda</span>
+            Warung <span className="text-orange-500">Mamah Yonda</span>
           </h1>
-          <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-2">Panel Administrasi</p>
+          <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-2">Khusus Manajemen</p>
         </div>
 
         {error && (
@@ -46,7 +46,7 @@ const LoginView = ({ onLogin, error }) => {
 
         <div className="space-y-4">
           <div>
-            <label className="text-[10px] font-black uppercase text-gray-400 ml-2 mb-1 block">Email Admin</label>
+            <label className="text-[10px] font-black uppercase text-gray-400 ml-2 mb-1 block">Email</label>
             <input
               type="email"
               value={email}
@@ -82,7 +82,7 @@ const LoginView = ({ onLogin, error }) => {
             disabled={isLoading}
             className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white py-5 rounded-2xl font-black italic uppercase tracking-wider shadow-lg shadow-orange-200 transition-all active:scale-95 flex justify-center items-center gap-2"
           >
-            {isLoading ? <Loader2 className="animate-spin" /> : 'Masuk Sekarang'}
+            {isLoading ? <Loader2 className="animate-spin" /> : 'Masuk'}
           </button>
           
           <button 

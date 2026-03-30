@@ -136,8 +136,8 @@ const CartView = ({
                 {/* 4. TOTAL PER ITEM & QUANTITY CONTROL */}
                 <div className="flex justify-between items-center pt-2 border-t border-gray-50">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-gray-800 tracking-tighter">
-                      Subtotal: {formatRupiah(item.price * item.quantity)}
+                    <span className="text-[11px] font-black text-gray-800 tracking-tighter">
+                      Sub total: {formatRupiah(item.price * item.quantity)}
                     </span>
                     {item.stock !== -1 && (
                       <span className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${isMaxStockReached ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}>
