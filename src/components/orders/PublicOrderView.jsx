@@ -73,7 +73,7 @@ const PublicOrderView = ({
             </button>
             <div>
               <h1 className="text-2xl font-black text-orange-600 italic leading-none">
-                {isSelfService ? "WARUNG MAMAH YONDA" : "PILIH MENU"}
+                {isSelfService ? "WARUNG MAKAN MAMAH YONDA" : "PILIH MENU"}
               </h1>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                 {isSelfService ? "Pesan Langsung di Toko" : orderDateInfo?.fullDate}

@@ -158,7 +158,7 @@ const AppContent = () => {
               disabled={!customerNameInput.trim() || isProcessingCheckout}
               className="w-full py-4 rounded-2xl font-black text-white bg-orange-500 shadow-xl hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50 uppercase italic tracking-widest"
             >
-              {isProcessingCheckout ? <Loader2 className="animate-spin mx-auto" /> : 'SIMPAN & KIRIM'}
+              {isProcessingCheckout ? <Loader2 className="animate-spin mx-auto" /> : 'KIRIM PESANAN'}
             </button>
             <button onClick={() => setShowNameModal(false)} className="w-full py-2 text-gray-400 font-bold">Batal</button>
           </div>
@@ -208,7 +208,7 @@ const AppContent = () => {
               <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
                 <div className="flex items-center gap-2">
                   <button onClick={handleExitToWelcome} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft size={20} /></button>
-                  <h1 className="font-black text-orange-500 text-lg italic leading-none">Mamah Yonda <span className="text-[8px] block text-gray-400 uppercase not-italic tracking-widest mt-1">Self Service</span></h1>
+                  <h1 className="font-black text-orange-500 text-lg italic leading-none"> Warung Makan Mamah Yonda <span className="text-[8px] block text-gray-400 uppercase not-italic tracking-widest mt-1">Self Service</span></h1>
                 </div>
                 <button onClick={() => setCurrentView('cart')} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2">
                   <ShoppingBag size={18} /> <span>{cart.reduce((a, b) => a + b.quantity, 0)}</span>
@@ -280,7 +280,7 @@ const AppContent = () => {
                     <div className="flex items-center gap-2">
                       <button onClick={handleExitToWelcome} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft size={20} /></button>
                       <div>
-                        <h1 className="font-black text-orange-500 text-lg italic leading-none">Mamah Yonda</h1>
+                        <h1 className="font-black text-orange-500 text-lg italic leading-none">Warung Makan Mamah Yonda</h1>
                         <p className="text-xs text-gray-500">{orderDate.fullDate}</p>
                       </div>
                     </div>
@@ -305,7 +305,7 @@ const AppContent = () => {
         ) : (
           <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center p-6 text-center">
             <div className="bg-white p-6 rounded-full shadow-xl mb-6"><UtensilsCrossed size={64} className="text-orange-500" /></div>
-            <h1 className="text-4xl font-black mb-2 italic uppercase">Warung <span className="text-orange-600">Mamah Yonda</span></h1>
+            <h1 className="text-4xl font-black mb-2 italic uppercase">Warung Makan <span className="text-orange-600">Mamah Yonda</span></h1>
             <p className="text-gray-500 mb-10 max-w-xs font-bold italic">Perut Kenyang, Hati Tenang, Kantong Senang!</p>
             <div className="flex flex-col w-full max-w-xs gap-3">
               <button 

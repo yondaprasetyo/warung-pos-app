@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../../firebase'; 
-import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore'; 
+import { useAuth } from '../../hooks/useAuth'; // Tambahkan hook auth
+import { doc, onSnapshot, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'; 
 import { 
   ArrowLeft, Clock, ChefHat, CheckCircle, XCircle, 
-  RefreshCw, Download, Loader2, QrCode, MessageCircle, X, Share2, Copy, Check,
-  Maximize2 // <--- TAMBAHKAN INI
+  RefreshCw, Download, Loader2, QrCode, MessageCircle, X, Share2, Check,
+  Maximize2, Camera, ShieldCheck // Tambahkan icon ShieldCheck
 } from 'lucide-react'; 
 import { formatRupiah } from '../../utils/format';
 import html2canvas from 'html2canvas';
@@ -16,8 +17,8 @@ const ADMIN_PHONE_NUMBER = "6287774223733";
 const ReceiptView = ({ order, onBack }) => {
   const { orderId: urlOrderId } = useParams();
   const navigate = useNavigate();
+  const { currentUser } = useAuth(); // Ambil data user yang sedang login
   
-  // ID prioritas dari URL (untuk sharing) baru kemudian dari props
   const targetOrderId = urlOrderId || order?.id;
 
   const [liveOrder, setLiveOrder] = useState(order || null);
@@ -29,7 +30,7 @@ const ReceiptView = ({ order, onBack }) => {
   
   const receiptRef = useRef(null);
 
-  // 1. LISTEN REALTIME KE FIRESTORE
+  // 1. Listen Realtime
   useEffect(() => {
     if (!targetOrderId) return;
     
@@ -49,7 +50,22 @@ const ReceiptView = ({ order, onBack }) => {
     return () => unsubscribe();
   }, [targetOrderId]);
 
-  // 2. FUNGSI COPY LINK
+  // 2. Fungsi Update Status Khusus Admin
+  const handleUpdateStatus = async (newStatus) => {
+    if (!window.confirm(`Yakin ingin mengubah status pesanan menjadi ${newStatus.toUpperCase()}?`)) return;
+    
+    try {
+      await updateDoc(doc(db, "orders", targetOrderId), { 
+        status: newStatus,
+        // Jika diselesaikan, otomatis tandai lunas
+        isPaid: newStatus === 'completed' ? true : liveOrder.isPaid,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      alert("Gagal update status: " + err.message);
+    }
+  };
+
   const handleCopyLink = () => {
     const fullUrl = window.location.origin + "/receipt/" + targetOrderId;
     navigator.clipboard.writeText(fullUrl);
@@ -79,38 +95,49 @@ const ReceiptView = ({ order, onBack }) => {
   };
 
   const handleSaveImage = async () => {
-    if (!receiptRef.current) return;
-    setIsSaving(true);
-    try {
-      // Tunggu sebentar agar render stabil
-      await new Promise(resolve => setTimeout(resolve, 200));
-      const canvas = await html2canvas(receiptRef.current, {
-        scale: 3, 
-        backgroundColor: '#ffffff', 
-        useCORS: true, 
-        logging: false,
-        width: receiptRef.current.offsetWidth,
-        height: receiptRef.current.offsetHeight
-      });
+  if (!receiptRef.current) return;
+  setIsSaving(true);
+  try {
+    // Beri jeda sedikit agar rendering browser stabil
+    await new Promise(resolve => setTimeout(resolve, 300));
 
-      const image = canvas.toDataURL("image/png", 1.0);
-      const link = document.createElement('a');
-      link.href = image;
-      link.download = `Struk-${liveOrder.customerName}-${targetOrderId.substring(0,5)}.png`;
-      link.click();
-    } catch (error) {
-      console.error("Gagal menyimpan gambar:", error);
-      alert("Gagal menyimpan otomatis. Silakan screenshot layar Anda.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    const canvas = await html2canvas(receiptRef.current, {
+      scale: 2, // Menaikkan resolusi (2-3 sudah cukup)
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+      // Memaksa lebar agar konsisten dengan tampilan printer thermal
+      width: 380, 
+    });
+
+    const image = canvas.toDataURL("image/png");
+    const link = document.createElement('a');
+    link.href = image;
+    link.download = `STRUK-MAMAH-YONDA-${targetOrderId.substring(0,5)}.png`;
+    link.click();
+  } catch (error) {
+    console.error("Gagal simpan:", error);
+    alert("Gunakan Screenshot jika gagal simpan otomatis.");
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const handleConfirmViaWA = async () => {
-    const message = `Halo Admin Mamah Yonda,%0A%0ASaya sudah bayar via QRIS:%0AOrder: *${targetOrderId.toUpperCase()}*%0ANama: *${liveOrder.customerName}*%0ATotal: *${formatRupiah(liveOrder.total)}*`;
+    const orderIDShort = targetOrderId.toUpperCase();
+    const totalAmount = formatRupiah(liveOrder.total);
+    // Link yang akan dikirim ke WA Admin
+    const receiptUrl = `${window.location.origin}/receipt/${targetOrderId}`;
+    
+    const message = `Halo Admin Warung Makan Mamah Yonda,%0ABerikut ini saya lampirkan bukti pembayaran via QRIS:%0A%0A*DETAIL PESANAN*%0AOrder ID: *${orderIDShort}*%0ANama: *${liveOrder.customerName}*%0ATotal: *${totalAmount}*%0A%0A*CEK STATUS PESANAN:*%0A${receiptUrl}%0A%0A*(Berikut saya lampirkan screenshot bukti bayar di bawah ini ya, Min. Terima kasih)*`;
+    
     window.open(`https://wa.me/${ADMIN_PHONE_NUMBER}?text=${message}`, '_blank');
+    
     try {
-        await updateDoc(doc(db, "orders", targetOrderId), { paymentStatus: 'verification_via_wa' });
+        await updateDoc(doc(db, "orders", targetOrderId), { 
+          paymentStatus: 'verification_via_wa',
+          updatedAt: serverTimestamp()
+        });
     } catch (err) { 
       console.error("Gagal update status:", err); 
     }
@@ -157,20 +184,33 @@ const ReceiptView = ({ order, onBack }) => {
       {/* MODAL PEMBAYARAN */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-200">
             <div className="bg-orange-500 p-5 flex justify-between items-center text-white">
               <h3 className="font-black italic uppercase flex items-center gap-2 tracking-tighter"><QrCode size={20} /> Pembayaran QRIS</h3>
               <button onClick={() => setShowPaymentModal(false)}><X size={24} /></button>
             </div>
             <div className="p-8 flex flex-col items-center gap-6">
-              <div className="border-4 border-dashed border-gray-100 rounded-3xl p-3 cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => setIsQrisFullscreen(true)}>
+              <div className="border-4 border-dashed border-gray-100 rounded-3xl p-3 cursor-pointer hover:scale-[1.02] transition-transform relative group" onClick={() => setIsQrisFullscreen(true)}>
                 <img src={QRIS_IMAGE_URL} className="w-full aspect-square object-contain" alt="QRIS" />
-                <div className="flex justify-center mt-2 text-gray-400 italic font-bold text-[10px] uppercase tracking-widest gap-1"><Maximize2 size={10}/> Klik untuk memperbesar</div>
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors rounded-3xl flex items-center justify-center text-transparent group-hover:text-gray-400">
+                   <Maximize2 size={24} />
+                </div>
               </div>
+
               <div className="text-center">
                 <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Total Tagihan</p>
                 <p className="text-4xl font-black text-gray-800 italic tracking-tighter">{formatRupiah(liveOrder.total)}</p>
               </div>
+
+              <div className="w-full p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-3">
+                <div className="bg-blue-500 p-1.5 rounded-lg text-white shrink-0 mt-0.5">
+                  <Camera size={14} />
+                </div>
+                <p className="text-[10px] font-bold text-blue-700 leading-relaxed uppercase italic">
+                  Langkah: Bayar QRIS &gt; <span className="underline decoration-2">Screenshot Bukti</span> &gt; Klik tombol hijau di bawah untuk kirim bukti ke WA Admin.
+                </p>
+              </div>
+
               <button onClick={handleConfirmViaWA} className="w-full bg-[#25D366] text-white py-5 rounded-2xl font-black flex justify-center items-center gap-3 shadow-lg shadow-green-200 active:scale-95 transition-all uppercase italic tracking-wider">
                 <MessageCircle size={22} /> Konfirmasi ke WA
               </button>
@@ -208,85 +248,115 @@ const ReceiptView = ({ order, onBack }) => {
         >
           <QrCode size={28} />
           <div className="text-left leading-none">
-            <p className="text-[10px] font-black uppercase opacity-80 tracking-widest mb-1 text-white">
-              {liveOrder.status === 'completed' ? 'Makanan sudah siap!' : 'Sudah lapar?'}
-            </p>
-            <p className="text-xl font-black italic uppercase tracking-tighter">
-              Bayar Sekarang via QRIS
-            </p>
+            <p className="text-[10px] font-black uppercase opacity-80 tracking-widest mb-1 text-white">Belum Bayar?</p>
+            <p className="text-xl font-black italic uppercase tracking-tighter">Bayar Sekarang via QRIS</p>
           </div>
         </button>
       )}
 
-      {/* KONTEN STRUK (DAPAT DISIMPAN) */}
-      <div id="receipt-capture" ref={receiptRef} className="bg-white rounded-[2.5rem] shadow-2xl p-10 border-t-[15px] border-orange-500 relative overflow-hidden ring-1 ring-black/5" style={{ backgroundColor: 'white' }}>
-        {/* Dekorasi Lubang Struk */}
-        <div className="absolute top-0 left-10 right-10 flex justify-between">
-           {[...Array(6)].map((_, i) => <div key={i} className="w-3 h-6 bg-orange-500/20 rounded-b-full"></div>)}
+      {/* KONTEN STRUK */}
+      <div 
+        id="receipt-capture" 
+        ref={receiptRef} 
+        className="bg-white p-6 leading-tight text-gray-800" 
+        style={{ 
+          width: '380px', // Standar lebar kertas thermal
+          margin: '0 auto',
+          fontFamily: '"Courier New", Courier, monospace', // Font khas struk
+          backgroundColor: 'white'
+        }}
+      >
+        {/* Header Struk */}
+        <div className="text-center mb-4 border-b-2 border-black pb-4">
+          <h2 className="text-xl font-bold uppercase">WARUNG MAKAN</h2>
+          <h2 className="text-2xl font-black uppercase">MAMAH YONDA</h2>
+          <p className="text-[10px] mt-1">Jl. Cipulir 5 No. 17D, Kebayoran Lama</p>
+          <p className="text-[10px]">Jakarta Selatan</p>
         </div>
 
-        <div className="text-center mb-10 mt-4">
-          <h2 className="text-3xl font-black text-gray-800 italic uppercase tracking-tighter leading-[0.8]">Warung Makan<br/><span className="text-orange-500">Mamah Yonda</span></h2>
-          <div className="mt-4 flex flex-col items-center gap-1">
-             <div className="h-0.5 w-12 bg-gray-200 rounded-full"></div>
-             <p className="text-[9px] text-gray-400 font-black uppercase italic tracking-[0.2em]">Jl. Cipulir 5 No. 17D, Kebayoran Lama, Jakarta Selatan</p>
+        {/* Info Transaksi */}
+        <div className="text-[11px] mb-4 space-y-1 uppercase">
+          <div className="flex justify-between">
+            <span>Tgl: {liveOrder.createdAt?.toLocaleString('id-ID')}</span>
           </div>
+          <div className="flex justify-between">
+            <span>Order: #{targetOrderId.substring(0, 8).toUpperCase()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Pelanggan: {liveOrder.customerName}</span>
+          </div>
+          <div className="border-b border-dashed border-black my-2"></div>
         </div>
 
-        <div className="border-y-2 border-dashed border-gray-100 py-6 mb-8 grid grid-cols-2 gap-y-3 text-[10px]">
-          <div className="flex flex-col">
-            <span className="text-gray-400 font-black uppercase tracking-widest italic mb-0.5">Pelanggan</span>
-            <span className="font-black text-gray-800 uppercase text-sm italic tracking-tighter">{liveOrder.customerName}</span>
-          </div>
-          <div className="flex flex-col items-end text-right">
-            <span className="text-gray-400 font-black uppercase tracking-widest italic mb-0.5">Order ID</span>
-            <span className="font-black text-gray-800 text-xs italic">#{targetOrderId.substring(0,8).toUpperCase()}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-gray-400 font-black uppercase tracking-widest italic mb-0.5">Tanggal</span>
-            <span className="font-black text-gray-700 italic">{liveOrder.createdAt?.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-          </div>
-          <div className="flex flex-col items-end text-right">
-            <span className="text-gray-400 font-black uppercase tracking-widest italic mb-0.5">Status Bayar</span>
-            <span className={`font-black text-[10px] uppercase italic ${liveOrder.isPaid ? 'text-green-600' : 'text-orange-600'}`}>
-              {liveOrder.isPaid ? 'Lunas' : 'Belum Lunas'}
-            </span>
-          </div>
-        </div>
-
-        <div className="space-y-6 mb-10">
+        {/* List Item */}
+        <div className="text-[12px] mb-4 space-y-2">
           {liveOrder.items?.map((item, idx) => (
-            <div key={idx} className="flex justify-between items-start group">
-              <div className="flex flex-col max-w-[70%]">
-                <span className="text-sm font-black text-gray-800 uppercase italic tracking-tighter leading-tight group-hover:text-orange-500 transition-colors">
-                  {item.name} <span className="text-orange-500 ml-1">x{item.quantity}</span>
-                </span>
-                {item.selectedVariant && (
-                  <span className="text-[9px] font-black text-gray-400 italic mt-0.5 bg-gray-50 self-start px-2 py-0.5 rounded-full border border-gray-100">
-                    Varian: {item.selectedVariant.name}
-                  </span>
-                )}
-                {item.notes && <span className="text-[9px] text-orange-400 font-bold italic mt-1 leading-tight">"{item.notes}"</span>}
+            <div key={idx}>
+              <div className="flex justify-between font-bold">
+                <span>{item.name} x{item.quantity}</span>
+                <span>{formatRupiah(item.price * item.quantity)}</span>
               </div>
-              <span className="text-sm font-black text-gray-800 italic tracking-tighter">{formatRupiah(item.price * item.quantity)}</span>
+              {item.selectedVariant && (
+                <div className="text-[10px] italic">- {item.selectedVariant.name}</div>
+              )}
+              {item.notes && (
+                <div className="text-[10px] italic text-gray-500">Note: {item.notes}</div>
+              )}
             </div>
           ))}
         </div>
 
-        <div className="border-t-4 border-double border-gray-100 pt-8 mb-4">
-          <div className="flex justify-between items-center bg-gray-50 px-6 py-5 rounded-[2rem] border border-gray-100">
-            <span className="text-xs font-black text-gray-400 uppercase italic tracking-widest">Total Bayar</span>
-            <span className="text-3xl font-black text-orange-600 italic tracking-tighter drop-shadow-sm">{formatRupiah(liveOrder.total)}</span>
+        {/* Total */}
+        <div className="border-t-2 border-black pt-2 space-y-1">
+          <div className="flex justify-between text-lg font-black uppercase">
+            <span>Total</span>
+            <span>{formatRupiah(liveOrder.total)}</span>
+          </div>
+          <div className="flex justify-between text-[11px]">
+            <span>Status</span>
+            <span className="font-bold italic uppercase">{liveOrder.isPaid ? 'LUNAS' : 'BELUM LUNAS'}</span>
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center gap-4">
-           <div className="flex gap-2">
-             {[...Array(12)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-gray-100 rounded-full"></div>)}
-           </div>
-           <p className="text-center text-[9px] font-black text-gray-300 uppercase tracking-[0.4em] italic">Terima Kasih Atas Pesanannya</p>
+        {/* Footer Struk */}
+        <div className="text-center mt-8 pt-4 border-t border-dashed border-black">
+          <p className="text-[10px] font-bold uppercase italic tracking-widest">
+            Terima Kasih Atas Kunjungannya
+          </p>
+          <p className="text-[9px] mt-1 italic text-gray-400">#Simpan struk ini sebagai bukti sah</p>
         </div>
       </div>
+
+      {/* PANEL KONTROL ADMIN (Hanya muncul jika yang buka adalah Admin yang sudah Login) */}
+      {currentUser && currentUser.role === 'admin' && (
+        <div className="mt-8 p-6 bg-gray-900 rounded-[2.5rem] border-2 border-orange-500 shadow-xl shadow-orange-100/20 animate-in slide-in-from-bottom duration-500">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck className="text-orange-500" size={18} />
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">Panel Kontrol Admin</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={() => handleUpdateStatus('processing')}
+              className="bg-blue-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase italic hover:bg-blue-700 active:scale-95 transition-all"
+            >
+              Mulai Masak
+            </button>
+            <button 
+              onClick={() => handleUpdateStatus('completed')}
+              className="bg-green-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase italic hover:bg-green-700 active:scale-95 transition-all"
+            >
+              Lunas & Selesai
+            </button>
+            <button 
+              onClick={() => handleUpdateStatus('cancelled')}
+              className="bg-red-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase italic hover:bg-red-700 active:scale-95 transition-all col-span-2 opacity-60 hover:opacity-100"
+            >
+              Batalkan Pesanan
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* ACTION FOOTER */}
       <div className="mt-8 flex flex-col gap-3">
