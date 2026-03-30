@@ -129,7 +129,7 @@ const ReceiptView = ({ order, onBack }) => {
     // Link yang akan dikirim ke WA Admin
     const receiptUrl = `${window.location.origin}/receipt/${targetOrderId}`;
     
-    const message = `Halo Admin Warung Makan Mamah Yonda,%0ABerikut ini saya lampirkan bukti pembayaran via QRIS:%0A%0A*DETAIL PESANAN*%0AOrder ID: *${orderIDShort}*%0ANama: *${liveOrder.customerName}*%0ATotal: *${totalAmount}*%0A%0A*CEK STATUS PESANAN:*%0A${receiptUrl}%0A%0A*(Berikut saya lampirkan screenshot bukti bayar di bawah ini ya, Min. Terima kasih)*`;
+    const message = `Halo Admin Warung Makan Mamah Yonda,%0ABerikut ini saya lampirkan bukti pembayaran via QRIS:%0A%0A*DETAIL PESANAN*%0AOrder ID: *${orderIDShort}*%0ANama: *${liveOrder.customerName}*%0ATotal: *${totalAmount}*%0A%0A*CEK STATUS PESANAN:*%0A${receiptUrl}%0A%0A*(Berikut saya lampirkan screenshot bukti bayar ya, Min. Terima kasih)*`;
     
     window.open(`https://wa.me/${ADMIN_PHONE_NUMBER}?text=${message}`, '_blank');
     
