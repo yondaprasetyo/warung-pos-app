@@ -8,14 +8,35 @@
 }
 
 html {
-  /* Scroll smooth global */
   scroll-behavior: smooth;
-  /* Mencegah scroll default browser yang memantul di beberapa device */
   overscroll-behavior-y: none;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #f9fafb; /* gray-50 */
+  background-color: #f9fafb;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: center;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.5em;
+}
+
+input[type="date"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  margin-left: -25px; 
+  cursor: pointer;
 }
