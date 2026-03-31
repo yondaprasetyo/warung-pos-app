@@ -329,21 +329,45 @@ const ProductManagement = () => {
                       </div>
 
                       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full">
-                          {/* Input Harga Varian */}
-                          <div className="flex items-center gap-2 w-full sm:w-auto">
-                              <span className="text-[9px] font-bold text-gray-400 w-12 shrink-0">HARGA:</span>
-                              <input type="number" disabled={!v.useSpecialPrice} placeholder="Harga" className={`w-full sm:w-28 p-3 rounded-xl text-xs font-black text-left sm:text-right border ${v.useSpecialPrice ? 'bg-white text-orange-600 border-orange-200' : 'bg-gray-100 text-gray-300 border-transparent'}`} value={v.useSpecialPrice ? v.price : formData.price} onChange={(e) => handleVariantChange(i, 'price', e.target.value)} />
-                          </div>
+                        {/* Input Harga Varian */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <span className="text-[9px] font-bold text-gray-400 w-12 shrink-0">HARGA:</span>
+                          <input 
+                            type="number" 
+                            disabled={!v.useSpecialPrice} 
+                            placeholder="Harga" 
+                            className={`w-full sm:w-28 p-3 rounded-xl text-xs font-black text-left sm:text-right border ${v.useSpecialPrice ? 'bg-white text-orange-600 border-orange-200' : 'bg-gray-100 text-gray-300 border-transparent'}`} 
+                            value={v.useSpecialPrice ? v.price : formData.price} 
+                            onChange={(e) => handleVariantChange(i, 'price', e.target.value)} 
+                          />
+                        </div>
 
-                          {/* Input Stok Varian */}
-                          <div className="flex items-center gap-2 flex-1 w-full">
-                              <span className="text-[9px] font-bold text-gray-400 w-12 shrink-0 sm:w-auto">STOK:</span>
-                              <input type="number" disabled={v.stock === -1} placeholder="Qty" className={`flex-1 sm:w-24 p-3 rounded-xl text-xs font-black text-left sm:text-right border ${v.stock === -1 ? 'bg-gray-100 text-gray-300 border-transparent' : 'bg-white text-gray-700 border-gray-200'}`} value={v.stock === -1 ? '' : v.stock} onChange={(e) => handleVariantChange(i, 'stock', e.target.value)} />
-                              
-                              <label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 cursor-pointer shrink-0 ml-2">
-                                  <input type="checkbox" className="w-4 h-4 accent-orange-500" checked={v.stock === -1} onChange={(e) => handleVariantChange(i, 'stock', e.target.checked ? -1 : '')} /> ♾️ UNLIMITED
-                              </label>
-                          </div>
+                        {/* Input Stok Varian */}
+                        {/* Perubahan: Menggunakan flex-wrap pada mobile agar jika sangat sempit, label bisa turun ke bawah secara aman */}
+                        <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 flex-1 w-full">
+                          <span className="text-[9px] font-bold text-gray-400 w-12 shrink-0">STOK:</span>
+                          
+                          {/* Perubahan: Menghapus flex-1 dan menggantinya dengan lebar fleksibel yang memiliki batas (min-w) */}
+                          <input 
+                            type="number" 
+                            disabled={v.stock === -1} 
+                            placeholder="Qty" 
+                            className={`flex-1 min-w-[60px] sm:flex-none sm:w-24 p-3 rounded-xl text-xs font-black text-left sm:text-right border ${v.stock === -1 ? 'bg-gray-100 text-gray-300 border-transparent' : 'bg-white text-gray-700 border-gray-200'}`} 
+                            value={v.stock === -1 ? '' : v.stock} 
+                            onChange={(e) => handleVariantChange(i, 'stock', e.target.value)} 
+                          />
+                          
+                          {/* Perubahan: Menghapus ml-2 agar tidak mendorong paksa ke kanan, dan mengecilkan gap sedikit */}
+                          <label className="flex items-center gap-1 text-[9px] font-black text-gray-500 cursor-pointer shrink-0">
+                            <input 
+                              type="checkbox" 
+                              className="w-4 h-4 accent-orange-500" 
+                              checked={v.stock === -1} 
+                              onChange={(e) => handleVariantChange(i, 'stock', e.target.checked ? -1 : '')} 
+                            /> 
+                            <span className="whitespace-nowrap">♾️ UNLIMITED</span>
+                          </label>
+                        </div>
                       </div>
                   </div>
               ))}
