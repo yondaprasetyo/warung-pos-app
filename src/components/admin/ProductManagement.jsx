@@ -135,12 +135,12 @@ const ProductManagement = () => {
       const payload = {
         ...formData,
         price: Number(formData.price),
-        stock: finalGlobalStock, // <--- Perbaikan: Menggunakan variabel hasil perhitungan hybrid
+        stock: finalGlobalStock, 
         variants: activeVariants.map(v => ({
           name: v.name,
           price: v.useSpecialPrice ? Number(v.price) : Number(formData.price),
           useSpecialPrice: v.useSpecialPrice,
-          stock: v.stock === -1 ? -1 : Number(v.stock) // <--- Tambahkan stok varian di sini
+          stock: v.stock === -1 ? -1 : Number(v.stock) 
         })),
         isAvailable: true, 
         updatedAt: serverTimestamp()
@@ -217,14 +217,14 @@ const ProductManagement = () => {
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 pb-24 font-sans text-gray-800">
       
-      <h2 className="text-3xl font-black mb-8 uppercase italic tracking-tighter flex items-center gap-3">
+      <h2 className="text-2xl md:text-3xl font-black mb-8 uppercase italic tracking-tighter flex items-center gap-3">
         {editingId ? '📝 Edit Menu' : '🍽️ Kelola & Tambah Menu'}
       </h2>
 
-      {/* 1. SECTION RINGKASAN (STATS) */}
-      <div className="grid grid-cols-4 md:grid-cols-7 gap-2 mb-8">
+      {/* 1. SECTION RINGKASAN (STATS) - Dibuat Scrollable untuk HP */}
+      <div className="flex overflow-x-auto md:grid md:grid-cols-7 gap-2 mb-8 pb-2 no-scrollbar">
         {DAYS.map((day) => (
-          <div key={day.id} className="bg-white p-3 rounded-2xl border-2 border-orange-50 shadow-sm text-center">
+          <div key={day.id} className="min-w-[80px] md:min-w-0 bg-white p-3 rounded-2xl border-2 border-orange-50 shadow-sm text-center flex-shrink-0">
             <p className="text-[10px] font-black text-gray-400 uppercase italic">{day.label}</p>
             <p className="text-xl font-black text-orange-600 leading-none mt-1">
               {dailyStats[day.id]}
@@ -235,18 +235,19 @@ const ProductManagement = () => {
       </div>
 
       {/* 2. FORM INPUT SECTION */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] p-8 shadow-2xl border-4 border-orange-50 mb-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+      <form onSubmit={handleSubmit} className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 shadow-2xl border-4 border-orange-50 mb-12">
+        <div className="flex flex-col md:grid md:grid-cols-3 gap-6 md:gap-8 mb-10">
           <div className="space-y-4">
-             <div className="aspect-square bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center">
+             <div className="aspect-video md:aspect-square bg-gray-50 rounded-2xl md:rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center relative">
                 {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" alt="prev" /> : <Image className="text-gray-300" size={40} />}
              </div>
              <input type="text" placeholder="URL Foto" className="w-full p-3 bg-gray-50 rounded-xl text-[10px] font-bold outline-none" value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} />
           </div>
+          
           <div className="md:col-span-2 space-y-6">
             <input type="text" required placeholder="Nama Masakan" className="w-full p-4 bg-gray-50 rounded-2xl font-black text-lg outline-none uppercase" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <input type="number" required placeholder="Harga Dasar" className="w-full p-4 bg-orange-50 rounded-2xl font-black text-orange-600 text-xl" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
                
                <div className="relative">
@@ -270,33 +271,33 @@ const ProductManagement = () => {
         </div>
 
         {/* JADWAL HARI */}
-        <div className="mb-10 p-6 bg-yellow-50 rounded-[2rem] border-2 border-yellow-100">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-10 p-5 md:p-6 bg-yellow-50 rounded-2xl md:rounded-[2rem] border-2 border-yellow-100">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
               <div className="flex items-center gap-2 text-orange-600">
                   <Calendar size={20} />
                   <label className="text-xs font-black uppercase italic">Jadwal Tampil Menu</label>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                   <button 
                       type="button" 
                       onClick={() => setFormData({ ...formData, availableDays: [1, 2, 3, 4, 5, 6, 0] })}
-                      className="text-[9px] font-black bg-orange-200 text-orange-700 px-3 py-1 rounded-lg hover:bg-orange-600 hover:text-white transition-all"
+                      className="flex-1 sm:flex-none text-[9px] font-black bg-orange-200 text-orange-700 px-3 py-2 rounded-lg hover:bg-orange-600 hover:text-white transition-all text-center"
                   >
                       PILIH SEMUA
                   </button>
                   <button 
                       type="button" 
                       onClick={() => setFormData({ ...formData, availableDays: [] })}
-                      className="text-[9px] font-black bg-gray-200 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-400 hover:text-white transition-all"
+                      className="flex-1 sm:flex-none text-[9px] font-black bg-gray-200 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-400 hover:text-white transition-all text-center"
                   >
                       HAPUS SEMUA
                   </button>
               </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-2">
               {DAYS.map((day) => (
                   <button key={day.id} type="button" onClick={() => toggleDay(day.id)}
-                      className={`flex-1 min-w-[60px] py-4 rounded-xl text-[10px] font-black transition-all border-2 ${formData.availableDays?.includes(day.id) ? 'bg-orange-600 border-orange-700 text-white shadow-md' : 'bg-white border-gray-200 text-gray-400'}`}>
+                      className={`py-3 rounded-xl text-[10px] font-black transition-all border-2 sm:flex-1 sm:min-w-[60px] ${formData.availableDays?.includes(day.id) ? 'bg-orange-600 border-orange-700 text-white shadow-md' : 'bg-white border-gray-200 text-gray-400'}`}>
                       {day.label.toUpperCase()}
                   </button>
               ))}
@@ -307,40 +308,40 @@ const ProductManagement = () => {
         <div className="mb-10 space-y-4">
           <div className="flex justify-between items-center">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Layers size={14} /> Varian Menu</label>
-              <button type="button" onClick={() => setVariants([...variants, { name: '', useSpecialPrice: false, price: '', stock: '' }])} className="text-[9px] font-black bg-orange-100 text-orange-600 px-3 py-1.5 rounded-lg hover:bg-orange-500 hover:text-white transition-all">+ TAMBAH VARIAN</button>
+              <button type="button" onClick={() => setVariants([...variants, { name: '', useSpecialPrice: false, price: '', stock: '' }])} className="text-[9px] font-black bg-orange-100 text-orange-600 px-3 py-2 rounded-lg hover:bg-orange-500 hover:text-white transition-all">+ TAMBAH VARIAN</button>
           </div>
           <div className="space-y-3">
               {variants.map((v, i) => (
-                  <div key={i} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-3">
+                  <div key={i} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-4">
                       <div className="flex gap-2 items-center">
-                          <input type="text" placeholder="Nama Varian" className="flex-1 bg-white p-2 rounded-xl text-xs font-bold outline-none border border-gray-200" value={v.name} onChange={(e) => handleVariantChange(i, 'name', e.target.value)} />
+                          <input type="text" placeholder="Nama Varian" className="flex-1 bg-white p-3 rounded-xl text-xs font-bold outline-none border border-gray-200" value={v.name} onChange={(e) => handleVariantChange(i, 'name', e.target.value)} />
                           
                           {/* Toggle Harga Khusus */}
                           <button type="button" onClick={() => {
                               const newV = [...variants];
                               newV[i].useSpecialPrice = !newV[i].useSpecialPrice;
                               setVariants(newV);
-                          }} className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${v.useSpecialPrice ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-400'}`} title="Gunakan Harga Khusus Varian">
-                              <Tag size={14} />
+                          }} className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all ${v.useSpecialPrice ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-400'}`} title="Gunakan Harga Khusus Varian">
+                              <Tag size={16} />
                           </button>
 
-                          <button type="button" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500"><Trash2 size={18} /></button>
+                          <button type="button" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))} className="w-10 h-10 bg-red-50 flex items-center justify-center rounded-xl text-red-400 hover:bg-red-500 hover:text-white transition-all shrink-0"><Trash2 size={18} /></button>
                       </div>
 
-                      <div className="flex gap-4 items-center pl-2">
+                      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full">
                           {/* Input Harga Varian */}
-                          <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-bold text-gray-400">HARGA:</span>
-                              <input type="number" disabled={!v.useSpecialPrice} placeholder="Harga" className={`w-24 p-2 rounded-xl text-xs font-black text-right border ${v.useSpecialPrice ? 'bg-white text-orange-600 border-orange-200' : 'bg-gray-100 text-gray-300 border-transparent'}`} value={v.useSpecialPrice ? v.price : formData.price} onChange={(e) => handleVariantChange(i, 'price', e.target.value)} />
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                              <span className="text-[9px] font-bold text-gray-400 w-12 shrink-0">HARGA:</span>
+                              <input type="number" disabled={!v.useSpecialPrice} placeholder="Harga" className={`w-full sm:w-28 p-3 rounded-xl text-xs font-black text-left sm:text-right border ${v.useSpecialPrice ? 'bg-white text-orange-600 border-orange-200' : 'bg-gray-100 text-gray-300 border-transparent'}`} value={v.useSpecialPrice ? v.price : formData.price} onChange={(e) => handleVariantChange(i, 'price', e.target.value)} />
                           </div>
 
                           {/* Input Stok Varian */}
-                          <div className="flex items-center gap-2 flex-1">
-                              <span className="text-[9px] font-bold text-gray-400">STOK:</span>
-                              <input type="number" disabled={v.stock === -1} placeholder="Qty" className={`w-20 p-2 rounded-xl text-xs font-black text-right border ${v.stock === -1 ? 'bg-gray-100 text-gray-300 border-transparent' : 'bg-white text-gray-700 border-gray-200'}`} value={v.stock === -1 ? '' : v.stock} onChange={(e) => handleVariantChange(i, 'stock', e.target.value)} />
+                          <div className="flex items-center gap-2 flex-1 w-full">
+                              <span className="text-[9px] font-bold text-gray-400 w-12 shrink-0 sm:w-auto">STOK:</span>
+                              <input type="number" disabled={v.stock === -1} placeholder="Qty" className={`flex-1 sm:w-24 p-3 rounded-xl text-xs font-black text-left sm:text-right border ${v.stock === -1 ? 'bg-gray-100 text-gray-300 border-transparent' : 'bg-white text-gray-700 border-gray-200'}`} value={v.stock === -1 ? '' : v.stock} onChange={(e) => handleVariantChange(i, 'stock', e.target.value)} />
                               
-                              <label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 cursor-pointer">
-                                  <input type="checkbox" className="w-3 h-3 accent-orange-500" checked={v.stock === -1} onChange={(e) => handleVariantChange(i, 'stock', e.target.checked ? -1 : '')} /> ♾️ UNLIMITED
+                              <label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 cursor-pointer shrink-0 ml-2">
+                                  <input type="checkbox" className="w-4 h-4 accent-orange-500" checked={v.stock === -1} onChange={(e) => handleVariantChange(i, 'stock', e.target.checked ? -1 : '')} /> ♾️ UNLIMITED
                               </label>
                           </div>
                       </div>
@@ -350,15 +351,15 @@ const ProductManagement = () => {
       </div>
 
         {/* STOK UTAMA */}
-        <div className={`mb-10 p-6 rounded-[2rem] flex items-center gap-6 transition-all ${variants.some(v => v.name.trim() !== "") ? 'bg-orange-50 opacity-80 border-2 border-orange-100' : 'bg-gray-50'}`}>
-            <div className="flex-1">
+        <div className={`mb-10 p-5 md:p-6 rounded-2xl md:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center gap-4 transition-all ${variants.some(v => v.name.trim() !== "") ? 'bg-orange-50 opacity-80 border-2 border-orange-100' : 'bg-gray-50'}`}>
+            <div className="flex-1 w-full">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">
                     {variants.some(v => v.name.trim() !== "") ? 'Total Stok (Otomatis dari Varian)' : 'Jumlah Stok'}
                 </label>
                 <input 
                   type="number" 
                   disabled={formData.stock === -1 || variants.some(v => v.name.trim() !== "")} 
-                  className="w-full p-4 bg-white rounded-xl outline-none font-black text-2xl border border-gray-100" 
+                  className="w-full p-4 bg-white rounded-xl outline-none font-black text-2xl border border-gray-100 focus:border-orange-200 transition-all" 
                   value={formData.stock === -1 ? '' : formData.stock} 
                   onChange={(e) => setFormData({...formData, stock: e.target.value})} 
                 />
@@ -366,13 +367,13 @@ const ProductManagement = () => {
             
             {/* Sembunyikan checkbox unlimited jika ada varian, karena unlimited diatur per varian */}
             {!variants.some(v => v.name.trim() !== "") && (
-                <label className="flex items-center gap-3 text-xs font-black text-gray-500 cursor-pointer bg-white px-6 py-4 rounded-2xl border border-gray-200 shadow-sm">
+                <label className="flex items-center justify-center gap-3 text-xs font-black text-gray-500 cursor-pointer bg-white px-6 py-4 rounded-xl border border-gray-200 shadow-sm w-full sm:w-auto mt-2 sm:mt-5">
                     <input type="checkbox" className="w-6 h-6 accent-orange-500" checked={formData.stock === -1} onChange={(e) => setFormData({...formData, stock: e.target.checked ? -1 : ''})} /> ♾️ UNLIMITED
                 </label>
             )}
         </div>
 
-        <button type="submit" className="w-full bg-orange-600 text-white py-6 rounded-3xl font-black text-xl uppercase italic shadow-xl hover:bg-orange-700 transition-all">
+        <button type="submit" className="w-full bg-orange-600 text-white py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-lg md:text-xl uppercase italic shadow-xl hover:bg-orange-700 active:scale-95 transition-all">
           {editingId ? 'Update Data Menu' : 'Simpan Menu Baru'}
         </button>
       </form>
@@ -380,106 +381,108 @@ const ProductManagement = () => {
       {/* --- SECTION DAFTAR MENU + SEARCH --- */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h3 className="text-xl font-black uppercase italic tracking-tighter">Daftar Menu Saat Ini</h3>
-        <div className="relative max-w-sm w-full">
+        <div className="relative w-full md:max-w-sm">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
                 type="text" placeholder="Cari menu atau kategori..." 
-                className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-100 rounded-2xl outline-none font-bold text-sm focus:border-orange-500 transition-all shadow-sm"
+                className="w-full pl-12 pr-4 py-4 md:py-3 bg-white border-2 border-gray-100 rounded-2xl outline-none font-bold text-sm focus:border-orange-500 transition-all shadow-sm"
                 value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             />
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-gray-100">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest italic">
-            <tr>
-              <th className="p-6">Produk & Jadwal</th>
-              <th className="p-6">Varian & Harga</th>
-              <th className="p-6">Stok</th>
-              <th className="p-6 text-center">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {filteredProducts.map((p) => (
-              <tr key={p.id} className={`transition-all group ${p.isAvailable ? 'hover:bg-orange-50/20' : 'bg-gray-50 opacity-60 grayscale-[0.8]'}`}>
-                <td className="p-6 align-top">
-                  {/* Kolom Produk & Jadwal (Tetap sama) */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
-                      {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Image className="m-auto mt-3 text-gray-300" size={20} />}
-                    </div>
-                    <div>
-                      <p className={`font-black uppercase italic text-base leading-tight ${p.isAvailable ? 'text-gray-800' : 'text-gray-500 line-through decoration-2'}`}>{p.name}</p>
-                      <div className="flex items-center gap-1 mt-1">
-                        <Calendar size={10} className={p.isAvailable ? "text-orange-500" : "text-gray-400"} />
-                        <p className={`text-[9px] font-bold uppercase tracking-tighter ${p.isAvailable ? 'text-orange-500' : 'text-gray-400'}`}>
-                          {p.availableDays?.length > 0 ? p.availableDays.sort((a,b) => a-b).map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
-                        </p>
-                      </div>
-                      {!p.isAvailable && <span className="text-[8px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-md mt-1 inline-block">NON-AKTIF</span>}
-                    </div>
-                  </div>
-                </td>
-
-                <td className="p-6 align-top">
-                  {/* Kolom Varian & Harga (DIPERBARUI DENGAN STOK VARIAN) */}
-                  <div className="space-y-2">
-                    <div className={`text-[10px] font-black ${p.isAvailable ? 'text-orange-600' : 'text-gray-400'}`}>
-                      Rp {Number(p.price).toLocaleString('id-ID')} <span className="text-gray-400 font-bold">(Dasar)</span>
-                    </div>
-                    {p.variants && p.variants.length > 0 && (
-                      <div className="flex flex-col gap-1.5">
-                        {p.variants.map((v, idx) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <span className="text-[9px] font-black bg-white border border-gray-200 px-2 py-1 rounded-md text-gray-600 italic shadow-sm">
-                              {v.name}: Rp {Number(v.price).toLocaleString('id-ID')}
-                            </span>
-                            {/* Badge Stok per Varian */}
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md ${v.stock === -1 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                              {v.stock === -1 ? '∞' : `${v.stock} pcs`}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </td>
-
-                <td className="p-6 align-top">
-                  {/* Kolom Stok Total */}
-                  <div className={`inline-flex flex-col gap-1 px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase ${p.stock === -1 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
-                    <div className="flex items-center gap-1.5">
-                      <Box size={12} />
-                      {p.stock === -1 ? 'Unlimited' : `${p.stock} Total`}
-                    </div>
-                    {p.variants?.length > 0 && <span className="text-[7px] text-gray-400">(Gabungan Varian)</span>}
-                  </div>
-                </td>
-
-                <td className="p-6 text-center">
-                  {/* Kolom Aksi (Tetap sama) */}
-                  <div className="flex justify-center gap-2 items-center">
-                    <button 
-                      onClick={() => handleToggleStatus(p)} 
-                      className={`p-3 rounded-xl transition-all shadow-sm ${p.isAvailable ? 'bg-green-100 text-green-600 hover:bg-green-600 hover:text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-500 hover:text-white'}`}
-                      title={p.isAvailable ? "Non-aktifkan Menu" : "Aktifkan Menu"}
-                    >
-                      {p.isAvailable ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                    </button>
-                    <button onClick={() => startEdit(p)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"><Edit3 size={18} /></button>
-                    <button onClick={() => handleDelete(p)} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
-                  </div>
-                </td>
+      <div className="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100">
+        <div className="overflow-x-auto no-scrollbar">
+          <table className="w-full text-left border-collapse min-w-[700px]">
+            <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest italic">
+              <tr>
+                <th className="p-6">Produk & Jadwal</th>
+                <th className="p-6">Varian & Harga</th>
+                <th className="p-6">Stok</th>
+                <th className="p-6 text-center">Aksi</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {filteredProducts.length === 0 && (
-            <div className="p-20 text-center font-bold text-gray-400 uppercase text-xs italic">
-                Menu tidak ditemukan...
-            </div>
-        )}
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filteredProducts.map((p) => (
+                <tr key={p.id} className={`transition-all group ${p.isAvailable ? 'hover:bg-orange-50/20' : 'bg-gray-50 opacity-60 grayscale-[0.8]'}`}>
+                  <td className="p-6 align-top">
+                    {/* Kolom Produk & Jadwal */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200 flex items-center justify-center">
+                        {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Image className="text-gray-300" size={20} />}
+                      </div>
+                      <div>
+                        <p className={`font-black uppercase italic text-base leading-tight ${p.isAvailable ? 'text-gray-800' : 'text-gray-500 line-through decoration-2'}`}>{p.name}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Calendar size={10} className={p.isAvailable ? "text-orange-500" : "text-gray-400"} />
+                          <p className={`text-[9px] font-bold uppercase tracking-tighter ${p.isAvailable ? 'text-orange-500' : 'text-gray-400'}`}>
+                            {p.availableDays?.length > 0 ? p.availableDays.sort((a,b) => a-b).map(id => DAYS.find(d => d.id === id)?.label).join(', ') : 'SETIAP HARI'}
+                          </p>
+                        </div>
+                        {!p.isAvailable && <span className="text-[8px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-md mt-1 inline-block">NON-AKTIF</span>}
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="p-6 align-top">
+                    {/* Kolom Varian & Harga */}
+                    <div className="space-y-2">
+                      <div className={`text-[10px] font-black ${p.isAvailable ? 'text-orange-600' : 'text-gray-400'}`}>
+                        Rp {Number(p.price).toLocaleString('id-ID')} <span className="text-gray-400 font-bold">(Dasar)</span>
+                      </div>
+                      {p.variants && p.variants.length > 0 && (
+                        <div className="flex flex-col gap-1.5">
+                          {p.variants.map((v, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <span className="text-[9px] font-black bg-white border border-gray-200 px-2 py-1 rounded-md text-gray-600 italic shadow-sm">
+                                {v.name}: Rp {Number(v.price).toLocaleString('id-ID')}
+                              </span>
+                              {/* Badge Stok per Varian */}
+                              <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md ${v.stock === -1 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                                {v.stock === -1 ? '∞' : `${v.stock} pcs`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  <td className="p-6 align-top">
+                    {/* Kolom Stok Total */}
+                    <div className={`inline-flex flex-col gap-1 px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase ${p.stock === -1 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
+                      <div className="flex items-center gap-1.5">
+                        <Box size={12} />
+                        {p.stock === -1 ? 'Unlimited' : `${p.stock} Total`}
+                      </div>
+                      {p.variants?.length > 0 && <span className="text-[7px] text-gray-400">(Gabungan Varian)</span>}
+                    </div>
+                  </td>
+
+                  <td className="p-6 text-center">
+                    {/* Kolom Aksi */}
+                    <div className="flex justify-center gap-2 items-center">
+                      <button 
+                        onClick={() => handleToggleStatus(p)} 
+                        className={`p-3 rounded-xl transition-all shadow-sm ${p.isAvailable ? 'bg-green-100 text-green-600 hover:bg-green-600 hover:text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-500 hover:text-white'}`}
+                        title={p.isAvailable ? "Non-aktifkan Menu" : "Aktifkan Menu"}
+                      >
+                        {p.isAvailable ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                      </button>
+                      <button onClick={() => startEdit(p)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"><Edit3 size={18} /></button>
+                      <button onClick={() => handleDelete(p)} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredProducts.length === 0 && (
+              <div className="p-20 text-center font-bold text-gray-400 uppercase text-xs italic">
+                  Menu tidak ditemukan...
+              </div>
+          )}
+        </div>
       </div>
     </div>
   );
