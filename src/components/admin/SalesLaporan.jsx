@@ -6,8 +6,7 @@ import { formatRupiah } from '../../utils/format';
 import { collection, getDocs } from 'firebase/firestore';
 import { 
   Search, Filter, Package, TrendingUp, Calendar, 
-  Printer, StickyNote, CheckCircle, X, Clock, Award, BarChart3,
-  ChevronLeft, ChevronRight 
+  Printer, Clock, Award, ChevronLeft, ChevronRight 
 } from 'lucide-react';
 
 const SalesLaporan = () => {
@@ -19,11 +18,9 @@ const SalesLaporan = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const scrollRef = useRef(null);
 
-  // --- STATE PAGINATION ---
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // --- LOGIKA TANGGAL ---
   const defaultStart = new Date();
   defaultStart.setDate(defaultStart.getDate() - 6);
   const [startDate, setStartDate] = useState(defaultStart.toISOString().split('T')[0]);
@@ -48,8 +45,8 @@ const SalesLaporan = () => {
         };
         const parts = dateString.split(', ');
         if (parts.length > 1) {
-           const [day, monthName, year] = parts[1].split(' ');
-           if (months[monthName] !== undefined) return new Date(year, months[monthName], parseInt(day));
+          const [day, monthName, year] = parts[1].split(' ');
+          if (months[monthName] !== undefined) return new Date(year, months[monthName], parseInt(day));
         }
       }
       return order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
@@ -58,7 +55,6 @@ const SalesLaporan = () => {
     }
   };
 
-  // --- PERHITUNGAN STATISTIK, MENU TERLARIS & PAGINATION ---
   const stats = useMemo(() => {
     const getFormattedISODate = (dateObj) => {
       try {
@@ -140,13 +136,12 @@ const SalesLaporan = () => {
     };
   }, [orders, startDate, endDate, viewMode, searchQuery, selectedTransactionCategory, products, currentPage, rowsPerPage]);
 
-  // --- LOGIKA MONITOR STOK PRIORITAS ---
   const filteredStock = useMemo(() => {
     let list = selectedCategory === 'Semua' ? products : products.filter(p => p.category === selectedCategory);
     return [...list].sort((a, b) => {
       const getPriority = (item) => {
-        if (item.stock === -1) return 3; // Unlimited paling bawah
-        if (item.stock <= 5) return 1;   // Stok kritis paling atas
+        if (item.stock === -1) return 3; 
+        if (item.stock <= 5) return 1; 
         return 2;
       };
       const priA = getPriority(a);
@@ -154,24 +149,6 @@ const SalesLaporan = () => {
       return priA !== priB ? priA - priB : a.name.localeCompare(b.name);
     });
   }, [products, selectedCategory]);
-
-  // --- USE EFFECTS ---
-  useEffect(() => {
-    const slider = scrollRef.current;
-    if (!slider) return;
-    let isDown = false; let startX; let scrollLeft;
-    const handleMouseDown = (e) => { isDown = true; slider.classList.add('active'); startX = e.pageX - slider.offsetLeft; scrollLeft = slider.scrollLeft; };
-    const handleMouseLeave = () => isDown = false;
-    const handleMouseUp = () => isDown = false;
-    const handleMouseMove = (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - slider.offsetLeft; const walk = (x - startX) * 2; slider.scrollLeft = scrollLeft - walk; };
-    slider.addEventListener('mousedown', handleMouseDown); slider.addEventListener('mouseleave', handleMouseLeave); slider.addEventListener('mouseup', handleMouseUp); slider.addEventListener('mousemove', handleMouseMove);
-    return () => {
-      slider.removeEventListener('mousedown', handleMouseDown); slider.removeEventListener('mouseleave', handleMouseLeave);
-      slider.removeEventListener('mouseup', handleMouseUp); slider.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, []);
-
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth; }, [stats.chartData]);
 
   useEffect(() => {
     const fetchStock = async () => {
@@ -183,7 +160,6 @@ const SalesLaporan = () => {
     fetchStock();
   }, [orders]);
 
-  // --- HANDLERS ---
   const handleModeChange = (mode) => {
     const now = new Date();
     setCurrentPage(1);
@@ -228,9 +204,9 @@ const SalesLaporan = () => {
             <p className="text-[10px] text-orange-400 uppercase font-black tracking-widest mb-1">Total Omzet</p>
             <h3 className="text-3xl font-black italic">{formatRupiah(stats.totalRevenue)}</h3>
           </div>
-          <TrendingUp className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120} />
+          <TrendingUp className="absolute -right-4 -bottom-4 opacity-10" size={120} />
         </div>
-        <div className="bg-white p-8 rounded-[2.5rem] border-2 border-gray-50 shadow-sm flex flex-col items-center justify-center group">
+        <div className="bg-white p-8 rounded-[2.5rem] border-2 border-gray-50 shadow-sm flex flex-col items-center justify-center">
           <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Stok Kritis (&le;5 pcs)</p>
           <h3 className={`text-4xl font-black italic ${products.filter(p => p.stock >= 0 && p.stock <= 5).length > 0 ? 'text-red-500 animate-pulse' : 'text-gray-800'}`}>{products.filter(p => p.stock >= 0 && p.stock <= 5).length}</h3>
         </div>
@@ -245,15 +221,14 @@ const SalesLaporan = () => {
           {/* GRAFIK */}
           <div className="bg-white p-8 rounded-[2.5rem] border-2 border-gray-50 shadow-sm">
             <h4 className="font-black text-gray-700 mb-10 flex items-center gap-2 uppercase text-xs tracking-widest italic">📈 Grafik Penjualan</h4>
-            <div ref={scrollRef} className="overflow-x-auto pb-6 scrollbar-hide select-none cursor-grab active:cursor-grabbing">
+            <div ref={scrollRef} className="overflow-x-auto pb-6 scrollbar-hide">
               <div className="flex items-end h-64 gap-4 px-4 border-b-2 border-gray-50" style={{ minWidth: viewMode === 'harian' ? `${stats.chartData.length * 65}px` : '100%' }}>
                 {stats.chartData.map((d, i) => {
                   const colors = ['bg-orange-500', 'bg-red-500', 'bg-yellow-500', 'bg-rose-500', 'bg-amber-500'];
-                  const barColor = colors[i % colors.length];
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center group relative h-full justify-end min-w-[50px]">
                       {d.total > 0 && <span className="text-[9px] font-black text-gray-700 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-gray-100 px-2 py-1 rounded-lg z-20 whitespace-nowrap shadow-sm">{formatRupiah(d.total)}</span>}
-                      <div className={`w-full ${barColor} rounded-t-2xl transition-all duration-500 hover:brightness-110 shadow-lg`} style={{ height: `${(d.total / stats.maxTotal) * 100}%`, minHeight: d.total > 0 ? '8px' : '2px' }} />
+                      <div className={`w-full ${colors[i % colors.length]} rounded-t-2xl transition-all duration-500 hover:brightness-110 shadow-lg`} style={{ height: `${(d.total / stats.maxTotal) * 100}%`, minHeight: d.total > 0 ? '8px' : '2px' }} />
                       <span className="text-[9px] font-black text-gray-400 mt-4 uppercase whitespace-nowrap tracking-tighter">{d.label}</span>
                     </div>
                   );
@@ -263,21 +238,26 @@ const SalesLaporan = () => {
           </div>
 
           {/* TOP MENU */}
-          <div className="bg-white p-8 rounded-[2.5rem] border-2 border-gray-50 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-               <h4 className="font-black text-gray-700 flex items-center gap-2 uppercase text-xs tracking-widest italic"><Award className="text-orange-500" size={18} /> 5 Menu Paling Diminati</h4>
-               <span className="text-[9px] font-black text-orange-500 bg-orange-50 px-3 py-1 rounded-full uppercase italic">Juara: {stats.topMenuStats[0]?.fullName || '-'}</span>
-            </div>
-            <div className="space-y-3">
+          <div className="bg-white p-5 md:p-8 rounded-[2.5rem] border-2 border-gray-50 shadow-sm">
+            <h4 className="font-black text-gray-700 mb-8 flex items-center gap-2 uppercase text-xs tracking-widest italic">
+              <Award className="text-orange-500" size={18} /> 5 Menu Paling Diminati
+            </h4>
+            <div className="space-y-4">
               {stats.topMenuStats.slice(0, 5).map((menu, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-gray-50 p-4 rounded-3xl border border-gray-100 group hover:border-orange-200 transition-all">
+                <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-50 p-4 rounded-3xl border border-gray-100 gap-4">
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm ${idx === 0 ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-white text-gray-400'}`}>#{idx + 1}</div>
-                    <span className="text-xs font-black text-gray-800 uppercase leading-none">{menu.fullName}</span>
+                    <div className={`w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center font-black text-sm ${idx === 0 ? 'bg-orange-500 text-white' : 'bg-white text-gray-400'}`}>#{idx + 1}</div>
+                    <span className="text-xs font-black text-gray-800 uppercase leading-tight">{menu.fullName}</span>
                   </div>
-                  <div className="flex items-center gap-8 text-right">
-                    <div className="flex flex-col text-right"><span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Terjual</span><span className="text-sm font-black text-gray-800">{menu.qty} <span className="text-[10px]">Porsi</span></span></div>
-                    <div className="flex flex-col min-w-[100px] text-right"><span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Kontribusi</span><span className="text-sm font-black text-orange-600">{formatRupiah(menu.revenue)}</span></div>
+                  <div className="flex items-center gap-8">
+                    <div className="flex flex-col text-right">
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Terjual</span>
+                      <span className="text-sm font-black text-gray-800">{menu.qty} Porsi</span>
+                    </div>
+                    <div className="flex flex-col text-right min-w-[100px]">
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Kontribusi</span>
+                      <span className="text-sm font-black text-orange-600">{formatRupiah(menu.revenue)}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -287,18 +267,16 @@ const SalesLaporan = () => {
 
         {/* MONITOR STOK */}
         <div className="bg-gray-900 text-white p-8 rounded-[2.5rem] shadow-2xl flex flex-col border-4 border-gray-800 h-fit sticky top-24">
-          <div className="flex flex-col gap-4 mb-8">
-            <h4 className="font-black text-orange-400 uppercase text-xs tracking-widest italic flex items-center gap-2"><Package size={16} /> Monitor Stok</h4>
-            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="bg-gray-800 text-[10px] font-black uppercase p-4 rounded-2xl outline-none border-none text-orange-200 cursor-pointer hover:bg-gray-700 transition-all">
-              {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-            </select>
-          </div>
-          <div className="space-y-4 overflow-y-auto pr-2 scrollbar-hide max-h-[500px]">
+          <h4 className="font-black text-orange-400 uppercase text-xs tracking-widest italic flex items-center gap-2 mb-8"><Package size={16} /> Monitor Stok</h4>
+          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="bg-gray-800 text-[10px] font-black uppercase p-4 rounded-2xl outline-none border-none text-orange-200 cursor-pointer mb-4">
+            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
+          <div className="space-y-4 overflow-y-auto max-h-[500px] scrollbar-hide">
             {filteredStock.map((p, idx) => (
-              <div key={idx} className="flex justify-between items-center border-b border-white/5 pb-3 group">
+              <div key={idx} className="flex justify-between items-center border-b border-white/5 pb-3">
                 <div className="flex flex-col">
-                  <span className="text-[11px] font-bold group-hover:text-orange-300 transition-colors uppercase">{p.name}</span>
-                  <span className="text-[8px] text-gray-500 font-black uppercase tracking-tighter">{p.category}</span>
+                  <span className="text-[11px] font-bold uppercase">{p.name}</span>
+                  <span className="text-[8px] text-gray-500 font-black uppercase">{p.category}</span>
                 </div>
                 <div className="text-right">
                   {p.stock === -1 ? <span className="text-[8px] font-black text-green-400 bg-green-400/10 px-2 py-1 rounded-md">UNLIMITED</span> : <span className={`text-[11px] font-black px-3 py-1 rounded-full ${p.stock <= 5 ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-800 text-gray-400'}`}>{p.stock}</span>}
@@ -309,32 +287,50 @@ const SalesLaporan = () => {
         </div>
       </div>
 
-      {/* TABLE RINCIAN DENGAN PAGINATION */}
+      {/* TABLE RINCIAN */}
       <div className="bg-white rounded-[3rem] border-2 border-gray-50 shadow-xl overflow-hidden mt-6">
         <div className="p-8 border-b border-gray-50 bg-gray-50/30 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <h4 className="font-black text-gray-700 uppercase tracking-widest text-xs italic flex items-center gap-2"><TrendingUp size={16} className="text-orange-500" /> Rincian Transaksi</h4>
-          
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center bg-gray-100 rounded-2xl px-4 py-2">
-              <span className="text-[9px] font-black text-gray-400 uppercase mr-3 italic">Lihat:</span>
-              {[10, 30, 50, 100].map(num => (
-                <button key={num} onClick={() => { setRowsPerPage(num); setCurrentPage(1); }} className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${rowsPerPage === num ? 'bg-orange-500 text-white shadow-md' : 'text-gray-400 hover:text-orange-500'}`}>{num}</button>
-              ))}
-            </div>
-
+            {/* Filter Kategori Transaksi */}
             <div className="relative flex items-center bg-white border-2 border-gray-100 rounded-2xl px-4 py-2 group focus-within:border-orange-500 transition-all shadow-sm">
               <Filter size={14} className="text-orange-500 mr-2" />
-              <select value={selectedTransactionCategory} onChange={(e) => { setSelectedTransactionCategory(e.target.value); setCurrentPage(1); }} className="bg-transparent text-[10px] font-black text-gray-600 outline-none uppercase cursor-pointer">
-                <option value="Semua">Kategori: Semua</option>
-                {categories.filter(c => c !== 'Semua').map(c => <option key={c} value={c}>{c}</option>)}
+              <select 
+                value={selectedTransactionCategory} 
+                onChange={(e) => { 
+                  setSelectedTransactionCategory(e.target.value);
+                  setCurrentPage(1); 
+                }} 
+                className="bg-transparent text-[10px] font-black text-gray-600 outline-none uppercase cursor-pointer"
+              >
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat === 'Semua' ? 'Filter Kategori' : cat}</option>
+                ))}
               </select>
             </div>
 
-            <div className="relative group w-full md:w-72">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+            <div className="relative group w-full md:w-64">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" placeholder="Cari nama atau ID..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="w-full bg-white border-2 border-gray-100 rounded-2xl py-3 pl-12 pr-4 text-[11px] font-bold text-gray-600 outline-none focus:border-orange-500 transition-all shadow-sm" />
             </div>
             
+            {/* Rows Per Page Selector */}
+            <div className="flex items-center bg-gray-100 rounded-2xl px-4 py-2">
+              <span className="text-[9px] font-black text-gray-400 uppercase mr-3 italic">Lihat:</span>
+              {[10, 30, 50, 100].map(num => (
+                <button 
+                  key={num} 
+                  onClick={() => {
+                    setRowsPerPage(num);
+                    setCurrentPage(1);
+                  }} 
+                  className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${rowsPerPage === num ? 'bg-orange-500 text-white shadow-md' : 'text-gray-400 hover:text-orange-500'}`}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+
             <button onClick={() => window.print()} className="bg-black text-white p-3 rounded-2xl hover:bg-orange-500 transition-all active:scale-90"><Printer size={18} /></button>
           </div>
         </div>
@@ -343,73 +339,50 @@ const SalesLaporan = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50/50 text-[10px] uppercase text-gray-400 font-black tracking-widest border-b border-gray-50">
               <tr>
-                <th className="p-8 text-orange-600">Pesanan Untuk Tanggal</th>
-                <th className="p-8">Tanggal/Waktu Input Pemesanan</th>
+                <th className="p-8 text-orange-600">Untuk Tanggal</th>
+                <th className="p-8">Waktu Input</th>
                 <th className="p-8">Pelanggan & Pesanan</th>
-                <th className="p-8 text-right">Nominal & Status Pembayaran</th>
+                <th className="p-8 text-right">Nominal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {stats.displayOrders.map((o) => {
-                const targetDate = getOrderTargetDate(o);
-                return (
-                  <tr key={o.id} className="hover:bg-orange-50/10 transition-all group">
-                    <td className="p-8">
-                      <div className="text-sm font-black text-orange-500 uppercase italic">{targetDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
-                      <div className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{targetDate.toLocaleDateString('id-ID', { weekday: 'long' })}</div>
-                    </td>
-                    <td className="p-8 opacity-60">
-                       <div className="text-[10px] font-bold text-gray-700 flex items-center gap-1"><Clock size={10} />{new Date(o.createdAt?.toDate ? o.createdAt.toDate() : o.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</div>
-                       <div className="text-[9px] font-bold text-gray-400 mt-0.5">{new Date(o.createdAt?.toDate ? o.createdAt.toDate() : o.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</div>
-                    </td>
-                    <td className="p-8">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-black text-xs">{o.customerName?.charAt(0).toUpperCase()}</div>
-                        <div className="flex flex-col"><span className="font-black text-gray-800 uppercase text-xs tracking-tight">{o.customerName}</span><span className="text-[9px] font-bold text-gray-300 tracking-widest">ID: {o.id?.slice(-8).toUpperCase()}</span></div>
+              {stats.displayOrders.map((o) => (
+                <tr key={o.id} className="hover:bg-orange-50/10">
+                  <td className="p-8">
+                    <div className="text-sm font-black text-orange-500 uppercase italic">{getOrderTargetDate(o).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                  </td>
+                  <td className="p-8">
+                    <div className="text-[10px] font-bold text-gray-700 flex items-center gap-1"><Clock size={10} />{new Date(o.createdAt?.toDate ? o.createdAt.toDate() : o.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</div>
+                  </td>
+                  <td className="p-8">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-black text-xs">{o.customerName?.charAt(0).toUpperCase()}</div>
+                      <span className="font-black text-gray-800 uppercase text-xs">{o.customerName}</span>
+                    </div>
+                    {o.items?.map((item, idx) => (
+                      <div key={idx} className="flex flex-col border-l-4 border-orange-500 pl-4 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-gray-600 uppercase italic">{item.name}</span>
+                          <span className="text-[9px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-black">x{item.quantity}</span>
+                        </div>
+                        {item.notes && <span className="text-[9px] text-orange-600 font-black italic mt-1 bg-orange-50 px-2 py-1 rounded-lg">"{item.notes}"</span>}
                       </div>
-                      <div className="flex flex-col gap-2.5">
-                        {o.items?.map((item, idx) => (
-                          <div key={idx} className={`flex flex-col border-l-4 pl-4 transition-colors ${item.virtualCategory === selectedTransactionCategory ? 'border-orange-500' : 'border-gray-50'}`}>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black text-gray-600 uppercase italic leading-none">{item.name}</span>
-                              <span className="text-[9px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-black">x{item.quantity}</span>
-                              <span className="text-[8px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-black uppercase italic shadow-sm">{item.virtualCategory}</span>
-                            </div>
-                            {/* CATATAN ITEM (MENCEGAH TERHAPUS) */}
-                            {item.notes && (
-                              <div className="text-[9px] text-orange-600 font-black italic mt-1.5 uppercase tracking-tighter flex items-center gap-1.5 bg-orange-50 w-fit px-2 py-1 rounded-lg border border-orange-100 shadow-sm shadow-orange-100/50 animate-in fade-in slide-in-from-left-2 duration-300">
-                                <StickyNote size={10} className="text-orange-500" /> "{item.notes}"
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="p-8 text-right">
-                      <div className="text-sm font-black text-gray-900 italic text-right">{formatRupiah(o.total)}</div>
-                      {o.isPaid ? <div className="text-[9px] text-green-500 font-black uppercase mt-1 flex justify-end items-center gap-1 text-right">Lunas <CheckCircle size={10} /></div> : <div className="text-[9px] text-red-500 font-black uppercase mt-1 flex justify-end items-center gap-1 text-right">Belum Bayar <X size={10} /></div>}
-                    </td>
-                  </tr>
-                );
-              })}
-              {stats.displayOrders.length === 0 && (
-                <tr><td colSpan="4" className="p-32 text-center"><div className="flex flex-col items-center justify-center opacity-20"><Search size={64} className="mb-4 text-gray-400" /><p className="text-sm font-black uppercase tracking-[0.2em]">Data Tidak Ditemukan</p></div></td></tr>
-              )}
+                    ))}
+                  </td>
+                  <td className="p-8 text-right">
+                    <div className="text-sm font-black text-gray-900 italic">{formatRupiah(o.total)}</div>
+                    <div className={`text-[9px] font-black uppercase mt-1 ${o.isPaid ? 'text-green-500' : 'text-red-500'}`}>{o.isPaid ? 'Lunas' : 'Belum Lunas'}</div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
 
-        <div className="p-8 bg-gray-50/50 border-t border-gray-50 flex flex-col md:flex-row items-center justify-between gap-6">
-          <p className="text-[10px] font-black text-gray-400 uppercase italic">
-            Menampilkan <span className="text-gray-800">{stats.displayOrders.length}</span> dari <span className="text-orange-600">{stats.totalFiltered}</span> pesanan
-          </p>
+        <div className="p-8 bg-gray-50/50 border-t border-gray-50 flex items-center justify-between">
+          <p className="text-[10px] font-black text-gray-400 uppercase italic">Halaman {currentPage} dari {stats.totalPages}</p>
           <div className="flex items-center gap-2">
             <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className="p-3 rounded-xl bg-white border border-gray-100 text-gray-400 hover:bg-orange-500 hover:text-white transition-all disabled:opacity-30"><ChevronLeft size={18} /></button>
-            <div className="flex items-center gap-1">
-              {[...Array(stats.totalPages)].map((_, i) => (
-                <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-white text-gray-400 border border-gray-100 hover:border-orange-500'}`}>{i + 1}</button>
-              )).slice(Math.max(0, currentPage - 3), Math.min(stats.totalPages, currentPage + 2))}
-            </div>
             <button disabled={currentPage === stats.totalPages || stats.totalPages === 0} onClick={() => setCurrentPage(prev => prev + 1)} className="p-3 rounded-xl bg-white border border-gray-100 text-gray-400 hover:bg-orange-500 hover:text-white transition-all disabled:opacity-30"><ChevronRight size={18} /></button>
           </div>
         </div>
