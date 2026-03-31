@@ -59,10 +59,19 @@ const AppContent = () => {
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false); 
   const [orderDate, setOrderDate] = useState(null);
   const [isCompletingDetails, setIsCompletingDetails] = useState(false);
-
   const { users, currentUser, authError, setAuthError, login, logout, register, deleteUser, loading } = useAuth();
   const { cart, orders, currentOrder, addToCart, updateQuantity, removeFromCart, checkout, updateCartItemDetails, loadingOrder, resetCurrentOrder } = useShop(currentUser);
   const { checkIsClosed } = useStoreSchedule();
+
+  const pendingOrdersCount = useMemo(() => {
+    if (!orders) return 0;
+    
+    return orders.filter(order => {
+      const s = (order.status || '').toLowerCase();
+      return s === 'pending' || s === 'baru';
+    }).length;
+  }, [orders]);
+
 
   const shopClosedInfo = useMemo(() => {
       const dateToCheck = orderDate?.isoDate || getFormattedDateInfo(new Date()).isoDate;
@@ -258,7 +267,8 @@ const AppContent = () => {
           <div className="min-h-screen bg-orange-50/30">
             <Header 
               user={currentUser} 
-              cartCount={cart.reduce((a, b) => a + b.quantity, 0)} 
+              cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
+              ordersCount={pendingOrdersCount}
               onNavigate={(v) => { 
                 if (v === 'exit-to-welcome') handleExitToWelcome();
                 else { setCurrentView(v); setAuthError(''); }

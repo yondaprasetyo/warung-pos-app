@@ -144,7 +144,7 @@ export const useShop = (currentUser) => {
         items: orderItems,
         total: total,
         note: orderNote,
-        orderDate: targetDate, // <--- MENYIMPAN TANGGAL TARGET PESANAN
+        orderDate: targetDate,
         status: 'pending', 
         isPaid: false, 
         createdAt: serverTimestamp(),
