@@ -18,16 +18,7 @@ body {
   background-color: #f9fafb;
 }
 
-input[type="date"]::-webkit-date-and-time-value {
-  text-align: center;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 1.5em;
-}
-
-input[type="date"] {
+.date-input-centered {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -36,7 +27,16 @@ input[type="date"] {
   appearance: none;
 }
 
-input[type="date"]::-webkit-calendar-picker-indicator {
+.date-input-centered::-webkit-date-and-time-value {
+  text-align: center;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.5em;
+}
+
+.date-input-centered::-webkit-calendar-picker-indicator {
   margin-left: -25px; 
   cursor: pointer;
 }

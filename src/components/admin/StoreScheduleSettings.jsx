@@ -47,7 +47,7 @@ const StoreScheduleSettings = () => {
             <label className="text-[10px] font-bold text-gray-400 uppercase">Mulai Tanggal</label>
             <input 
               type="date" 
-              className="w-full p-2 rounded-xl border border-gray-200 text-sm font-bold"
+              className="w-full p-2 rounded-xl border border-gray-200 text-sm font-bold bg-white"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
@@ -56,7 +56,7 @@ const StoreScheduleSettings = () => {
             <label className="text-[10px] font-bold text-gray-400 uppercase">Sampai Tanggal</label>
             <input 
               type="date" 
-              className="w-full p-2 rounded-xl border border-gray-200 text-sm font-bold"
+              className="w-full p-2 rounded-xl border border-gray-200 text-sm font-bold bg-white"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
@@ -67,7 +67,7 @@ const StoreScheduleSettings = () => {
            <input 
               type="text" 
               placeholder="Masukkan alasan..."
-              className="w-full p-2 rounded-xl border border-gray-200 text-sm font-bold"
+              className="w-full p-2 rounded-xl border border-gray-200 text-sm font-bold bg-white"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
            />

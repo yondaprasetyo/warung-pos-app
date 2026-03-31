@@ -33,7 +33,8 @@ const LoginView = ({ onLogin, error }) => {
         <div className="text-center mb-8">
           <div className="text-6xl mb-4 animate-bounce">🍽️</div>
           <h1 className="text-3xl font-black text-gray-800 italic uppercase tracking-tighter">
-            Warung Makan <span className="text-orange-500">Mamah Yonda</span>
+            Warung Makan 
+            <p><span className="text-orange-500">Mamah Yonda</span></p>
           </h1>
           <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-2">Khusus Manajemen</p>
         </div>

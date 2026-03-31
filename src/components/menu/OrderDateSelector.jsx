@@ -77,7 +77,7 @@ const OrderDateSelector = ({ onSelectDate, user, authLoading }) => {
               max={maxDate}
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl font-black text-center outline-none focus:border-orange-500 transition-all cursor-pointer text-gray-800 uppercase appearance-none flex justify-center items-center"
+              className="date-input-centered w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl font-black text-center outline-none focus:border-orange-500 focus:ring-0 focus:outline-none transition-all cursor-pointer leading-none text-gray-800 uppercase"
               style={{
                 textAlign: 'center',
                 display: 'block',
