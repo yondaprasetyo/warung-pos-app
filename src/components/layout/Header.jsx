@@ -72,7 +72,7 @@ const Header = ({ user, cartCount, ordersCount, onNavigate, onLogout, currentVie
   const renderBadge = (count) => {
     if (!count || count <= 0) return null;
     return (
-      <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center border-2 border-white shadow-lg px-1 animate-bounce">
+      <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center border-2 border-white shadow-lg px-1 animate-pulse">
         {count > 99 ? '99+' : count}
       </span>
     );

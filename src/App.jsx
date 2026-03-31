@@ -66,10 +66,9 @@ const AppContent = () => {
   const pendingOrdersCount = useMemo(() => {
     if (!orders) return 0;
     
-    return orders.filter(order => {
-      const s = (order.status || '').toLowerCase();
-      return s === 'pending' || s === 'baru';
-    }).length;
+    return orders.filter(order => 
+      (order.status || '').toLowerCase() === 'pending'
+    ).length;
   }, [orders]);
 
 

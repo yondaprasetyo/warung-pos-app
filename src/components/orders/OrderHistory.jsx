@@ -270,7 +270,7 @@ const OrderHistory = ({ orders }) => {
                 <div className="space-y-4">
                     {groupedOrders[dateKey].map(order => {
                         const status = (order.status || 'pending').toLowerCase();
-                        const isPending = status === 'pending' || status === 'baru';
+                        const isPending = status === 'pending';
                         const isProcessing = status === 'processing' || status === 'proses';
                         const isCompleted = status === 'completed' || status === 'selesai';
                         const isPaid = order.isPaid === true;
