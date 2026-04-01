@@ -6,6 +6,7 @@ import ItemSelectionModal from './ItemSelectionModal';
 import { Search, Calendar, Plus, ChevronDown, Lock } from 'lucide-react';
 
 const MenuView = ({ 
+  cart = [],
   onAddToCart, 
   orderDateInfo, 
   onUpdateDate, // Menggunakan prop onUpdateDate sebagai fungsi reset/ubah tanggal
@@ -49,6 +50,43 @@ const MenuView = ({
     const cats = processedProducts.map(p => p.category);
     return [...new Set(cats)];
   }, [processedProducts]);
+
+  // --- SCROLL SPY EFFECT ---
+  useEffect(() => {
+    const handleScroll = () => {
+      // Offset disesuaikan dengan tinggi header kamu (320px) + buffer (sekitar 30px)
+      const offsetTarget = 350; 
+      let currentCategory = activeTab;
+
+      // Cek posisi setiap section kategori
+      for (const category of categories) {
+        const element = sectionRefs.current[category];
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          // Jika bagian atas elemen sudah mencapai batas bawah header
+          // dan bagian bawah elemen masih ada di area pandang
+          if (rect.top <= offsetTarget && rect.bottom > offsetTarget) {
+            currentCategory = category;
+            break; // Hentikan loop jika sudah ketemu yang aktif
+          }
+        }
+      }
+
+      // Update state jika ada perubahan kategori yang dilihat
+      if (currentCategory && currentCategory !== activeTab) {
+        setActiveTab(currentCategory);
+        
+        // Opsional: Agar menu scroll horizontal di atas ikut bergeser secara otomatis
+        const tabButton = document.getElementById(`tab-${currentCategory}`);
+        if (tabButton) {
+          tabButton.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [categories, activeTab]);
 
   const handleCategoryClick = (category, e) => {
     setActiveTab(category);
@@ -211,6 +249,7 @@ const MenuView = ({
             {categories.map(cat => (
               <button
                 key={cat}
+                id={`tab-${cat}`}
                 onClick={(e) => handleCategoryClick(cat, e)}
                 className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase transition-all whitespace-nowrap border-2 ${
                   activeTab === cat 
@@ -245,6 +284,13 @@ const MenuView = ({
                   .filter(p => p.category === category)
                   .map(product => {
                     const canOrder = product.isAvailableToday && !product.isOutOfStock;
+                    const cartItemQuantity = cart.reduce((total, cartItem) => {
+                      const realId = (cartItem.productId || cartItem.id).split('-')[0];
+                      if (realId === product.id) {
+                        return total + cartItem.quantity;
+                      }
+                      return total;
+                    }, 0);
                     return (
                       <div 
                         key={product.id}
@@ -271,8 +317,14 @@ const MenuView = ({
                           </p>
                         </div>
                         {canOrder && (
-                          <div className="flex items-center pr-3">
-                            <div className="w-12 h-12 bg-orange-500 text-white rounded-[1.3rem] flex items-center justify-center shadow-lg shadow-orange-200">
+                          <div className="flex items-center gap-3 pr-3">
+                            {cartItemQuantity > 0 && (
+                              <div className="bg-orange-100 text-orange-600 font-black text-sm px-3 py-1 rounded-xl border border-orange-200 shadow-sm animate-in zoom-in duration-200">
+                                {cartItemQuantity}x
+                              </div>
+                            )}
+                            
+                            <div className="w-12 h-12 bg-orange-500 text-white rounded-[1.3rem] flex items-center justify-center shadow-lg shadow-orange-200 transition-transform active:scale-90 shrink-0">
                               <Plus size={24} strokeWidth={4} />
                             </div>
                           </div>

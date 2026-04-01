@@ -187,7 +187,7 @@ const AppContent = () => {
 
   const renderMainContent = (isAdminView = false) => {
     switch (currentView) {
-      case 'menu': return <MenuView onAddToCart={addToCart} orderDateInfo={orderDate || getFormattedDateInfo(new Date())} onUpdateDate={isAdminView ? (d) => setOrderDate(getFormattedDateInfo(new Date(d))) : handleResetDate} isAdmin={isAdminView} shopClosedInfo={shopClosedInfo} />;
+      case 'menu': return <MenuView cart={cart} onAddToCart={addToCart} orderDateInfo={orderDate || getFormattedDateInfo(new Date())} onUpdateDate={isAdminView ? (d) => setOrderDate(getFormattedDateInfo(new Date(d))) : handleResetDate} isAdmin={isAdminView} shopClosedInfo={shopClosedInfo} />;
       case 'cart': return <CartView cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} updateCartItemDetails={updateCartItemDetails} onCheckout={() => setShowNameModal(true)} onBack={() => setCurrentView('menu')} />;
       case 'orders': return <OrderHistory orders={orders} />;
       case 'laporan': return <SalesLaporan />;
