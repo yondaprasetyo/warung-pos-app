@@ -6,7 +6,7 @@ import { doc, onSnapshot, getDoc, updateDoc, serverTimestamp } from 'firebase/fi
 import { 
   ArrowLeft, Clock, ChefHat, CheckCircle, XCircle, 
   RefreshCw, Download, Loader2, QrCode, MessageCircle, X, Share2, Check,
-  Maximize2, Camera, ShieldCheck, Edit2 // Tambahan Edit2
+  Maximize2, Camera, ShieldCheck, Edit2, SearchX // Tambahan icon SearchX
 } from 'lucide-react'; 
 import { formatRupiah } from '../../utils/format';
 import html2canvas from 'html2canvas';
@@ -14,7 +14,7 @@ import html2canvas from 'html2canvas';
 const QRIS_IMAGE_URL = "/qris.jpg"; 
 const ADMIN_PHONE_NUMBER = "6287774223733"; 
 
-const ReceiptView = ({ order, onBack }) => {
+const ReceiptView = ({ order, onBack, onEditOrder }) => {
   const { orderId: urlOrderId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth(); 
@@ -28,11 +28,17 @@ const ReceiptView = ({ order, onBack }) => {
   const [isQrisFullscreen, setIsQrisFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   
+  // --- TAMBAHAN STATE BARU ---
+  const [isNotFound, setIsNotFound] = useState(false); 
+  
   const receiptRef = useRef(null);
 
   // 1. Listen Realtime
   useEffect(() => {
-    if (!targetOrderId) return;
+    if (!targetOrderId) {
+      setIsNotFound(true);
+      return;
+    }
     
     const unsubscribe = onSnapshot(doc(db, "orders", targetOrderId), (docSnapshot) => {
       if (docSnapshot.exists()) {
@@ -42,6 +48,10 @@ const ReceiptView = ({ order, onBack }) => {
             ...data,
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date() 
         });
+        setIsNotFound(false); // Reset jika ternyata data ada
+      } else {
+        // --- JIKA DATA TIDAK ADA / DIHAPUS ---
+        setIsNotFound(true);
       }
     }, (error) => {
       console.error("Error listening to order:", error);
@@ -79,17 +89,9 @@ const ReceiptView = ({ order, onBack }) => {
   };
 
   // 4. Fungsi Edit Pesanan oleh Pengguna
-  const handleUserEdit = async () => {
-    if (!window.confirm("Untuk mengedit, pesanan ini akan dibatalkan agar kamu bisa membuat pesanan baru. Lanjutkan?")) return;
-    try {
-      await updateDoc(doc(db, "orders", targetOrderId), { 
-        status: 'cancelled',
-        updatedAt: serverTimestamp()
-      });
-      navigate('/'); // Arahkan kembali ke menu untuk pesan ulang
-    } catch (err) {
-      alert("Gagal memproses edit pesanan: " + err.message);
-    }
+  const handleUserEdit = () => {
+    if (!window.confirm("Ingin mengubah pesanan ini? Kamu akan diarahkan kembali ke keranjang.")) return;
+    if (onEditOrder) onEditOrder(liveOrder);
   };
 
   const handleCopyLink = () => {
@@ -112,6 +114,9 @@ const ReceiptView = ({ order, onBack }) => {
             ...data,
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date() 
         });
+        setIsNotFound(false);
+      } else {
+        setIsNotFound(true); // --- JIKA DATA TIDAK ADA SAAT REFRESH ---
       }
     } catch (error) { 
       console.error("Gagal refresh:", error); 
@@ -166,6 +171,28 @@ const ReceiptView = ({ order, onBack }) => {
     setShowPaymentModal(false);
   };
 
+  // --- TAMPILAN JIKA PESANAN TIDAK DITEMUKAN ---
+  if (isNotFound) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-gray-50">
+          <div className="bg-white p-6 rounded-full shadow-xl mb-6">
+            <SearchX size={64} className="text-gray-400" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-800 italic uppercase tracking-tighter mb-2">Pesanan Tidak Ditemukan</h2>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-8 max-w-xs leading-relaxed">
+            Data pesanan ini tidak ada atau mungkin sudah dihapus.
+          </p>
+          <button 
+            onClick={() => navigate('/')} 
+            className="w-full max-w-xs bg-orange-500 text-white p-4 rounded-[2rem] font-black text-sm shadow-lg hover:scale-105 active:scale-95 transition-all italic uppercase tracking-widest"
+          >
+            Kembali ke Menu
+          </button>
+      </div>
+    );
+  }
+
+  // --- TAMPILAN JIKA MASIH LOADING ---
   if (!liveOrder) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-gray-50">
@@ -188,7 +215,6 @@ const ReceiptView = ({ order, onBack }) => {
   const statusUI = getStatusUI(liveOrder.status);
   const canPayNow = !liveOrder.isPaid && liveOrder.status !== 'cancelled' && liveOrder.paymentStatus !== 'verification_via_wa';
   
-  // Cek apakah order masih bisa diedit/dibatalkan oleh user
   const isPending = (liveOrder.status || '').toLowerCase() === 'pending' || (liveOrder.status || '').toLowerCase() === 'baru';
 
   return (
@@ -370,7 +396,6 @@ const ReceiptView = ({ order, onBack }) => {
           >
             <QrCode size={28} />
             <div className="text-left leading-none">
-              {/* <p className="text-[10px] font-black uppercase opacity-80 tracking-widest mb-1 text-white">Belum Bayar?</p> */}
               <p className="text-xl font-black italic uppercase tracking-tighter">Bayar Sekarang</p>
             </div>
           </button>

@@ -65,7 +65,9 @@ const OrderDateSelector = ({ onSelectDate, user, authLoading }) => {
           Mau Pesan Untuk Kapan?
         </h2>
         <p className="text-gray-400 text-xs font-bold uppercase mb-8">
-          Pilih tanggal order agar kami bisa menyiapkan menu terbaik untukmu
+          Pilih tanggal order
+          <p>
+            </p>agar kami bisa menyiapkan menu terbaik untukmu
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">

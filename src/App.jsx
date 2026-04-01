@@ -4,7 +4,7 @@ import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
 import { useStoreSchedule } from './hooks/useStoreSchedule'; 
 import { db } from './firebase'; 
-import { doc, writeBatch } from 'firebase/firestore'; 
+import { doc, writeBatch, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   ShoppingBag, LogIn, UtensilsCrossed, 
   ArrowLeft, Loader2, ClipboardList 
@@ -60,7 +60,8 @@ const AppContent = () => {
   const [orderDate, setOrderDate] = useState(null);
   const [isCompletingDetails, setIsCompletingDetails] = useState(false);
   const { users, currentUser, authError, setAuthError, login, logout, register, deleteUser, loading } = useAuth();
-  const { cart, orders, currentOrder, addToCart, updateQuantity, removeFromCart, checkout, updateCartItemDetails, loadingOrder, resetCurrentOrder } = useShop(currentUser);
+  const [editingOrderId, setEditingOrderId] = useState(null);
+  const { cart, setCart, orders, currentOrder, addToCart, updateQuantity, removeFromCart, checkout, updateCartItemDetails, loadingOrder, resetCurrentOrder } = useShop(currentUser);
   const { checkIsClosed } = useStoreSchedule();
 
   const pendingOrdersCount = useMemo(() => {
@@ -98,6 +99,16 @@ const AppContent = () => {
     navigate('/');
   };
 
+  const handleEditOrder = (orderData) => {
+    setEditingOrderId(orderData.id);
+    setCustomerNameInput(orderData.customerName);
+    if (setCart) setCart(orderData.items);
+    
+    setIsPublicMode(true);
+    setCurrentView('cart');
+    navigate('/');
+  };
+
   const executeCheckout = async (orderType = 'dine-in', paymentMethod = 'cash') => {
     if (!customerNameInput.trim()) return;
     setIsProcessingCheckout(true); 
@@ -108,7 +119,26 @@ const AppContent = () => {
         : `[ONLINE] - BAYAR: QRIS - Jadwal: ${orderDate?.fullDate}`;
       
       const finalOrderDate = isSelfService ? getFormattedDateInfo(new Date()) : orderDate;
-      const order = await checkout(customerNameInput, orderNote, finalOrderDate?.isoDate);
+      
+      let order;
+
+      // --- LOGIKA EDIT PESANAN ---
+      if (editingOrderId) {
+        const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        await updateDoc(doc(db, "orders", editingOrderId), {
+          items: cart,
+          total: total,
+          customerName: customerNameInput,
+          updatedAt: serverTimestamp()
+        });
+        order = { id: editingOrderId }; // Pakai ID lama
+        setEditingOrderId(null); // Reset state edit
+        if (setCart) setCart([]); // Kosongkan keranjang manual setelah sukses
+      } 
+      // --- LOGIKA PESANAN BARU ---
+      else {
+        order = await checkout(customerNameInput, orderNote, finalOrderDate?.isoDate);
+      }
       
       if (order) {
         const batch = writeBatch(db);
@@ -120,7 +150,7 @@ const AppContent = () => {
         });
         await batch.commit();
         
-        setShowNameModal(false);
+        setShowNameModal(false); // <--- Modal baru ditutup DI SINI, setelah loading selesai!
         setIsCompletingDetails(false); 
         setCustomerNameInput('');
 
@@ -156,8 +186,9 @@ const AppContent = () => {
             <button 
               onClick={() => {
                 const isSelfService = window.location.pathname.includes('/self-service');
-                setShowNameModal(false);
+                // setShowNameModal(false); <--- HAPUS BARIS INI
                 if (isSelfService) {
+                  setShowNameModal(false); // Pindahkan ke sini (hanya untuk self-service)
                   setIsCompletingDetails(true); 
                 } else {
                   executeCheckout('online', 'qris');
@@ -205,7 +236,7 @@ const AppContent = () => {
       <Route path="/register" element={currentUser ? <Navigate to="/" replace /> : <RegisterView onRegister={register} onBack={() => navigate('/login')} error={authError} />} />
       
       {/* STRUK ONLINE & MANDIRI */}
-      <Route path="/receipt/:orderId" element={<ReceiptView order={currentOrder} onBack={() => { resetCurrentOrder(); navigate('/'); }} />} />
+      <Route path="/receipt/:orderId" element={<ReceiptView order={currentOrder} onBack={() => { resetCurrentOrder(); navigate('/'); }} onEditOrder={handleEditOrder} />} />
       <Route path="/self-receipt/:orderId" element={<PublicReceiptView />} />
       
       {/* HALAMAN SELF-SERVICE */}
@@ -332,7 +363,7 @@ const AppContent = () => {
               </button>
             </div>
             <button onClick={() => navigate('/login')} className="mt-16 text-gray-400 font-bold text-xs tracking-widest flex items-center gap-2 uppercase">
-              <LogIn size={14} /> Admin
+              <LogIn size={14} /> Masuk Admin
             </button>
           </div>
         )

@@ -207,6 +207,7 @@ export const useShop = (currentUser) => {
 
   return {
     cart, 
+    setCart,
     orders, 
     currentOrder, 
     setCurrentOrder,
