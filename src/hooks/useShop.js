@@ -134,6 +134,8 @@ export const useShop = (currentUser) => {
         name: item.name,
         price: Number(item.price),
         quantity: Number(item.quantity),
+        imageUrl: item.imageUrl || '',
+        stock: item.stock !== undefined ? item.stock : -1,
         selectedVariant: item.selectedVariant || null,
         variant: item.variant || (item.selectedVariant?.name) || 'Tanpa Varian',
         notes: item.notes || item.note || "" 
