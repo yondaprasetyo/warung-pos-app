@@ -20,6 +20,8 @@ const MenuView = ({
   const [activeTab, setActiveTab] = useState('');
   
   const sectionRefs = useRef({});
+  const isClickNavigating = useRef(false);
+  const scrollTimeout = useRef(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
@@ -54,7 +56,7 @@ const MenuView = ({
   // --- SCROLL SPY EFFECT ---
   useEffect(() => {
     const handleScroll = () => {
-      // Offset disesuaikan dengan tinggi header kamu (320px) + buffer (sekitar 30px)
+      if (isClickNavigating.current) return;
       const offsetTarget = 350; 
       let currentCategory = activeTab;
 
@@ -89,7 +91,9 @@ const MenuView = ({
   }, [categories, activeTab]);
 
   const handleCategoryClick = (category, e) => {
+    isClickNavigating.current = true; 
     setActiveTab(category);
+
     if (e?.currentTarget) {
       e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }
@@ -101,7 +105,13 @@ const MenuView = ({
       const offsetPosition = elementPosition - headerHeight;
       window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
     }
+
     if (window.navigator?.vibrate) window.navigator.vibrate(10);
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    
+    scrollTimeout.current = setTimeout(() => {
+      isClickNavigating.current = false;
+    }, 800);
   };
 
   // --- LOGIKA BLOKIR JIKA TOKO TUTUP ---
