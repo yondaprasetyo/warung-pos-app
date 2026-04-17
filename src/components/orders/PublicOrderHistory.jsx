@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { 
   Receipt, Clock, ChefHat, CalendarDays
 } from 'lucide-react'; 
+import { maskName } from '../../utils/format';
 
 const PublicOrderHistory = ({ orders }) => {
   // --- LOGIKA FILTER: HARI INI & MASA DEPAN ---
@@ -97,7 +98,7 @@ const PublicOrderHistory = ({ orders }) => {
               <div className="flex flex-col gap-4">
                 <div>
                   <h3 className="font-black text-gray-800 text-2xl uppercase tracking-tighter italic mb-1 leading-none">
-                    {order.customerName}
+                    {maskName(order.customerName)}
                   </h3>
                   <div className="flex items-center gap-3 text-gray-400 text-[10px] font-bold uppercase tracking-widest">
                     <span className="flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-gray-600">
