@@ -4,7 +4,7 @@ import { useAuth } from './hooks/useAuth';
 import { useShop } from './hooks/useShop';
 import { useStoreSchedule } from './hooks/useStoreSchedule'; 
 import { db } from './firebase'; 
-import { doc, writeBatch, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, writeBatch, updateDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { 
   ShoppingBag, LogIn, UtensilsCrossed, 
   ArrowLeft, Loader2, ClipboardList 
@@ -66,12 +66,8 @@ const AppContent = () => {
 
   const pendingOrdersCount = useMemo(() => {
     if (!orders) return 0;
-    
-    return orders.filter(order => 
-      (order.status || '').toLowerCase() === 'pending'
-    ).length;
+    return orders.filter(order => (order.status || '').toLowerCase() === 'pending').length;
   }, [orders]);
-
 
   const shopClosedInfo = useMemo(() => {
       const dateToCheck = orderDate?.isoDate || getFormattedDateInfo(new Date()).isoDate;
@@ -90,7 +86,6 @@ const AppContent = () => {
     setCurrentView('menu');
   };
 
-  // Fungsi navigasi khusus untuk kembali ke Welcome Screen
   const handleExitToWelcome = () => {
     setIsPublicMode(false);
     setOrderDate(null);
@@ -103,12 +98,12 @@ const AppContent = () => {
     setEditingOrderId(orderData.id);
     setCustomerNameInput(orderData.customerName);
     if (setCart) setCart(orderData.items);
-    
     setIsPublicMode(true);
     setCurrentView('cart');
     navigate('/');
   };
 
+  // --- LOGIKA UTAMA: CHECKOUT DENGAN ATOMIC STOCK UPDATE ---
   const executeCheckout = async (orderType = 'dine-in', paymentMethod = 'cash') => {
     if (!customerNameInput.trim()) return;
     setIsProcessingCheckout(true); 
@@ -122,7 +117,6 @@ const AppContent = () => {
       
       let order;
 
-      // --- LOGIKA EDIT PESANAN ---
       if (editingOrderId) {
         const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         await updateDoc(doc(db, "orders", editingOrderId), {
@@ -131,26 +125,32 @@ const AppContent = () => {
           customerName: customerNameInput,
           updatedAt: serverTimestamp()
         });
-        order = { id: editingOrderId }; // Pakai ID lama
-        setEditingOrderId(null); // Reset state edit
-        if (setCart) setCart([]); // Kosongkan keranjang manual setelah sukses
+        order = { id: editingOrderId };
+        setEditingOrderId(null);
+        if (setCart) setCart([]);
       } 
-      // --- LOGIKA PESANAN BARU ---
       else {
         order = await checkout(customerNameInput, orderNote, finalOrderDate?.isoDate);
       }
       
       if (order) {
+        // PERBAIKAN: Menggunakan writeBatch dan increment agar stok akurat (Atomic)
         const batch = writeBatch(db);
         cart.forEach((item) => {
           if (item.stock !== undefined && item.stock !== -1) {
+            // Ambil ID murni produk (bersihkan dari suffix varian jika ada)
             const realId = (item.productId || item.id).split('-')[0];
-            batch.update(doc(db, "products", realId), { stock: Math.max(0, item.stock - item.quantity) });
+            const productRef = doc(db, "products", realId);
+            
+            // Gunakan increment negatif untuk mengurangi stok secara aman di server
+            batch.update(productRef, { 
+              stock: increment(-item.quantity) 
+            });
           }
         });
         await batch.commit();
         
-        setShowNameModal(false); // <--- Modal baru ditutup DI SINI, setelah loading selesai!
+        setShowNameModal(false); 
         setIsCompletingDetails(false); 
         setCustomerNameInput('');
 
@@ -186,9 +186,8 @@ const AppContent = () => {
             <button 
               onClick={() => {
                 const isSelfService = window.location.pathname.includes('/self-service');
-                // setShowNameModal(false); <--- HAPUS BARIS INI
                 if (isSelfService) {
-                  setShowNameModal(false); // Pindahkan ke sini (hanya untuk self-service)
+                  setShowNameModal(false);
                   setIsCompletingDetails(true); 
                 } else {
                   executeCheckout('online', 'qris');
@@ -206,7 +205,6 @@ const AppContent = () => {
     </div>
   );
 
-  // Perbaikan Loading State: Menggunakan variabel agar tidak error linting
   if (loading || loadingOrder) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-orange-50 text-orange-500 font-black italic">
@@ -234,12 +232,8 @@ const AppContent = () => {
     <Routes>
       <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <LoginView onLogin={login} error={authError} />} />
       <Route path="/register" element={currentUser ? <Navigate to="/" replace /> : <RegisterView onRegister={register} onBack={() => navigate('/login')} error={authError} />} />
-      
-      {/* STRUK ONLINE & MANDIRI */}
       <Route path="/receipt/:orderId" element={<ReceiptView order={currentOrder} onBack={() => { resetCurrentOrder(); navigate('/'); }} onEditOrder={handleEditOrder} />} />
       <Route path="/self-receipt/:orderId" element={<PublicReceiptView />} />
-      
-      {/* HALAMAN SELF-SERVICE */}
       <Route path="/self-service" element={
         <div className="min-h-screen bg-gray-50">
           {!isCompletingDetails ? (
@@ -267,7 +261,6 @@ const AppContent = () => {
           )}
         </div>
       } />
-
       <Route path="/order-status" element={
         <PublicOrderView 
           onAddToCart={addToCart} 
@@ -279,19 +272,15 @@ const AppContent = () => {
           onViewCart={() => { setIsPublicMode(true); setCurrentView('cart'); navigate('/'); }}
         />
       } />
-
       <Route path="/track-orders" element={
         <div className="min-h-screen bg-gray-50 pb-10">
           <header className="bg-white p-4 shadow-sm flex items-center gap-4 sticky top-0 z-50">
             <button onClick={() => navigate(-1)} className="p-2 bg-gray-100 rounded-full"><ArrowLeft size={20}/></button>
             <h1 className="font-black text-orange-600 italic uppercase tracking-tighter text-xl">Status Antrean</h1>
           </header>
-          <main className="max-w-4xl mx-auto">
-             <PublicOrderHistory orders={orders} />
-          </main>
+          <main className="max-w-4xl mx-auto"><PublicOrderHistory orders={orders} /></main>
         </div>
       } />
-
       <Route path="/" element={
         currentUser ? (
           <div className="min-h-screen bg-orange-50/30">

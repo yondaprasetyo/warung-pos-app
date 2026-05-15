@@ -1,13 +1,12 @@
 import React, { useMemo } from 'react';
 import { 
-  Receipt, Clock, ChefHat, CalendarDays
+  Receipt, Clock, ChefHat, CalendarDays, CheckCircle2
 } from 'lucide-react'; 
 import { maskName } from '../../utils/format';
 
 const PublicOrderHistory = ({ orders }) => {
   // --- LOGIKA FILTER: HARI INI & MASA DEPAN ---
   const displayOrders = useMemo(() => {
-    // Ambil string tanggal hari ini (YYYY-MM-DD) untuk perbandingan
     const today = new Date();
     const offset = today.getTimezoneOffset() * 60000;
     const todayISO = new Date(today.getTime() - offset).toISOString().split('T')[0];
@@ -15,19 +14,15 @@ const PublicOrderHistory = ({ orders }) => {
     return [...orders]
       .filter(o => {
         const status = (o.status || 'pending').toLowerCase();
-        
-        // 1. Ambil tanggal target pesanan (orderDate) atau createdAt sebagai fallback
         const orderTargetDate = o.orderDate || (o.createdAt ? o.createdAt.split('T')[0] : '');
 
-        // 2. Syarat Tampil:
-        // - Tanggal harus HARI INI atau LEBIH BESAR dari hari ini (Masa Depan)
-        // - Status bukan dibatalkan
+        // Syarat Tampil: Hari ini atau masa depan, dan belum selesai/batal
         const isTodayOrFuture = orderTargetDate >= todayISO;
         const isNotCancelled = status !== 'cancelled' && status !== 'batal';
+        const isNotDone = status !== 'completed' && status !== 'selesai';
 
-        return isTodayOrFuture && isNotCancelled;
+        return isTodayOrFuture && isNotCancelled && isNotDone;
       })
-      // Urutkan berdasarkan tanggal jadwal terdekat
       .sort((a, b) => {
         const dateA = a.orderDate || a.createdAt;
         const dateB = b.orderDate || b.createdAt;
@@ -64,7 +59,7 @@ const PublicOrderHistory = ({ orders }) => {
           </div>
         </div>
         <div className="text-right">
-           <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Total Pesanan</span>
+           <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Total Antrean</span>
            <span className="text-3xl font-black text-gray-800 italic leading-none">{displayOrders.length}</span>
         </div>
       </div>
@@ -75,7 +70,12 @@ const PublicOrderHistory = ({ orders }) => {
           const isPending = status === 'pending' || status === 'baru';
           const isProcessing = status === 'processing' || status === 'proses';
           
-          // Ambil tanggal untuk tampilan
+          // Logika Progress dari Checklist Admin
+          const checkedMap = order.checkedItems || {};
+          const totalItems = order.items?.length || 0;
+          const readyItemsCount = Object.values(checkedMap).filter(val => val === true).length;
+          const progressPercentage = totalItems > 0 ? (readyItemsCount / totalItems) * 100 : 0;
+
           const orderDateRaw = order.orderDate || order.createdAt;
           const formattedOrderDate = new Date(orderDateRaw).toLocaleDateString('id-ID', {
             weekday: 'short', day: 'numeric', month: 'short'
@@ -86,13 +86,13 @@ const PublicOrderHistory = ({ orders }) => {
               key={order.id} 
               className={`relative overflow-hidden border-2 rounded-[2.5rem] p-6 transition-all duration-500 shadow-sm 
                 ${isPending ? 'bg-white border-yellow-200 ring-4 ring-yellow-50/50' : 
-                  isProcessing ? 'bg-orange-50 border-orange-200 ring-4 ring-orange-100/50 animate-pulse' : 
+                  isProcessing ? 'bg-white border-orange-500 ring-4 ring-orange-100/50' : 
                   'bg-gray-50 border-gray-100 opacity-75'}`}
             >
               {/* Status Ribbon */}
-              <div className={`absolute top-0 right-0 px-6 py-1 rounded-bl-3xl font-black text-[10px] uppercase tracking-widest text-white shadow-md
+              <div className={`absolute top-0 right-0 px-6 py-1 rounded-bl-3xl font-black text-[10px] uppercase tracking-widest text-white shadow-md z-10
                 ${isPending ? 'bg-yellow-500' : isProcessing ? 'bg-orange-500' : 'bg-green-500'}`}>
-                {isPending ? '⏳ Menunggu' : isProcessing ? '🍳 Sedang Dimasak' : '✅ Siap Diambil'}
+                {isPending ? '⏳ Menunggu' : isProcessing ? '🍳 Sedang Dimasak' : '✅ Siap'}
               </div>
 
               <div className="flex flex-col gap-4">
@@ -110,24 +110,45 @@ const PublicOrderHistory = ({ orders }) => {
                   </div>
                 </div>
 
-                <div className="bg-white/60 rounded-[1.8rem] p-5 border border-white/50 space-y-3">
-                  {order.items.map((item, idx) => (
-                    <div key={idx} className="flex items-start gap-3 border-b border-gray-100 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0">
-                      <span className="bg-orange-500 text-white text-[11px] font-black px-2 py-0.5 rounded-lg h-fit">
-                        {item.quantity}x
-                      </span>
-                      <div className="flex flex-col leading-tight">
-                        <span className="font-black text-gray-700 uppercase italic text-sm">
-                          {item.name}
-                        </span>
-                        {item.selectedVariant?.name && item.selectedVariant.name.toUpperCase() !== "TANPA VARIAN" && (
-                          <span className="text-[9px] text-orange-500 font-bold uppercase italic">
-                            {item.selectedVariant.name}
-                          </span>
-                        )}
-                      </div>
+                {/* Progress Bar (Hanya muncul jika sedang diproses) */}
+                {isProcessing && (
+                  <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-black text-orange-600 uppercase italic">Progres Masak</span>
+                      <span className="text-[10px] font-black text-orange-600">{readyItemsCount} / {totalItems} Menu</span>
                     </div>
-                  ))}
+                    <div className="w-full h-3 bg-white rounded-full overflow-hidden border border-orange-200">
+                      <div 
+                        className="h-full bg-orange-500 transition-all duration-700 ease-out"
+                        style={{ width: `${progressPercentage}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-gray-50/50 rounded-[1.8rem] p-5 border border-gray-100 space-y-3">
+                  {order.items.map((item, idx) => {
+                    const isItemReady = checkedMap[idx] === true;
+                    return (
+                      <div key={idx} className="flex items-start gap-3 border-b border-gray-100 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0 transition-all">
+                        <div className={`flex items-center justify-center rounded-lg px-2 py-0.5 min-w-[32px] ${isItemReady ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'}`}>
+                          <span className="text-[11px] font-black">
+                            {isItemReady ? <CheckCircle2 size={12} /> : `${item.quantity}x`}
+                          </span>
+                        </div>
+                        <div className="flex flex-col leading-tight">
+                          <span className={`font-black uppercase italic text-sm ${isItemReady ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                            {item.name}
+                          </span>
+                          {item.selectedVariant?.name && item.selectedVariant.name.toUpperCase() !== "TANPA VARIAN" && (
+                            <span className={`text-[9px] font-bold uppercase italic ${isItemReady ? 'text-gray-300' : 'text-orange-500'}`}>
+                              {item.selectedVariant.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
